@@ -459,7 +459,7 @@ C Compute total transmission (product downward by  upward)
        ttatm=xtts*xttv
     
 C Compute SPHERICAL ALBEDO
-       call compsalb(raot550nm,ib,pres,tpres,aot550nm,sphalbt,normext,
+       call compsalb(mraot550nm,ib,pres,tpres,aot550nm,sphalbt,normext,
      s                      satm,next)
      
        call comptg(ib,xts,xtv,uoz,uwv,pres,
