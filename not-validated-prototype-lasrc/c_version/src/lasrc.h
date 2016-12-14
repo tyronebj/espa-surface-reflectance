@@ -44,10 +44,11 @@ bool btest
 int compute_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
+    Espa_internal_meta_t *xml_metadata,
+                        /* I: XML metadata structure */
     uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
-    float xmus,         /* I: cosine of solar zenith angle */
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
     int16 **sband       /* O: output surface reflectance and brightness
                               temp bands */
@@ -71,11 +72,22 @@ int compute_sr_refl
     char *intrefnm,     /* I: intrinsic reflectance filename */
     char *transmnm,     /* I: transmission filename */
     char *spheranm,     /* I: spherical albedo filename */
+    char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
     bool process_collection /* I: should this scene be processed as a collection
                                product, which affects the output of QA bands */
+);
+
+int scene_center_and_image_rotation
+(
+    int nlines,           /* I: number of lines in reflectance, thermal bands */
+    int nsamps,           /* I: number of samps in reflectance, thermal bands */
+    uint16 *qaband,       /* I: QA band for the input image, nlines x nsamps */
+    int *center_line,     /* O: line index for the scene center */
+    int *center_samp,     /* O: sample index for the scene center */
+    double *rotate_angle  /* O: image rotation angle (degrees) */
 );
 
 int init_sr_refl
@@ -88,9 +100,12 @@ int init_sr_refl
     char *intrefnm,     /* I: intrinsic reflectance filename */
     char *transmnm,     /* I: transmission filename */
     char *spheranm,     /* I: spherical albedo filename */
+    char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
+    float *eps,         /* O: angstrom coefficient */
+    int *iaots,         /* O: index for AOTs */
     float *xtv,         /* O: observation zenith angle (deg) */
     float *xmuv,        /* O: cosine of observation zenith angle */
     float *xfi,         /* O: azimuthal difference between sun and
@@ -117,6 +132,8 @@ int init_sr_refl
     float ***normext,   /* O: aerosol extinction coefficient at the current
                               wavelength (normalized at 550nm)
                               [NSR_BANDS][7][22] */
+    int16 vza[6366],    /* O: view zenith angle table */
+    int16 vaa[6366],    /* O: view azimuth angle table */
     float **nbfic,      /* O: communitive number of azimuth angles [20][22] */
     float **nbfi,       /* O: number of azimuth angles [20][22] */
     int16 *dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */

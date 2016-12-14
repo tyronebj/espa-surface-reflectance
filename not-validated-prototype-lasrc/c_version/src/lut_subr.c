@@ -65,7 +65,7 @@ int atmcorlamb2
                                            [20][22] */
     float **nbfi,                    /* I: number of azimuth angles [20][22] */
     float tts[22],                   /* I: sun angle table */
-    int32 indts[22],
+    int32 indts[22],                 /* I: index for the sun angle table */
     float **ttv,                     /* I: view angle table [20][22] */
     float uoz,                       /* I: total column ozone */
     float uwv,                       /* I: total column water vapor (precipital
@@ -85,7 +85,10 @@ int atmcorlamb2
     float *satm,                     /* O: spherical albedo */
     float *xrorayp,                  /* O: reflectance of the atmosphere due to
                                            molecular (Rayleigh) scattering */
-    float *next                      /* O: */
+    float *next,                     /* O: */
+    float eps,                       /* I: angstroem coefficient; spectral
+                                           dependency of the AOT */
+    bool verbose                     /* I: TODO temporary verbose flag */
 )
 {
     char FUNC_NAME[] = "atmcorlamb2";   /* function name */
@@ -99,6 +102,7 @@ int atmcorlamb2
     float tgwvhalf;     /* water vapor transmission, half content */
     float xtaur;        /* rayleigh optical depth for surface pressure */
     float atm_pres;     /* atmospheric pressure at sea level */
+    float mraot550nm;   /* nearest value of AOT -- modified local variable */
     int ip;             /* surface pressure looping variable */
     int ip1, ip2;       /* index variables for the surface pressure */
     int iaot;           /* aerosol optical thickness (AOT) looping variable */
@@ -106,6 +110,21 @@ int atmcorlamb2
                            arrays */
     int its;            /* index for the sun angle table */
     int itv;            /* index for the view angle table */
+    float lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2, 4.0, 4.0,
+                      4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
+
+    /* Modifiy the AOT value based on the angstroem coefficient and lambda
+       values */
+    if  (eps < 0.0)
+        mraot550nm = raot550nm;
+    else
+    {
+        if (iband <= DN_BAND7)
+            mraot550nm = (raot550nm / normext[iband][0][3]) *
+                (pow ((lambda[iband] / 0.55), -eps));
+        else
+            mraot550nm = raot550nm;
+    }
 
     /* Get the pressure and AOT related values for the current surface pressure
        and AOT.  These indices are passed into several functions. */
@@ -126,7 +145,7 @@ int atmcorlamb2
     iaot1 = 0;
     for (iaot = 0; iaot < 21; iaot++) /* 22 elements in table, stop one short */
     {
-        if (raot550nm > aot550nm[iaot])
+        if (mraot550nm > aot550nm[iaot])
             iaot1 = iaot;
     }
     iaot2 = iaot1 + 1;
@@ -151,23 +170,23 @@ int atmcorlamb2
 
     /* This routine returns variables for calculating roslamb */
     comproatm (ip1, ip2, iaot1, iaot2, xts, xtv, xmus, xmuv, cosxfi,
-        raot550nm, iband, pres, tpres, aot550nm, rolutt, tsmax, tsmin, nbfic,
+        mraot550nm, iband, pres, tpres, aot550nm, rolutt, tsmax, tsmin, nbfic,
         nbfi, tts, indts, ttv, xtsstep, xtsmin, xtvstep, xtvmin, its, itv,
-        roatm);
+        roatm, verbose);
 
     /* Compute the transmission for the solar zenith angle */
-    comptrans (ip1, ip2, iaot1, iaot2, xts, raot550nm, iband, pres, tpres,
+    comptrans (ip1, ip2, iaot1, iaot2, xts, mraot550nm, iband, pres, tpres,
         aot550nm, transt, xtsstep, xtsmin, tts, &xtts);
 
     /* Compute the transmission for the observation zenith angle */
-    comptrans (ip1, ip2, iaot1, iaot2, xtv, raot550nm, iband, pres, tpres,
+    comptrans (ip1, ip2, iaot1, iaot2, xtv, mraot550nm, iband, pres, tpres,
         aot550nm, transt, xtvstep, xtvmin, tts, &xttv);
 
     /* Compute total transmission (product downward by upward) */
     ttatm = xtts * xttv;
     
     /* Compute spherical albedo */
-    compsalb (ip1, ip2, iaot1, iaot2, raot550nm, iband, pres, tpres, aot550nm,
+    compsalb (ip1, ip2, iaot1, iaot2, mraot550nm, iband, pres, tpres, aot550nm,
         sphalbt, normext, satm, next);
 
     atm_pres = pres * ONE_DIV_1013;
@@ -553,7 +572,7 @@ void comproatm
     float **nbfic,      /* I: communitive number of azimuth angles [20][22] */
     float **nbfi,       /* I: number of azimuth angles [20][22] */
     float tts[22],      /* I: sun angle table */
-    int32 indts[22],
+    int32 indts[22],    /* I: index for the sun angle table */
     float **ttv,        /* I: view angle table [20][22] */
     float xtsstep,      /* I: solar zenith step value */
     float xtsmin,       /* I: minimum solar zenith value */
@@ -561,7 +580,8 @@ void comproatm
     float xtvmin,       /* I: minimum observation value */
     int its,            /* I: index for the sun angle table */
     int itv,            /* I: index for the view angle table */
-    float *roatm        /* O: atmospheric intrinsic reflectance */
+    float *roatm,       /* O: atmospheric intrinsic reflectance */
+    bool verbose        /* I: TODO temporary verbose flag */
 )
 {
     int isca;
@@ -603,6 +623,17 @@ void comproatm
     nbfi3 = nbfi[itv+1][its];
     nbfic4 = nbfic[itv+1][its+1];
     nbfi4 = nbfi[itv+1][its+1];
+    if (verbose)
+    {
+/* GAIL HERE */
+    printf ("its, itv: %d, %d\n", its, itv);
+    printf ("nbfic: %f, %f, %f, %f\n", nbfic1, nbfic2, nbfic3, nbfic4);
+    printf ("nbfi: %f, %f, %f, %f\n", nbfi1, nbfi2, nbfi3, nbfi4);
+    printf ("xmus, xmuv: %f, %f\n", xmus, xmuv);
+    printf ("cosxfi: %f\n", cosxfi);
+    printf ("cscaa: %f\n", cscaa);
+    printf ("scaa: %f\n", scaa);
+    }
 
     /* Compute for ip1, iaot1 */
     /* Interpolate point 1 (its,itv) vs scattering angle */
@@ -1158,7 +1189,7 @@ int readluts
     float **nbfic,              /* O: communitive number of azimuth angles
                                       [20][22] */
     float **nbfi,               /* O: number of azimuth angles [20][22] */
-    int32 indts[22],            /* O: */
+    int32 indts[22],            /* O: index for the sun angle table */
     float ****rolutt,           /* O: intrinsic reflectance table
                                       [NSR_BANDS][7][22][8000] */
     float ****transt,           /* O: transmission table
@@ -1168,12 +1199,17 @@ int readluts
     float ***normext,           /* O: aerosol extinction coefficient at the
                                       current wavelength (normalized at 550nm)
                                       [NSR_BANDS][7][22] */
+    int16 vza[6366],            /* O: L8 view zenith angle table, scaled
+                                      by 100 */
+    int16 vaa[6366],            /* O: L8 view azimuth angle table, scaled
+                                      by 100 */
     float xtsstep,              /* I: solar zenith step value */
     float xtsmin,               /* I: minimum solar zenith value */
     char anglehdf[STR_SIZE],    /* I: angle HDF filename */
     char intrefnm[STR_SIZE],    /* I: intrinsic reflectance filename */
     char transmnm[STR_SIZE],    /* I: transmission filename */
-    char spheranm[STR_SIZE]     /* I: spherical albedo filename */
+    char spheranm[STR_SIZE],    /* I: spherical albedo filename */
+    char geomhdf[STR_SIZE]      /* I: L8 geometry HDF filename */
 )
 {
     char FUNC_NAME[] = "readluts";   /* function name */
@@ -1191,7 +1227,7 @@ int readluts
     char fname[STR_SIZE];   /* filename to be read */
     float *rolut = NULL;    /* intrinsic reflectance read from HDF file
                                [8000*22*7] */
-    float ttsr[22];        /* GAIL - should this be 21 instead?? */
+    float ttsr[22];
     float xx;               /* temporary float values, not used */
     int sd_id;              /* file ID for the HDF file */
     int sds_id;             /* ID for the current SDS */
@@ -1741,6 +1777,93 @@ int readluts
     /* Close spherical albedo file */
     fclose (fp);
 
+    /* Open as HDF file for reading */
+    sd_id = SDstart (geomhdf, DFACC_RDONLY);
+    if (sd_id < 0)
+    {
+        sprintf (errmsg, "Unable to open %s for reading as SDS", geomhdf);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Read the 1D bands from the L8 geometry HDF file */
+    start[0] = 0;   /* lines */
+    start[1] = 0;   /* samples */
+    start[2] = 0;   /* just to zero it out from above HDF reads */
+    edges[0] = 1;     /* number of lines */
+    edges[1] = 6366;  /* number of samples */
+    edges[2] = 0;     /* just to zero it out from above HDF reads */
+
+    /* Find the viewzenithangle SDS */
+    sds_index = SDnametoindex (sd_id, "viewzenithangle");
+    if (sds_index == -1)
+    {
+        sprintf (errmsg, "Unable to find viewzenithangle in the HDF file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Open the current band as an SDS */
+    sds_id = SDselect (sd_id, sds_index);
+    if (sds_id < 0)
+    {
+        sprintf (errmsg, "Unable to access viewzenithangle for reading");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    status = SDreaddata (sds_id, start, NULL, edges, vza);
+    if (status == -1)
+    {
+        sprintf (errmsg, "Reading data from the viewzenithangle SDS");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Close the HDF SDS */
+    status = SDendaccess (sds_id);
+    if (status == -1)
+    {
+        sprintf (errmsg, "Ending access to viewzenithangle SDS");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Find the viewazimuthangle SDS */
+    sds_index = SDnametoindex (sd_id, "viewazimuthangle");
+    if (sds_index == -1)
+    {
+        sprintf (errmsg, "Unable to find viewazimuthangle in the HDF file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Open the current band as an SDS */
+    sds_id = SDselect (sd_id, sds_index);
+    if (sds_id < 0)
+    {
+        sprintf (errmsg, "Unable to access viewazimuthangle for reading");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    status = SDreaddata (sds_id, start, NULL, edges, vaa);
+    if (status == -1)
+    {
+        sprintf (errmsg, "Reading data from the viewazimuthangle SDS");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Close the HDF SDS */
+    status = SDendaccess (sds_id);
+    if (status == -1)
+    {
+        sprintf (errmsg, "Ending access to viewazimuthangle SDS");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
     /* Successful completion */
     return (SUCCESS);
 }
@@ -1859,8 +1982,16 @@ int memory_allocation_sr
                                nlines x nsamps */
     float **tozi,        /* O: interpolated ozone value, nlines x nsamps */
     float **tp,          /* O: interpolated pressure value, nlines x nsamps */
-    float **tresi,       /* O: residuals for each pixel, nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
+    float **taeros,      /* O: average aerosol values for the window surrounding
+                               each pixel, nlines x nsamps */
+    float **teps,        /* O: eps (angstrom coefficient) for each pixel,
+                               nlines x nsamps*/
+    float **tepss,       /* O: average eps for the window surrounding each
+                               pixel, nlines x nsamps */
+    bool **smflag,       /* O: flag to indicate if at least one pixel was
+                               clear in the surrounding window,
+                               nlines x nsamps */
     int16 **dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 **andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
     int16 **sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */
@@ -1883,6 +2014,8 @@ int memory_allocation_sr
     float ****normext,   /* O: aerosol extinction coefficient at the current
                                wavelength (normalized at 550nm)
                                [NSR_BANDS][7][22] */
+    int16 **vza,         /* O: view zenith angle table [6366] */
+    int16 **vaa,         /* O: view azimuth angle table [6366] */
     float ***tsmax,      /* O: maximum scattering angle table [20][22] */
     float ***tsmin,      /* O: minimum scattering angle table [20][22] */
     float ***nbfic,      /* O: communitive number of azimuth angles [20][22] */
@@ -1958,18 +2091,42 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *tresi = calloc (nlines*nsamps, sizeof (float));
-    if (*tresi == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for tresi");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
     *taero = calloc (nlines*nsamps, sizeof (float));
     if (*taero == NULL)
     {
         sprintf (errmsg, "Error allocating memory for taero");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *taeros = calloc (nlines*nsamps, sizeof (float));
+    if (*taeros == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for taeros");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *teps = calloc (nlines*nsamps, sizeof (float));
+    if (*teps == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for teps");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *tepss = calloc (nlines*nsamps, sizeof (float));
+    if (*tepss == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for tepss");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *smflag = calloc (nlines*nsamps, sizeof (bool));
+    if (*smflag == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for smflag");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
@@ -2324,6 +2481,22 @@ int memory_allocation_sr
         }
     }
 
+    *vza = calloc (6366, sizeof (int16));
+    if (*vza == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for vza");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *vaa = calloc (6366, sizeof (int16));
+    if (*vaa == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for vaa");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
     /* Successful completion */
     return (SUCCESS);
 }
@@ -2347,10 +2520,6 @@ NOTES:
 ******************************************************************************/
 int read_auxiliary_files
 (
-    char *anglehdf,     /* I: angle HDF filename */
-    char *intrefnm,     /* I: intrinsic reflectance filename */
-    char *transmnm,     /* I: transmission filename */
-    char *spheranm,     /* I: spherical albedo filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
@@ -2500,8 +2669,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 0) */
-    strcpy (sds_name, "average ratio b3");
+    /* Find the SDS name (SDS 3) */
+    strcpy (sds_name, "average ratio b10");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {
@@ -2545,8 +2714,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 1) */
-    strcpy (sds_name, "average ratio b8");
+    /* Find the SDS name (SDS 2) */
+    strcpy (sds_name, "average ratio b9");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {
@@ -2680,8 +2849,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 18) */
-    strcpy (sds_name, "slope ratiob8");
+    /* Find the SDS name (SDS 21) */
+    strcpy (sds_name, "slope ratiob9");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {
@@ -2725,8 +2894,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 19) */
-    strcpy (sds_name, "inter ratiob8");
+    /* Find the SDS name (SDS 22) */
+    strcpy (sds_name, "inter ratiob9");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {
@@ -2770,8 +2939,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 15) */
-    strcpy (sds_name, "slope ratiob3");
+    /* Find the SDS name (SDS 24) */
+    strcpy (sds_name, "slope ratiob10");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {
@@ -2815,8 +2984,8 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Find the SDS name (SDS 16) */
-    strcpy (sds_name, "inter ratiob3");
+    /* Find the SDS name (SDS 25) */
+    strcpy (sds_name, "inter ratiob10");
     sds_index = SDnametoindex (sd_id, sds_name);
     if (sds_index == -1)
     {

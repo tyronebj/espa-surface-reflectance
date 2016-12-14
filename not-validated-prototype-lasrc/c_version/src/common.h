@@ -5,6 +5,13 @@
 #include "mfhdf.h"
 typedef char byte;
 
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif
+#ifndef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))
+#endif
+
 /* Surface reflectance version */
 #define SR_VERSION "0.10.0"
 
@@ -14,6 +21,8 @@ typedef char byte;
 /* For angle conversions -
    degrees to radians = PI/180
    radians to degrees = 180/PI */
+#define PI 3.14159265
+#define PIx2 (PI * 2.0)
 #define DEG2RAD 0.017453293
 #define RAD2DEG 57.29577951
 
@@ -96,12 +105,14 @@ typedef enum {
 
 /* Class values of ipflag (interpolation flag) QA */
 typedef enum {
-  IPFLAG_CLEAR=0,          /* IPFLAG is clear */
-  IPFLAG_INTERP=1,         /* aerosol was interpolated */
-  IPFLAG_NDVI_FAIL=2,      /* NDVI test failed */
-  IPFLAG_RESIDUAL_FAIL=3,  /* residual test failed */
-  IPFLAG_FILL=5,           /* fill value */
-  IPFLAG_WATER=6           /* IPFLAG indicates water */
+  IPFLAG_WATER=-1,           /* IPFLAG indicates water (aerosol retrieval will
+                               be redone) */
+  IPFLAG_CLEAR=0,           /* IPFLAG is clear (retrival was valid over land) */
+  IPFLAG_INTERP=1,          /* aerosol was interpolated */
+  IPFLAG_RETRIEVAL_FAIL=2,  /* water retrieval failed -- needs interpolated */
+  IPFLAG_FILL=5,            /* fill value */
+  IPFLAG_TMP_NEIGHBOR=9     /* flag this pixel as a neighbor of failed aero
+                               (internal use only) */
 } Ipflag_t;
 
 /* Satellite type definitions, mainly to allow future satellites to be

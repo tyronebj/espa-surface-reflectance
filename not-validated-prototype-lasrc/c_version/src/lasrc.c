@@ -71,17 +71,12 @@ NOTES:
 1. Bands 1-7 are corrected to surface reflectance.  Band 8 (pand band) is not
    processed.  Band 9 (cirrus band) is corrected to TOA reflectance.  Bands
    10 and 11 are corrected to brightness temperature.
-2. The TOA reflectance corrections are made with a correction for the sun angle.
-   The sun angle correction is currently only made based on the angle at the
-   center of the scene, not the per pixel angle.
-3. SDstart and SDreaddata have minor memory leaks.  Ultimately both call
+2. SDstart and SDreaddata have minor memory leaks.  Ultimately both call
    HAregister_atom which makes a malloc call and the memory is never freed.
-4. Conversion algorithms for TOA reflectance and at-sensor brightness
+3. Conversion algorithms for TOA reflectance and at-sensor brightness
    temperature are available from
    http://landsat.usgs.gov/Landsat8_Using_Product.php
-5. Solar zenith and azimuth angles are pulled from the scene center.  The
-   view zenith angle is set to 0.0.  None of these change on a per pixel basis.
-6. The quality band has a different bit configuration for pre-collection and
+4. The quality band has a different bit configuration for pre-collection and
    collection-based Level-1 products. This application only uses the fill bit,
    which is consistent for the quality band in both versions of the Level-1
    product. Therefore, at this time, there is no need to distinguish between
@@ -143,6 +138,7 @@ int main (int argc, char *argv[])
     char intrefnm[STR_SIZE];  /* intrinsic reflectance filename */
     char transmnm[STR_SIZE];  /* transmission filename */
     char spheranm[STR_SIZE];  /* spherical albedo filename */
+    char geomhdf[STR_SIZE];   /* L8 geometry HDF filename */
     char cmgdemnm[STR_SIZE];  /* climate modeling grid DEM filename */
     char rationm[STR_SIZE];   /* ratio averages filename ("ratio map" used by
                                  the aerosol retrieval algorithm) */
@@ -311,6 +307,7 @@ int main (int argc, char *argv[])
             aux_path);
         sprintf (spheranm, "%s/LDCMLUT/AERO_LUT_V3.0-URBANCLEAN-V2.0.ASCII",
             aux_path);
+        sprintf (geomhdf, "%s/LDCMLUT/l8geom.hdf", aux_path);
         sprintf (cmgdemnm, "%s/CMGDEM.hdf", aux_path);
         sprintf (rationm, "%s/ratiomapndwiexp.hdf", aux_path);
         sprintf (auxnm, "%s/LADS/%s/%s", aux_path, aux_year, aux_infile);
@@ -347,6 +344,14 @@ int main (int argc, char *argv[])
             exit (ERROR);
         }
 
+        if (stat (geomhdf, &statbuf) == -1)
+        {
+            sprintf (errmsg, "Could not find L8 geometry data file: %s\n Check "
+                "L8_AUX_DIR environment variable.", geomhdf);
+            error_handler (false, FUNC_NAME, errmsg);
+            exit (ERROR);
+        }
+
         if (stat (cmgdemnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find cmgdemnm data file: %s\n  Check "
@@ -374,7 +379,7 @@ int main (int argc, char *argv[])
 
     /* Compute the TOA reflectance and at-sensor brightness temp */
     printf ("Calculating TOA reflectance and at-sensor brightness temps...");
-    retval = compute_toa_refl (input, qaband, nlines, nsamps, xmus,
+    retval = compute_toa_refl (input, &xml_metadata, qaband, nlines, nsamps,
         gmeta->instrument, sband);
     if (retval != SUCCESS)
     {
@@ -512,7 +517,7 @@ int main (int argc, char *argv[])
             "band ...\n");
         retval = compute_sr_refl (input, &xml_metadata, xml_infile, qaband,
             nlines, nsamps, pixsize, sband, xts, xfs, xmus, anglehdf,
-            intrefnm, transmnm, spheranm, cmgdemnm, rationm, auxnm,
+            intrefnm, transmnm, spheranm, geomhdf, cmgdemnm, rationm, auxnm,
             process_collection);
         if (retval != SUCCESS)
         {

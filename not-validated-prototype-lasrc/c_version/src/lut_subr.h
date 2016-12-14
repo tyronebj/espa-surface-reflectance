@@ -35,8 +35,9 @@ int atmcorlamb2
     float xtvmin,                    /* I: minimum observation value */
     float ***sphalbt,                /* I: spherical albedo table
                                            [NSR_BANDS][7][22] */
-    float ***normext,                /* I: ?????
-                                           [NSR_BANDS][7][22] */
+    float ***normext,                /* I: aerosol extinction coefficient at
+                                           the current wavelength (normalized
+                                           at 550nm) [NSR_BANDS][7][22] */
     float **tsmax,                   /* I: maximum scattering angle table
                                            [20][22] */
     float **tsmin,                   /* I: minimum scattering angle table
@@ -45,7 +46,7 @@ int atmcorlamb2
                                            [20][22] */
     float **nbfi,                    /* I: number of azimuth angles [20][22] */
     float tts[22],                   /* I: sun angle table */
-    int32 indts[22],
+    int32 indts[22],                 /* I: index for the sun angle table */
     float **ttv,                     /* I: view angle table [20][22] */
     float uoz,                       /* I: total column ozone */
     float uwv,                       /* I: total column water vapor (precipital
@@ -60,11 +61,15 @@ int atmcorlamb2
     float rotoa,                     /* I: top of atmosphere reflectance */
     float *roslamb,                  /* O: lambertian surface reflectance */
     float *tgo,                      /* O: other gaseous transmittance */
-    float *roatm,                    /* O: atmospheric reflectance */
-    float *ttatmg,
+    float *roatm,                    /* O: atmospheric intrinsic reflectance */
+    float *ttatmg,                   /* O: total atmospheric transmission */
     float *satm,                     /* O: spherical albedo */
-    float *xrorayp,                  /* O: molecular reflectance */
-    float *next                      /* O: ???? */
+    float *xrorayp,                  /* O: reflectance of the atmosphere due to
+                                           molecular (Rayleigh) scattering */
+    float *next,                     /* O: */
+    float eps,                       /* I: angstroem coefficient; spectral
+                                           dependency of the AOT */
+    bool verbose                     /* I: temp flag TODO remove */
 );
 
 void local_chand
@@ -170,7 +175,8 @@ void comproatm
     float xtvmin,       /* I: minimum observation value */
     int its,            /* I: index for the sun angle table */
     int itv,            /* I: index for the view angle table */
-    float *roatm        /* O: atmospheric reflectance */
+    float *roatm,       /* O: atmospheric reflectance */
+    bool verbose        /* I: temp flag TODO remove */
 );
 
 int readluts
@@ -182,21 +188,25 @@ int readluts
     float **nbfic,              /* O: communitive number of azimuth angles
                                       [20][22] */
     float **nbfi,               /* O: number of azimuth angles [20][22] */
-    int32 indts[22],            /* O: */
+    int32 indts[22],            /* O: index for the sun angle table */
     float ****rolutt,           /* O: intrinsic reflectance table
                                       [NSR_BANDS][7][22][8000] */
     float ****transt,           /* O: transmission table
                                       [NSR_BANDS][7][22][22] */
     float ***sphalbt,           /* O: spherical albedo table
                                       [NSR_BANDS][7][22] */
-    float ***normext,           /* O: ?????
+    float ***normext,           /* O: aerosol extinction coefficient at the
+                                      current wavelength (normalized at 550nm)
                                       [NSR_BANDS][7][22] */
+    int16 vza[6366],            /* O: view zenith angle table */
+    int16 vaa[6366],            /* O: view azimuth angle table */
     float xtsstep,              /* I: solar zenith step value */
     float xtsmin,               /* I: minimum solar zenith value */
     char anglehdf[STR_SIZE],    /* I: angle HDF filename */
     char intrefnm[STR_SIZE],    /* I: intrinsic reflectance filename */
     char transmnm[STR_SIZE],    /* I: transmission filename */
-    char spheranm[STR_SIZE]     /* I: spherical albedo filename */
+    char spheranm[STR_SIZE],    /* I: spherical albedo filename */
+    char geomhdf[STR_SIZE]      /* I: L8 geometry HDF filename */
 );
 
 int subaeroret
@@ -249,20 +259,17 @@ int subaeroret
     double oztransa[NSR_BANDS],      /* I: ozone transmission coeff */
     float *raot,                     /* O: AOT reflectance */
     float *residual,                 /* O: model residual */
-    float *snext                     /* O: ????? */
+    int *iaots,                      /* I/O: AOT index that is passed in and
+                                             out for multiple calls (0-based) */
+    float eps,                       /* I: angstroem coefficient; spectral
+                                           dependency of the AOT */
+    bool verbose                     /* I: temp flag TODO remove */
 );
 
-int subaeroret_residual
+int subaeroretwat
 (
     int iband1,                      /* I: band 1 index (0-based) */
     int iband3,                      /* I: band 3 index (0-based) */
-    double ros1,                     /* I: surface reflectance for band 1 */
-    double ros3,                     /* I: surface reflectance for band 3 */
-    float roslamb,                   /* I: lambertian surface reflectance */
-    double pratio,                   /* I: targeted ratio between the surface
-                                           reflectance in two bands */
-    float raot550nm,                 /* I: nearest input value of AOT */
-
     float xts,                       /* I: solar zenith angle (deg) */
     float xtv,                       /* I: observation zenith angle (deg) */
     float xmus,                      /* I: cosine of solar zenith angle */
@@ -307,8 +314,12 @@ int subaeroret_residual
     double wvtransa[NSR_BANDS],      /* I: water vapor transmission coeff */
     double wvtransb[NSR_BANDS],      /* I: water vapor transmission coeff */
     double oztransa[NSR_BANDS],      /* I: ozone transmission coeff */
+    float *raot,                     /* O: AOT reflectance */
     float *residual,                 /* O: model residual */
-    float *snext                     /* O: ????? */
+    int *iaots,                      /* I/O: AOT index that is passed in and
+                                             out for multiple calls (0-based) */
+    float eps                        /* I: angstroem coefficient; spectral
+                                           dependency of the AOT */
 );
 
 int memory_allocation_main
@@ -347,8 +358,16 @@ int memory_allocation_sr
                                nlines x nsamps */
     float **tozi,        /* O: interpolated ozone value, nlines x nsamps */
     float **tp,          /* O: interpolated pressure value, nlines x nsamps */
-    float **tresi,       /* O: residuals for each pixel, nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
+    float **taeros,      /* O: average aerosol values for the window surrounding
+                               each pixel, nlines x nsamps */
+    float **teps,        /* O: eps (angstrom coefficient) for each pixel,
+                               nlines x nsamps*/
+    float **tepss,       /* O: average eps for the window surrounding each
+                               pixel, nlines x nsamps */
+    bool **smflag,       /* O: flag to indicate if at least one pixel was
+                               clear in the surrounding window,
+                               nlines x nsamps */
     int16 **dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 **andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
     int16 **sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */
@@ -371,6 +390,8 @@ int memory_allocation_sr
     float ****normext,   /* O: aerosol extinction coefficient at the current
                                wavelength (normalized at 550nm)
                                [NSR_BANDS][7][22] */
+    int16 **vza,         /* O: view zenith angle table [6366] */
+    int16 **vaa,         /* O: view azimuth angle table [6366] */
     float ***tsmax,      /* O: maximum scattering angle table [20][22] */
     float ***tsmin,      /* O: minimum scattering angle table [20][22] */
     float ***nbfic,      /* O: communitive number of azimuth angles [20][22] */
@@ -380,10 +401,6 @@ int memory_allocation_sr
 
 int read_auxiliary_files
 (
-    char *anglehdf,     /* I: angle HDF filename */
-    char *intrefnm,     /* I: intrinsic reflectance filename */
-    char *transmnm,     /* I: transmission filename */
-    char *spheranm,     /* I: spherical albedo filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */

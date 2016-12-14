@@ -1007,7 +1007,7 @@ c call the atmospheric correction
 	           bttatmg(ib)=ttatmg
      	           bsatm(ib)=satm
 	       else
-	           sband(ib,i,j)=-1000
+	           sband(ib,i,j)=-9999
 	       endif
 	       enddo
 	       enddo
