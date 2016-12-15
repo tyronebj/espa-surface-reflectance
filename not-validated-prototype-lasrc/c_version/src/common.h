@@ -105,7 +105,7 @@ typedef enum {
 
 /* Class values of ipflag (interpolation flag) QA */
 typedef enum {
-  IPFLAG_WATER=-1,           /* IPFLAG indicates water (aerosol retrieval will
+  IPFLAG_WATER=-1,          /* IPFLAG indicates water (aerosol retrieval will
                                be redone) */
   IPFLAG_CLEAR=0,           /* IPFLAG is clear (retrival was valid over land) */
   IPFLAG_INTERP=1,          /* aerosol was interpolated */

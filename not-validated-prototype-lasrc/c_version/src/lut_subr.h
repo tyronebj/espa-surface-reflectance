@@ -349,7 +349,7 @@ int memory_allocation_sr
                                (TOA refl), nlines x nsamps */
     uint8 **cloud,       /* O: bit-packed value that represent clouds,
                                nlines x nsamps */
-    uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
+    int8 **ipflag,       /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
     uint16 **cloud_aero, /* O: bit-packed value that represents clouds and
                                aerosols combined (only allocated if processing

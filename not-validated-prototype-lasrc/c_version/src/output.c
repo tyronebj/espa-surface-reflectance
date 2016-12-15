@@ -247,15 +247,15 @@ Output_t *open_output
         }
         else if (ib == SR_IPFLAG)
         {  /* Not processed for Collection products */
-            bmeta[ib].data_type = ESPA_UINT8;
+            bmeta[ib].data_type = ESPA_INT8;
             bmeta[ib].fill_value = IPFLAG_FILL;
             strcpy (bmeta[ib].name, "sr_ipflag");
             strcpy (bmeta[ib].long_name,
                 "surface reflectance interpolation flag");
             strcpy (bmeta[ib].category, "qa");
             strcpy (bmeta[ib].data_units, "quality/feature classification");
-            bmeta[ib].valid_range[0] = 0.0;
-            bmeta[ib].valid_range[1] = 6.0;
+            bmeta[ib].valid_range[0] = -1.0;
+            bmeta[ib].valid_range[1] = 5.0;
 
             /* Set up ipflag class information */
             if (allocate_class_metadata (&bmeta[ib], 7) != SUCCESS)
@@ -266,24 +266,25 @@ Output_t *open_output
             }
           
             /* Identify the class values for the ipflag */
-            bmeta[ib].class_values[0].class = 0;
-            bmeta[ib].class_values[1].class = 1;
-            bmeta[ib].class_values[2].class = 2;
-            bmeta[ib].class_values[3].class = 3;
-            bmeta[ib].class_values[4].class = 4;
-            bmeta[ib].class_values[5].class = 5;
-            bmeta[ib].class_values[6].class = 6;
-            strcpy (bmeta[ib].class_values[0].description,
-                "aerosol retrieval successful (not valid for cirrus pixels)");
+            bmeta[ib].class_values[0].class = -1;
+            bmeta[ib].class_values[1].class = 0;
+            bmeta[ib].class_values[2].class = 1;
+            bmeta[ib].class_values[3].class = 2;
+            bmeta[ib].class_values[4].class = 3;
+            bmeta[ib].class_values[5].class = 4;
+            bmeta[ib].class_values[6].class = 5;
+            strcpy (bmeta[ib].class_values[0].description, "water pixel");
             strcpy (bmeta[ib].class_values[1].description,
-                "aerosol retrieval failed, but aerosol was interpolated");
+                "aerosol retrieval successful (land pixel)");
             strcpy (bmeta[ib].class_values[2].description,
-                "NDVI test failed, but aerosol wasn't interpolated");
+                "aerosol retrieval failed (water pixel), but aerosol was "
+                "interpolated");
             strcpy (bmeta[ib].class_values[3].description,
-                "residual test failed, but aerosol wasn't interpolated");
+                "aerosol retrieval failed (water pixel), pixel needs "
+                "interpolated (internal value)");
             strcpy (bmeta[ib].class_values[4].description, "not used");
-            strcpy (bmeta[ib].class_values[5].description, "fill pixel");
-            strcpy (bmeta[ib].class_values[6].description, "water pixel");
+            strcpy (bmeta[ib].class_values[5].description, "not used");
+            strcpy (bmeta[ib].class_values[6].description, "fill pixel");
         }
         else
         {

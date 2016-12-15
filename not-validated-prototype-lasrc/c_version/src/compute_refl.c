@@ -196,8 +196,8 @@ int compute_toa_refl
                         possolp (doy, xtu, lon, lat, &sza, &saa);
                         xmus = cos(sza * DEG2RAD);
 //if (line == 653 && samp == 3847)
-//if (line == 89 && samp == 1705)
-if (line == 166 && samp == 2011)
+if (line == 89 && samp == 1705)
+//if (line == 166 && samp == 2011)
 {
     printf ("DEBUG: line, samp: %d, %d\n", line, samp);
     printf ("       lat, lon: %f, %f\n", lat, lon);
@@ -210,8 +210,8 @@ if (line == 166 && samp == 2011)
                         rotoa = (uband[i] * refl_mult) + refl_add;
                         rotoa = rotoa * MULT_FACTOR / xmus;
 //if (line == 653 && samp == 3847)
-//if (line == 89 && samp == 1705)
-if (line == 166 && samp == 2011)
+if (line == 89 && samp == 1705)
+//if (line == 166 && samp == 2011)
     printf ("DEBUG: rotoa: %f\n", rotoa);
     
                         /* Save the scaled TOA reflectance value, but make
@@ -335,6 +335,7 @@ if (line == 166 && samp == 2011)
 
     /* The input data has been read and calibrated. The memory can be freed. */
     free (uband);
+    free (space);
 
     /* Successful completion */
     return (SUCCESS);
@@ -483,7 +484,7 @@ int compute_sr_refl
                              line, samp+1; line+1, samp; and line+1, samp+1 */
     uint8 *cloud = NULL;  /* bit-packed value that represent clouds,
                              nlines x nsamps */
-    uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
+    int8 *ipflag = NULL;  /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
     uint16 *cloud_aero = NULL;  /* bit-packed value that represent the combined
                              clouds and aerosol QA data, nlines x nsamps */
@@ -605,8 +606,8 @@ int compute_sr_refl
                              window, nlines x nsamps */
 
     /* Variables for finding the eps that minimizes the residual */
-    float xa, xb, xc, xd, xe, xf;  /* coefficients */
-    float coefa, coefb;            /* coefficients */
+    double xa, xb, xc, xd, xe, xf;  /* coefficients */
+    double coefa, coefb;            /* coefficients */
     float epsmin;                  /* eps which minimizes the residual */
 
     /* Output file info */
@@ -799,8 +800,8 @@ printf ("       satm: %f\n", satm);
                     roslamb = roslamb / (1.0 + satm * roslamb);
                     sband[ib][curr_pix] = (int) (roslamb * MULT_FACTOR);
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
     printf ("DEBUG: roslamb: %f\n", roslamb);
                 }
             }  /* end for j */
@@ -808,18 +809,11 @@ if (i == 166 && j == 2011)
     }  /* for ib */
     printf ("\n");
 
-    /* Initialize the band ratios */
-    for (ib = 0; ib < NSR_BANDS; ib++)
-    {
-        erelc[ib] = -1.0;
-        troatm[ib] = 0.0;
-    }
-
     /* Interpolate the auxiliary data for each pixel location */
     printf ("Interpolating the auxiliary data ...\n");
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, th1, th2, ri, rj, dt, viewzenith, viewazimuth, xtu, sza, saa, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1) firstprivate(erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, th1, th2, ri, rj, dt, viewzenith, viewazimuth, xtu, sza, saa, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i++)
     {
@@ -845,6 +839,13 @@ if (i == 166 && j == 2011)
             {
                 ipflag[curr_pix] = IPFLAG_FILL;
                 continue;
+            }
+
+            /* Initialize the band ratios */
+            for (ib = 0; ib < NSR_BANDS; ib++)
+            {
+                erelc[ib] = -1.0;
+                troatm[ib] = 0.0;
             }
 
             /* Get the lat/long for the current pixel, for the center of
@@ -1159,9 +1160,10 @@ if (i == 166 && j == 2011)
             rj = (int)((j - center_samp) * sin(-rotang_rad) +
                        (i - center_line) * cos(-rotang_rad));
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
     printf ("DEBUG: center_line, center_samp: %d %d\n", center_line, center_samp);
     printf ("DEBUG: j - center_samp: %d\n", j - center_samp);
     printf ("DEBUG: i - center_line: %d\n", i - center_line);
@@ -1174,8 +1176,8 @@ if (i == 166 && j == 2011)
             if (ri >= 6366)
                 ri = 6366 - 1;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("DEBUG2: ri, rj: %d %d\n", ri, rj);
 }
@@ -1199,9 +1201,10 @@ if (i == 166 && j == 2011)
             eps = 1.0;
             iaots = 0;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
     printf ("DEBUG: dt: %f\n", dt);
     printf ("       viewzenith: %f\n", viewzenith);
     printf ("       viewazimuth: %f\n", viewazimuth);
@@ -1235,12 +1238,13 @@ else
             residual1 = residual;
             sraot1 = raot;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("       eps1: %f\n", eps1);
     printf ("       residual1: %f\n", residual1);
     printf ("       sraot1: %f\n", sraot1);
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
 }
 
             /* Retrieve the aerosol information for eps 1.75 */
@@ -1263,12 +1267,13 @@ if (i == 166 && j == 2011)
             residual2 = residual;
             sraot2 = raot;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("       eps2: %f\n", eps2);
     printf ("       residual2: %f\n", residual2);
     printf ("       sraot2: %f\n", sraot2);
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
 }
 
             /* Retrieve the aerosol information for eps 2.5 */
@@ -1291,12 +1296,13 @@ if (i == 166 && j == 2011)
             residual3 = residual;
             sraot3 = raot;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("       eps3: %f\n", eps3);
     printf ("       residual3: %f\n", residual3);
     printf ("       sraot3: %f\n", sraot3);
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
 }
 
             /* Find the eps that minimizes the residual */
@@ -1311,8 +1317,8 @@ if (i == 166 && j == 2011)
             epsmin = -coefb / (2.0 * coefa);
             eps = epsmin;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("       xa, xd, xb, xe: %f, %f, %f, %f\n", xa, xd, xb, xe);
     printf ("       xc, xf: %f, %f\n", xc, xf);
@@ -1356,8 +1362,8 @@ if (i == 166 && j == 2011)
             taero[curr_pix] = raot;
             corf = raot / xmus;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("       eps: %f\n", eps);
     printf ("       raot: %f\n", raot);
@@ -1416,8 +1422,8 @@ if (i == 166 && j == 2011)
                     taero[curr_pix] = raot;
                     ipflag[curr_pix] = IPFLAG_CLEAR;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 printf ("DEBUG: IPFLAG is clear\n");
                 }
                 else
@@ -1429,8 +1435,8 @@ printf ("DEBUG: IPFLAG is clear\n");
                         cloud_aero[curr_pix] |=
                             (1 << AERO_RETRIEVAL_NDVI_QA);
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 printf ("DEBUG: IPFLAG is water (%d)\n", IPFLAG_WATER);
                 }
             }
@@ -1442,21 +1448,21 @@ printf ("DEBUG: IPFLAG is water (%d)\n", IPFLAG_WATER);
                 if (process_collection)
                     cloud_aero[curr_pix] |= (1 << AERO_RETRIEVAL_RESID_QA);
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 printf ("DEBUG: IPFLAG is water2\n");
             }
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 printf ("DEBUG: ipflag: %d\n", ipflag[curr_pix]);
 
             /* Redo the aerosol retrieval if flagged as water */
             if (ipflag[curr_pix] == IPFLAG_WATER)
             {
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 printf ("DEBUG: PROCESSING water\n");
                 /* Reset variables */
                 erelc[DN_BAND1] = 1.0;
@@ -1481,13 +1487,15 @@ printf ("DEBUG: PROCESSING water\n");
 
                 /* Aerosol retrieval over water */
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("DEBUG: iband1, iband3: %d, %d\n", iband1, iband3);
     printf ("       xts, xtv, xfi: %f, %f, %f\n", xts, xtv, xfi);
     printf ("       pres: %f\n", pres);
     printf ("       uoz, uwv: %f, %f\n", uoz, uwv);
+    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
+    printf ("troatm: %f %f %f %f %f %f %f %f\n", troatm[0], troatm[1], troatm[2], troatm[3], troatm[4], troatm[5], troatm[6], troatm[7]);
 }
                 retval = subaeroretwat (iband1, iband3, xts, xtv, xmus, xmuv,
                     xfi, cosxfi, pres, uoz, uwv, erelc, troatm, tpres,
@@ -1508,13 +1516,14 @@ if (i == 166 && j == 2011)
                 taero[curr_pix] = raot;
                 corf = raot / xmus;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("DEBUG: SUBAERORETWAT:\n");
     printf ("       eps: %f\n", eps);
     printf ("       iaots: %d\n", iaots);
     printf ("       residual: %f\n", residual);
+    printf ("       xmus: %f\n", xmus);
     printf ("       raot: %f\n", raot);
     printf ("       corf: %f\n", corf);
 }
@@ -1540,8 +1549,8 @@ if (i == 166 && j == 2011)
                 }
                 ros1 = roslamb;
 //if (i == 653 && j == 3847)
-//if (i == 89 && j == 1705)
-if (i == 166 && j == 2011)
+if (i == 89 && j == 1705)
+//if (i == 166 && j == 2011)
 {
     printf ("DEBUG: SUBAERORETWAT:\n");
     printf ("       ros1: %f\n", ros1);
@@ -1942,12 +1951,14 @@ if (i == 166 && j == 2011)
         }  /* end for i */
     }  /* end for ib */
 
-    /* Free memory for band data */
+    /* Free memory for arrays no longer needed */
     free (twvi);
     free (tozi);
     free (tp);
     free (taero);
     free (teps);
+    free (vza);
+    free (vaa);
  
     /* Write the data to the output file */
     printf ("Writing surface reflectance corrected data to the output "
@@ -2077,7 +2088,7 @@ if (i == 166 && j == 2011)
         printf ("  Band %d: %s\n", SR_IPFLAG+1,
                 sr_output->metadata.band[SR_IPFLAG].file_name);
         if (put_output_lines (sr_output, ipflag, SR_IPFLAG, 0, nlines,
-            sizeof (uint8)) != SUCCESS)
+            sizeof (int8)) != SUCCESS)
         {
             sprintf (errmsg, "Writing ipflag mask output data");
             error_handler (true, FUNC_NAME, errmsg);
@@ -2137,14 +2148,17 @@ if (i == 166 && j == 2011)
             free (rolutt[i][j]);
             free (transt[i][j]);
             free (sphalbt[i][j]);
+            free (normext[i][j]);
         }
         free (rolutt[i]);
         free (transt[i]);
         free (sphalbt[i]);
+        free (normext[i]);
     }
     free (rolutt);
     free (transt);
     free (sphalbt);
+    free (normext);
 
     /* tsmax[20][22] and float tsmin[20][22] and float nbfic[20][22] and
        nbfi[20][22] and float ttv[20][22] */
