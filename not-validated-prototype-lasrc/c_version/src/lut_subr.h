@@ -67,9 +67,8 @@ int atmcorlamb2
     float *xrorayp,                  /* O: reflectance of the atmosphere due to
                                            molecular (Rayleigh) scattering */
     float *next,                     /* O: */
-    float eps,                       /* I: angstroem coefficient; spectral
+    float eps                        /* I: angstroem coefficient; spectral
                                            dependency of the AOT */
-    bool verbose                     /* I: temp flag TODO remove */
 );
 
 void local_chand
@@ -175,8 +174,7 @@ void comproatm
     float xtvmin,       /* I: minimum observation value */
     int its,            /* I: index for the sun angle table */
     int itv,            /* I: index for the view angle table */
-    float *roatm,       /* O: atmospheric reflectance */
-    bool verbose        /* I: temp flag TODO remove */
+    float *roatm        /* O: atmospheric reflectance */
 );
 
 int readluts
@@ -261,9 +259,8 @@ int subaeroret
     float *residual,                 /* O: model residual */
     int *iaots,                      /* I/O: AOT index that is passed in and
                                              out for multiple calls (0-based) */
-    float eps,                       /* I: angstroem coefficient; spectral
+    float eps                        /* I: angstroem coefficient; spectral
                                            dependency of the AOT */
-    bool verbose                     /* I: temp flag TODO remove */
 );
 
 int subaeroretwat

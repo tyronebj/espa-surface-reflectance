@@ -195,24 +195,11 @@ int compute_toa_refl
                         xtu = tu + dt;
                         possolp (doy, xtu, lon, lat, &sza, &saa);
                         xmus = cos(sza * DEG2RAD);
-//if (line == 653 && samp == 3847)
-if (line == 89 && samp == 1705)
-//if (line == 166 && samp == 2011)
-{
-    printf ("DEBUG: line, samp: %d, %d\n", line, samp);
-    printf ("       lat, lon: %f, %f\n", lat, lon);
-    printf ("       sza, saa: %f, %f\n", sza, saa);
-    printf ("       xmus: %f\n", xmus);
-}
 
                         /* Compute the TOA reflectance based on the per-pixel
                            sun angle.  Scale the value for output. */
                         rotoa = (uband[i] * refl_mult) + refl_add;
                         rotoa = rotoa * MULT_FACTOR / xmus;
-//if (line == 653 && samp == 3847)
-if (line == 89 && samp == 1705)
-//if (line == 166 && samp == 2011)
-    printf ("DEBUG: rotoa: %f\n", rotoa);
     
                         /* Save the scaled TOA reflectance value, but make
                            sure it falls within the defined valid range. */
@@ -648,7 +635,6 @@ int compute_sr_refl
     double ogtransb1[NSR_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
-bool gailverbose = false;
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
@@ -743,7 +729,7 @@ bool gailverbose = false;
             xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic,
             nbfi, tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
             ogtransb1, wvtransa, wvtransb, oztransa, rotoa, &roslamb,
-            &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps, false);
+            &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -757,11 +743,6 @@ bool gailverbose = false;
         broatm[ib] = roatm;
         bttatmg[ib] = ttatmg;
         bsatm[ib] = satm;
-printf ("DEBUG: band %d\n", ib);
-printf ("       tgo: %f\n", tgo);
-printf ("       roatm: %f\n", roatm);
-printf ("       ttatmg: %f\n", ttatmg);
-printf ("       satm: %f\n", satm);
 
         /* Perform atmospheric corrections for bands 1-7 */
 #ifdef _OPENMP
@@ -799,10 +780,6 @@ printf ("       satm: %f\n", satm);
                     roslamb = roslamb / ttatmg;
                     roslamb = roslamb / (1.0 + satm * roslamb);
                     sband[ib][curr_pix] = (int) (roslamb * MULT_FACTOR);
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-    printf ("DEBUG: roslamb: %f\n", roslamb);
                 }
             }  /* end for j */
         }  /* end for i */
@@ -1159,28 +1136,11 @@ if (i == 89 && j == 1705)
                                         (i - center_line) * sin(-rotang_rad));
             rj = (int)((j - center_samp) * sin(-rotang_rad) +
                        (i - center_line) * cos(-rotang_rad));
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-    printf ("DEBUG: center_line, center_samp: %d %d\n", center_line, center_samp);
-    printf ("DEBUG: j - center_samp: %d\n", j - center_samp);
-    printf ("DEBUG: i - center_line: %d\n", i - center_line);
-    printf ("DEBUG: rotang: %f\n", rotang);
-    printf ("DEBUG: ri, rj: %d %d\n", ri, rj);
-}
             dt = -(rj * 32.0 / 6524.0) / 60.0 / 60.0;
             if (ri < 0)
                 ri = 0;
             if (ri >= 6366)
                 ri = 6366 - 1;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("DEBUG2: ri, rj: %d %d\n", ri, rj);
-}
             viewzenith = vza[ri];
             viewazimuth = vaa[ri];
             xtu = tu + dt;
@@ -1200,32 +1160,12 @@ if (i == 89 && j == 1705)
             uwv = twvi[curr_pix];
             eps = 1.0;
             iaots = 0;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-    printf ("DEBUG: dt: %f\n", dt);
-    printf ("       viewzenith: %f\n", viewzenith);
-    printf ("       viewazimuth: %f\n", viewazimuth);
-    printf ("       sza, saa: %f %f\n", sza, saa);
-    printf ("       dt, xtu: %f, %f\n", dt, xtu);
-    printf ("       xfi: %f\n", xfi);
-    printf ("       pres: %f\n", pres);
-    printf ("       uoz: %f\n", uoz);
-    printf ("       uwv: %f\n", uwv);
-    printf ("       eps: %f\n", eps);
-    printf ("       xmus: %f\n", xmus);
-    gailverbose = true;
-}
-else
-    gailverbose = false;
             retval = subaeroret (iband1, iband3, xts, xtv, xmus, xmuv,
                 xfi, cosxfi, pres, uoz, uwv, erelc, troatm, tpres,
                 aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
                 xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                 tts, indts, ttv, tauray, ogtransa1, ogtransb0, ogtransb1,
-                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps, gailverbose);
+                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing aerosol retrieval.");
@@ -1237,15 +1177,6 @@ else
             eps1 = eps;
             residual1 = residual;
             sraot1 = raot;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("       eps1: %f\n", eps1);
-    printf ("       residual1: %f\n", residual1);
-    printf ("       sraot1: %f\n", sraot1);
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-}
 
             /* Retrieve the aerosol information for eps 1.75 */
             eps = 1.75;
@@ -1254,7 +1185,7 @@ if (i == 89 && j == 1705)
                 aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
                 xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                 tts, indts, ttv, tauray, ogtransa1, ogtransb0, ogtransb1,
-                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps, gailverbose);
+                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing aerosol retrieval.");
@@ -1266,15 +1197,6 @@ if (i == 89 && j == 1705)
             eps2 = eps;
             residual2 = residual;
             sraot2 = raot;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("       eps2: %f\n", eps2);
-    printf ("       residual2: %f\n", residual2);
-    printf ("       sraot2: %f\n", sraot2);
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-}
 
             /* Retrieve the aerosol information for eps 2.5 */
             eps = 2.5;
@@ -1283,7 +1205,7 @@ if (i == 89 && j == 1705)
                 aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
                 xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                 tts, indts, ttv, tauray, ogtransa1, ogtransb0, ogtransb1,
-                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps, gailverbose);
+                wvtransa, wvtransb, oztransa, &raot, &residual, &iaots, eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing aerosol retrieval.");
@@ -1295,15 +1217,6 @@ if (i == 89 && j == 1705)
             eps3 = eps;
             residual3 = residual;
             sraot3 = raot;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("       eps3: %f\n", eps3);
-    printf ("       residual3: %f\n", residual3);
-    printf ("       sraot3: %f\n", sraot3);
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-}
 
             /* Find the eps that minimizes the residual */
             xa = (eps1 * eps1) - (eps3 * eps3);
@@ -1316,15 +1229,6 @@ if (i == 89 && j == 1705)
             coefb = (xa*xf - xc*xd) / (xa*xe - xb*xd);
             epsmin = -coefb / (2.0 * coefa);
             eps = epsmin;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("       xa, xd, xb, xe: %f, %f, %f, %f\n", xa, xd, xb, xe);
-    printf ("       xc, xf: %f, %f\n", xc, xf);
-    printf ("       coefa, coefb: %f, %f\n", coefa, coefb);
-    printf ("       epsmin: %f\n", epsmin);
-}
 
             if (epsmin >= 1.0 && epsmin <= 2.5)
             {
@@ -1334,7 +1238,7 @@ if (i == 89 && j == 1705)
                     xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                     tts, indts, ttv, tauray, ogtransa1, ogtransb0, ogtransb1,
                     wvtransa, wvtransb, oztransa, &raot, &residual, &iaots,
-                    eps, false);
+                    eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing aerosol retrieval.");
@@ -1361,14 +1265,6 @@ if (i == 89 && j == 1705)
             teps[curr_pix] = eps;
             taero[curr_pix] = raot;
             corf = raot / xmus;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("       eps: %f\n", eps);
-    printf ("       raot: %f\n", raot);
-    printf ("       corf: %f\n", corf);
-}
 
             /* Check the model residual.  Corf represents aerosol impact.
                Test the quality of the aerosol inversion. */
@@ -1385,7 +1281,7 @@ if (i == 89 && j == 1705)
                     ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                     ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
                     &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps, false);
+                    &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian "
@@ -1406,7 +1302,7 @@ if (i == 89 && j == 1705)
                     ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                     ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
                     &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps, false);
+                    &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian "
@@ -1421,10 +1317,6 @@ if (i == 89 && j == 1705)
                 {
                     taero[curr_pix] = raot;
                     ipflag[curr_pix] = IPFLAG_CLEAR;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-printf ("DEBUG: IPFLAG is clear\n");
                 }
                 else
                 {
@@ -1434,10 +1326,6 @@ printf ("DEBUG: IPFLAG is clear\n");
                     if (process_collection)
                         cloud_aero[curr_pix] |=
                             (1 << AERO_RETRIEVAL_NDVI_QA);
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-printf ("DEBUG: IPFLAG is water (%d)\n", IPFLAG_WATER);
                 }
             }
             else
@@ -1447,23 +1335,11 @@ printf ("DEBUG: IPFLAG is water (%d)\n", IPFLAG_WATER);
                 ipflag[curr_pix] = IPFLAG_WATER;
                 if (process_collection)
                     cloud_aero[curr_pix] |= (1 << AERO_RETRIEVAL_RESID_QA);
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-printf ("DEBUG: IPFLAG is water2\n");
             }
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-printf ("DEBUG: ipflag: %d\n", ipflag[curr_pix]);
 
             /* Redo the aerosol retrieval if flagged as water */
             if (ipflag[curr_pix] == IPFLAG_WATER)
             {
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-printf ("DEBUG: PROCESSING water\n");
                 /* Reset variables */
                 erelc[DN_BAND1] = 1.0;
                 erelc[DN_BAND2] = -1.0;
@@ -1486,17 +1362,6 @@ printf ("DEBUG: PROCESSING water\n");
                 iaots = 0;
 
                 /* Aerosol retrieval over water */
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("DEBUG: iband1, iband3: %d, %d\n", iband1, iband3);
-    printf ("       xts, xtv, xfi: %f, %f, %f\n", xts, xtv, xfi);
-    printf ("       pres: %f\n", pres);
-    printf ("       uoz, uwv: %f, %f\n", uoz, uwv);
-    printf ("erelc: %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-    printf ("troatm: %f %f %f %f %f %f %f %f\n", troatm[0], troatm[1], troatm[2], troatm[3], troatm[4], troatm[5], troatm[6], troatm[7]);
-}
                 retval = subaeroretwat (iband1, iband3, xts, xtv, xmus, xmuv,
                     xfi, cosxfi, pres, uoz, uwv, erelc, troatm, tpres,
                     aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
@@ -1515,18 +1380,6 @@ if (i == 89 && j == 1705)
                 teps[curr_pix] = eps;
                 taero[curr_pix] = raot;
                 corf = raot / xmus;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("DEBUG: SUBAERORETWAT:\n");
-    printf ("       eps: %f\n", eps);
-    printf ("       iaots: %d\n", iaots);
-    printf ("       residual: %f\n", residual);
-    printf ("       xmus: %f\n", xmus);
-    printf ("       raot: %f\n", raot);
-    printf ("       corf: %f\n", corf);
-}
 
                 /* Test band 1 reflectance to eliminate negative */
                 iband = DN_BAND1;
@@ -1539,7 +1392,7 @@ if (i == 89 && j == 1705)
                     ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                     ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
                     &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps, false);
+                    &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian "
@@ -1548,13 +1401,6 @@ if (i == 89 && j == 1705)
                     exit (ERROR);
                 }
                 ros1 = roslamb;
-//if (i == 653 && j == 3847)
-if (i == 89 && j == 1705)
-//if (i == 166 && j == 2011)
-{
-    printf ("DEBUG: SUBAERORETWAT:\n");
-    printf ("       ros1: %f\n", ros1);
-}
 
                 /* Test the quality of the aerosol inversion */
                 if (residual > (0.01 + 0.005 * corf) || ros1 < 0)
@@ -1650,9 +1496,9 @@ if (i == 89 && j == 1705)
     /* Compute the average of the 11x11 window of aersols for each pixel */
     nbpixnf = 0;
     nbpixtot = 0;
-#ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, k, l, win_pix, nbaeroavg, taeroavg, tepsavg, ) firstprivate(nbpixnf, nbpixtot)
-#endif
+//#ifdef _OPENMP
+//    #pragma omp parallel for private (i, j, curr_pix, k, l, win_pix, nbaeroavg, taeroavg, tepsavg) firstprivate(nbpixnf, nbpixtot)
+//#endif
     for (i = 0; i < nlines; i++)
     {
         curr_pix = i * nsamps;
@@ -1894,7 +1740,7 @@ if (i == 89 && j == 1705)
                     ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                     ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
                     &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps, false);
+                    &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian "
@@ -2544,10 +2390,10 @@ int scene_center_and_image_rotation
     printf ("DEBUG: fourth corner line, samp - %d, %d\n", c4l, c4s);
 
 /* TODO GAIL remove these after debugging */
-c1l = 11-1; c1s = 1701-1;
-c2l = 1645-1; c2s = 7851-1;
-c3l = 7983-1; c3s = 6150-1;
-c4l = 6317-1; c4s = 10-1;
+c1l = 12-1; c1s = 1331-1;
+c2l = 1300-1; c2s = 7610-1;
+c3l = 7701-1; c3s = 6310-1;
+c4l = 6421-1; c4s = 19-1;
 
     /* Determine the scene center of the non-fill imagery */
     *center_samp = (c1s + c2s + c3s + c4s) / 4.0;

@@ -79,9 +79,8 @@ int subaeroret
     float *residual,                 /* O: model residual */
     int *iaots,                      /* I/O: AOT index that is passed in and
                                              out for multiple calls (0-based) */
-    float eps,                       /* I: angstroem coefficient; spectral
+    float eps                        /* I: angstroem coefficient; spectral
                                            dependency of the AOT */
-    bool verbose                     /* I: temp flag TODO remove */
 )
 {
     char FUNC_NAME[] = "subaeroret";   /* function name */
@@ -134,7 +133,7 @@ int subaeroret
         sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts, ttv, uoz,
         uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
         oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-        &next, eps, false);
+        &next, eps);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -146,11 +145,6 @@ int subaeroret
     if (roslamb - tth[iband1] < 0.0)
         testth = true;
     ros1 = roslamb;
-if (verbose)
-{
-    printf ("DEBUG6666: ros1 %f\n", ros1);
-    printf ("DEBUG6666: erelc %f %f %f %f %f %f %f %f\n", erelc[0], erelc[1], erelc[2], erelc[3], erelc[4], erelc[5], erelc[6], erelc[7]);
-}
 
     /* Atmospheric correction for each band */
     nbval = 0;
@@ -165,7 +159,7 @@ if (verbose)
                 xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                 tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                 ogtransb1, wvtransa, wvtransb, oztransa, troatm[ib], &roslamb,
-                &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps, false);
+                &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -179,21 +173,9 @@ if (verbose)
             *residual += (roslamb - erelc[ib] * ros1) *
                          (roslamb - erelc[ib] * ros1);
             nbval++;
-
-if (verbose)
-{
-    printf ("DEBUG6666: band %d\n", ib);
-    printf ("DEBUG6666: nbval %d\n", nbval);
-    printf ("DEBUG6666: roslamb %f\n", roslamb);
-    printf ("DEBUG6666: residual %f\n", *residual);
-}
         }
     }
     *residual = sqrt (*residual) / nbval;
-if (verbose)
-{
-    printf ("DEBUG6666: final residual %f\n", *residual);
-}
 
     /* Loop until we converge on a solution */
     iaot++;
@@ -207,14 +189,6 @@ if (verbose)
         raot1 = raot550nm;
         iaot1 = iaot;
         raot550nm = aot550nm[iaot];
-if (verbose)
-{
-    printf ("DEBUG9999: residual2 = %f\n", residual2);
-    printf ("DEBUG9999: iaot2, raot2 = %d, %f\n", iaot2, raot2);
-    printf ("DEBUG9999: residual1 = %f\n", residual1);
-    printf ("DEBUG9999: iaot1, raot1 = %d, %f\n", iaot1, raot1);
-    printf ("DEBUG9999: raot550nm = %f\n", raot550nm);
-}
 
         /* Atmospheric correction for band 1 */
         ib = iband1;
@@ -224,7 +198,7 @@ if (verbose)
             xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
             ttv, uoz, uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa,
             wvtransb, oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-            &satm, &xrorayp, &next, eps, false);
+            &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -236,42 +210,22 @@ if (verbose)
         if (roslamb - tth[iband1] < 0.0)
             testth = true;
         ros1 = roslamb;
-if (verbose)
-{
-    printf ("DEBUG9999: ros1 = %f\n", ros1);
-    printf ("           tth = %f\n", tth[iband1]);
-    printf ("           testth = %d\n", testth);
-}
 
         /* Atmospheric correction for each band */
         nbval = 0;
         *residual = 0.0;
         for (ib = DN_BAND1; ib < DN_BAND8; ib++)
         {
-/* GAIL HERE ----- band 7 output is different than FORTRAN version */
             /* Don't reprocess iband1 */
             if ((erelc[ib] > 0.0) && (ib != iband1))
             {
-if (verbose)
-{
-printf ("DEBUG9999: band %d\n", ib);
-printf ("           tauray %f\n", tauray[ib]);
-printf ("           ogtransa1 %f\n", ogtransa1[ib]);
-printf ("           ogtransb0 %f\n", ogtransb0[ib]);
-printf ("           ogtransb1 %f\n", ogtransb1[ib]);
-printf ("           wvtransa %f\n", wvtransa[ib]);
-printf ("           wvtransb %f\n", wvtransb[ib]);
-printf ("           oztransa %f\n", oztransa[ib]);
-printf ("           troatm %f\n", troatm[ib]);
-printf ("           ****raot550nm %f\n", raot550nm);
-}
                 retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
                     raot550nm, ib, pres, tpres, aot550nm, rolutt, transt,
                     xtsstep, xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax,
                     tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
                     ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
                     oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-                    &satm, &xrorayp, &next, eps, verbose);
+                    &satm, &xrorayp, &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian atmospheric "
@@ -285,15 +239,6 @@ printf ("           ****raot550nm %f\n", raot550nm);
                 *residual += (roslamb - erelc[ib] * ros1) *
                              (roslamb - erelc[ib] * ros1);
                 nbval++;
-if (verbose)
-{
-    printf ("DEBUG9999: ib %d\n", ib);
-    printf ("DEBUG9999: nbval %d\n", nbval);
-    printf ("DEBUG9999: roslamb %f\n", roslamb);
-    printf ("DEBUG9999: residual %f\n", *residual);
-    printf ("           tth = %f\n", tth[ib]);
-    printf ("           testth = %d\n", testth);
-}
             }
         }
         *residual = sqrt (*residual) / nbval;
@@ -301,11 +246,6 @@ if (verbose)
         /* Move to the next AOT index */
         iaot++;
     }  /* while aot */
-if (verbose)
-{
-    printf ("DEBUG9999: final residual2 %f\n", *residual);
-}
-/* GAIL HERE */
 
     /* If a minimum local was not reached for raot1, then just use the
        raot550nm value.  Otherwise continue to refine the raot. */
@@ -341,7 +281,7 @@ if (verbose)
             xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
             ttv, uoz, uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa,
             wvtransb, oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-            &satm, &xrorayp, &next, eps, false);
+            &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -368,7 +308,7 @@ if (verbose)
                     tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
                     ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
                     oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-                    &satm, &xrorayp, &next, eps, false);
+                    &satm, &xrorayp, &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian atmospheric "
@@ -539,7 +479,7 @@ int subaeroretwat
         sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts, ttv, uoz,
         uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
         oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-        &next, eps, false);
+        &next, eps);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -564,7 +504,7 @@ int subaeroretwat
                 xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
                 tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
                 ogtransb1, wvtransa, wvtransb, oztransa, troatm[ib], &roslamb,
-                &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps, false);
+                &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -602,7 +542,7 @@ int subaeroretwat
             xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
             ttv, uoz, uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa,
             wvtransb, oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-            &satm, &xrorayp, &next, eps, false);
+            &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -628,7 +568,7 @@ int subaeroretwat
                     tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
                     ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
                     oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-                    &satm, &xrorayp, &next, eps, false);
+                    &satm, &xrorayp, &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian atmospheric "
@@ -683,7 +623,7 @@ int subaeroretwat
             xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
             ttv, uoz, uwv, tauray, ogtransa1, ogtransb0, ogtransb1, wvtransa,
             wvtransb, oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-            &satm, &xrorayp, &next, eps, false);
+            &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -709,7 +649,7 @@ int subaeroretwat
                     tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
                     ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
                     oztransa, troatm[ib], &roslamb, &tgo, &roatm, &ttatmg,
-                    &satm, &xrorayp, &next, eps, false);
+                    &satm, &xrorayp, &next, eps);
                 if (retval != SUCCESS)
                 {
                     sprintf (errmsg, "Performing lambertian atmospheric "

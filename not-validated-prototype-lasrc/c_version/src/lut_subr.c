@@ -86,9 +86,8 @@ int atmcorlamb2
     float *xrorayp,                  /* O: reflectance of the atmosphere due to
                                            molecular (Rayleigh) scattering */
     float *next,                     /* O: */
-    float eps,                       /* I: angstroem coefficient; spectral
+    float eps                        /* I: angstroem coefficient; spectral
                                            dependency of the AOT */
-    bool verbose                     /* I: TODO temporary verbose flag */
 )
 {
     char FUNC_NAME[] = "atmcorlamb2";   /* function name */
@@ -126,11 +125,6 @@ int atmcorlamb2
                 (pow ((lambda[iband] / 0.55), -eps));
         else
             mraot550nm = raot550nm;
-    }
-    if (verbose)
-    {
-        printf ("DEBUG7777: raot550nm: %f\n", raot550nm);
-        printf ("DEBUG7777: mraot550nm: %f\n", mraot550nm);
     }
 
     /* Get the pressure and AOT related values for the current surface pressure
@@ -179,19 +173,16 @@ int atmcorlamb2
     comproatm (ip1, ip2, iaot1, iaot2, xts, xtv, xmus, xmuv, cosxfi,
         mraot550nm, iband, pres, tpres, aot550nm, rolutt, tsmax, tsmin, nbfic,
         nbfi, tts, indts, ttv, xtsstep, xtsmin, xtvstep, xtvmin, its, itv,
-        roatm, verbose);
+        roatm);
     tmp_roatm = *roatm;
-    if (verbose) printf ("DEBUG7777: roatm: %lf\n", tmp_roatm);
 
     /* Compute the transmission for the solar zenith angle */
     comptrans (ip1, ip2, iaot1, iaot2, xts, mraot550nm, iband, pres, tpres,
         aot550nm, transt, xtsstep, xtsmin, tts, &xtts);
-    if (verbose) printf ("DEBUG7777: xtts: %f\n", xtts);
 
     /* Compute the transmission for the observation zenith angle */
     comptrans (ip1, ip2, iaot1, iaot2, xtv, mraot550nm, iband, pres, tpres,
         aot550nm, transt, xtvstep, xtvmin, tts, &xttv);
-    if (verbose) printf ("DEBUG7777: xttv: %f\n", xttv);
 
     /* Compute total transmission (product downward by upward) */
     ttatm = xtts * xttv;
@@ -199,47 +190,23 @@ int atmcorlamb2
     /* Compute spherical albedo */
     compsalb (ip1, ip2, iaot1, iaot2, mraot550nm, iband, pres, tpres, aot550nm,
         sphalbt, normext, satm, next);
-    if (verbose) printf ("DEBUG7777: satm: %f\n", *satm);
 
     atm_pres = pres * ONE_DIV_1013;
     comptg (iband, xts, xtv, xmus, xmuv, uoz, uwv, atm_pres, ogtransa1,
         ogtransb0, ogtransb1, wvtransa, wvtransb, oztransa, &tgoz, &tgwv,
         &tgwvhalf, &tgog);
-    if (verbose)
-    {
-        printf ("DEBUG7777: tgoz: %f\n", tgoz);
-        printf ("DEBUG7777: tgwv: %f\n", tgwv);
-        printf ("DEBUG7777: tgwvhalf: %f\n", tgwvhalf);
-        printf ("DEBUG7777: tgog: %f\n", tgog);
-    }
 
     /* Compute rayleigh component (intrinsic reflectance, at p=pres).
        Pressure in the atmosphere is pres / 1013. */
     xtaur = tauray[iband] * atm_pres;
-    if (verbose) printf ("DEBUG7777: xtaur: %f\n", xtaur);
     local_chand (xfi, xmuv, xmus, xtaur, xrorayp);
-    if (verbose)
-    {
-        printf ("DEBUG7777: xfi: %f\n", xfi);
-        printf ("DEBUG7777: xmus: %f\n", xmus);
-        printf ("DEBUG7777: xmuv: %f\n", xmuv);
-        printf ("DEBUG7777: xrorayp: %f\n", *xrorayp);
-        printf ("DEBUG7777: rotoa: %f\n", rotoa);
-    }
 
     /* Perform atmospheric correction */
     tmp_roslamb = (double) rotoa / (tgog * tgoz);
-    if (verbose) printf ("DEBUG****: roslamb1 %lf\n", tmp_roslamb);
     tmp_roslamb = tmp_roslamb - (tmp_roatm - (*xrorayp)) * tgwvhalf -
         (*xrorayp);
-    if (verbose) printf ("DEBUG****: tmp_roatm - xrorayp %lf\n", tmp_roatm - (*xrorayp));
-    if (verbose) printf ("DEBUG****: (tmp_roatm - xrorayp) * tgwvhalf %lf\n", (tmp_roatm - (*xrorayp)) * tgwvhalf);
-    if (verbose) printf ("DEBUG****: all %lf\n", (tmp_roatm - (*xrorayp)) * tgwvhalf - *xrorayp);
-    if (verbose) printf ("DEBUG****: roslamb2 %lf\n", tmp_roslamb);
     tmp_roslamb = tmp_roslamb / (ttatm * tgwv);
-    if (verbose) printf ("DEBUG****: roslamb3 %lf\n", tmp_roslamb);
     tmp_roslamb = tmp_roslamb / (1.0 + (*satm) * tmp_roslamb);
-    if (verbose) printf ("DEBUG****: roslamb4 %lf\n", tmp_roslamb);
 
     *tgo = tgog * tgoz;
     *roatm = ((*roatm) - (*xrorayp)) * tgwvhalf + (*xrorayp);
@@ -620,8 +587,7 @@ void comproatm
     float xtvmin,       /* I: minimum observation value */
     int its,            /* I: index for the sun angle table */
     int itv,            /* I: index for the view angle table */
-    float *roatm,       /* O: atmospheric intrinsic reflectance */
-    bool verbose        /* I: TODO temporary verbose flag */
+    float *roatm        /* O: atmospheric intrinsic reflectance */
 )
 {
     int isca;
@@ -663,16 +629,6 @@ void comproatm
     nbfi3 = nbfi[itv+1][its];
     nbfic4 = nbfic[itv+1][its+1];
     nbfi4 = nbfi[itv+1][its+1];
-//    if (verbose)
-//    {
-//    printf ("its, itv: %d, %d\n", its, itv);
-//    printf ("nbfic: %f, %f, %f, %f\n", nbfic1, nbfic2, nbfic3, nbfic4);
-//    printf ("nbfi: %f, %f, %f, %f\n", nbfi1, nbfi2, nbfi3, nbfi4);
-//    printf ("xmus, xmuv: %f, %f\n", xmus, xmuv);
-//    printf ("cosxfi: %f\n", cosxfi);
-//    printf ("cscaa: %f\n", cscaa);
-//    printf ("scaa: %f\n", scaa);
-//    }
 
     /* Compute for ip1, iaot1 */
     /* Interpolate point 1 (its,itv) vs scattering angle */

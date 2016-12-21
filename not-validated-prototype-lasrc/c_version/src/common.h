@@ -115,6 +115,21 @@ typedef enum {
                                (internal use only) */
 } Ipflag_t;
 
+/* Bit values of ipflag (interpolation flag) QA, which includes aerosol
+   levels */
+typedef enum {
+  IPFLAG_CLEAR=0,           /* IPFLAG is clear (retrival was valid over land) */
+  IPFLAG_INTERP=1,          /* aerosol was interpolated */
+  IPFLAG_RETRIEVAL_FAIL=2,  /* water retrieval failed -- needs interpolated */
+  IPFLAG_TMP_NEIGHBOR=3     /* flag this pixel as a neighbor of failed aero
+                               (internal use only) */
+  IPFLAG_WATER=4,           /* IPFLAG indicates water (aerosol retrieval will
+                               be redone using subaeroretwat) */
+  IPFLAG_FILL=5,            /* fill value */
+  AERO1_QA=6,    /* these two AERO bits mark the amount of aerosols and = 64 */
+  AERO2_QA=7     /* reflect the level of atmospheric correction made    = 128 */
+} Ipflag_t;
+
 /* Satellite type definitions, mainly to allow future satellites to be
    supported if needed */
 typedef enum {
