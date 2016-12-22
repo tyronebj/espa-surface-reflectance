@@ -29,7 +29,6 @@ int get_args
                                 water vapor and ozone */
     bool *process_sr,     /* O: process the surface reflectance products */
     bool *write_toa,      /* O: write intermediate TOA products flag */
-    bool *process_collection, /* O: process scene as a collection product */
     bool *verbose         /* O: verbose flag */
 );
 
@@ -75,9 +74,7 @@ int compute_sr_refl
     char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
-    char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
-    bool process_collection /* I: should this scene be processed as a collection
-                               product, which affects the output of QA bands */
+    char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 );
 
 int scene_center_and_image_rotation

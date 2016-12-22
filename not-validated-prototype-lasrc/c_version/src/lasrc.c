@@ -123,10 +123,6 @@ int main (int argc, char *argv[])
                                 done */
     bool write_toa = false;  /* this is set to true if the user specifies
                                 TOA products should be output for delivery */
-    bool process_collection = false;  /* this is set to true if the user
-                                specifies that the scene should be processed
-                                as a collection product, which affects the
-                                output of the QA bands */
     float pixsize;      /* pixel size for the reflectance bands */
     int nlines, nsamps; /* number of lines and samples in the reflectance and
                            thermal bands */
@@ -148,7 +144,7 @@ int main (int argc, char *argv[])
 
     /* Read the command-line arguments */
     retval = get_args (argc, argv, &xml_infile, &aux_infile, &process_sr,
-        &write_toa, &process_collection, &verbose);
+        &write_toa, &verbose);
     if (retval != SUCCESS)
     {   /* get_args already printed the error message */
         exit (ERROR);
@@ -517,8 +513,7 @@ int main (int argc, char *argv[])
             "band ...\n");
         retval = compute_sr_refl (input, &xml_metadata, xml_infile, qaband,
             nlines, nsamps, pixsize, sband, xts, xfs, xmus, anglehdf,
-            intrefnm, transmnm, spheranm, geomhdf, cmgdemnm, rationm, auxnm,
-            process_collection);
+            intrefnm, transmnm, spheranm, geomhdf, cmgdemnm, rationm, auxnm);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Error computing surface reflectance");
@@ -590,10 +585,6 @@ void usage ()
             "done.\n");
     printf ("    -write_toa: the intermediate TOA reflectance products "
             "for bands 1-7 are written to the output file\n");
-    printf ("    -process_collection: the scene will be processed as a "
-            "collection product versus a pre-collection product, which means "
-            "the output QA will be written as a single 16-bit band versus "
-            "two separate 8-bit QA bands\n");
     printf ("    -verbose: should intermediate messages be printed? (default "
             "is false)\n");
 
