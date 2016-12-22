@@ -145,13 +145,11 @@ class SurfaceReflectance():
         if base_xmlfile[0:3] in l8_prefixes_old:
             # Old-style Level-1 naming convention. Just pull the year and DOY
             # from the XML filename.
-            processing_collection = False
             aux_file = 'L8ANC' + base_xmlfile[9:16] + '.hdf_fused'
         elif base_xmlfile[0:4] in l8_prefixes_collection:
             # New-style collection naming convention. Pull the year, month,
             # day from the XML filename. It should be the 4th group, separated
             # by underscores. Then convert month, day to DOY.
-            processing_collection = True
             aux_date = base_xmlfile.split('_')[3]
             aux_year = aux_date[0:4]
             aux_month = aux_date[4:6]
@@ -170,18 +168,14 @@ class SurfaceReflectance():
         # if any errors occur.
         process_sr_opt_str = "--process_sr=true "
         write_toa_opt_str = ""
-        process_collection_opt_str = ""
 
         if process_sr == "False":
             process_sr_opt_str = "--process_sr=false "
         if write_toa:
             write_toa_opt_str = "--write_toa "
-        if processing_collection:
-            process_collection_opt_str = "--process_collection "
 
-        cmdstr = "lasrc --xml=%s --aux=%s %s%s%s--verbose" % \
-            (xml_infile, aux_file, process_sr_opt_str, write_toa_opt_str,
-             process_collection_opt_str)
+        cmdstr = "lasrc --xml=%s --aux=%s %s%s--verbose" % \
+            (xml_infile, aux_file, process_sr_opt_str, write_toa_opt_str)
         msg = 'Executing lasrc command: %s' % cmdstr
         logger.info (msg)
         (status, output) = commands.getstatusoutput (cmdstr)
