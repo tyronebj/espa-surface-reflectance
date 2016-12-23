@@ -1,5 +1,5 @@
-## LaSRC Version 0.10.0 Release Notes
-Release Date: October 2016
+## LaSRC Version 1.0.0 Release Notes
+Release Date: {sometime} 2017
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/l8sr_auxiliary/l8sr_auxiliary.tar.gz
 
-See git tag [lasrc-version_0.10.0]
+See git tag [lasrc-version_1.0.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -52,6 +52,8 @@ See git tag [lasrc-version_0.10.0]
     {scene_name}_sr_*: surface reflectance in internal ESPA file format
 ```
 
+  * Note that the FORTRAN version contains the code as delivered from Eric Vermote and team at NASA Goddard Space Flight Center.  The C version contains the converted FORTRAN code into C to work in the ESPA environment.  It also contains any bug fixes, agreed upon by Eric's team, along with performance enhancements.  The FORTRAN code contains debugging and validation code, which is not needed for production processing.
+
 ### Dependencies
   * ESPA raw binary and ESPA common libraries from ESPA product formatter and associated dependencies
   * XML2 library
@@ -80,5 +82,99 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Updated to utilize the new Level-1 band names which were changed in espa-product-formatter to be more consistent with the Level-1 naming convention.
-  2. Modified the ancillary code to remove libcrypto in the linking and also switched the include hdf_netcdf.h to netcdf.h.
+Changes to the C version were made based on the new version 3.5.2 of the
+FORTRAN code, which is also included in this release.  Changes to that FORTRAN
+code include the following:
+
+* subaeroret.f (and new subaeroretwat.f)
+1. Modifications to how aerosol retrieval is handled.  Modified the algorithm
+   and added a new algorithm for retrieval over water.  This routine is very
+   similar to the non-water retrieval, but the residual computations are
+   different for the water pixels.  There are also a couple of other minor
+   differences in the two aerosol retrieval functions.  (subaeroret.c contains
+   subaeroret and subaeroretwat)
+
+* LUTldcm_subr_v4.f
+2. The atmospheric correction now uses the angstrom coefficient to modify the
+   passed in raot550nm.  This modified value is used in the atmospheric
+   corrections versus the original value.  (Affects atmcorlamb2 in lut_subr.c)
+
+* possolp.f
+3. Added a routine to compute the solar azimuth and zenith angles.  These are
+   computed for each pixel based on lat/long.  (New possolp.c file)
+
+* LDCMSR-v3.5.2.f
+4. The overall algorithm now computes the lat/long for each pixel and then
+   determines the solar azimuth and solar zenith angles by calling possolp
+   for each pixel (sza, saa).  The viewzenith and viewazimuth are also
+   approximated.  These per-pixel angles are used in the subaeroret
+   computations.  Note: the view zenith/azimuth corrections will be minor
+   in the results due to the small view angle window of L8 (range of
+   approximately 8 degrees).
+
+5. The ratiob1, ratiob2, slpratiob1, slpratiob2, intratiob1, and intratiob2
+   values read from the ratiomapndwiexp.hdf file have changed which SDSs are
+   used.  In general, the b1 values have switched from using b3 to b10 in the
+   HDF file.  The b2 values have switched from using b8 to b9 in the HDF file.
+   Eric indicated this change in SDSs provides a better match between the MODIS
+   data in the HDF file as the Landsat imagery.
+
+6. The four non-fill image corners are found and the scene center is computed
+   from those four corners.  The image rotation angle is computed using these
+   corners as well.  These corners and rotation angle are used in the
+   approximation of the per-pixel view zenith angle and view azimuth angle.
+   They are used to produce an index into the l8geom.hdf file which has a
+   table of view zenith and view azimuth values.
+
+7. The TOA reflectance corrections use the approximated solar zenith angle for
+   the current pixel versus the solar zenith angle for the scene center.
+
+8. Previously cirrus pixels were flagged as clouds if the value in band 9
+   was greater than 100.0 / tp[curr_pix] / 1013.  These pixels were not run
+   through aerosol inversion.  The new code does not flag these pixels and
+   therefore aerosol inversion is run on all pixels.
+
+9. If/then statements were changed for the slpratio and intratio processing.
+   The values of intratiob1 and intratiob2 were changed from 327, 482 to
+   550, 600. 
+
+10. The actual call to subaeroret for the aerosol retrievals now uses a
+    pressure, ozone, and water vapor value that was interpolated for the
+    current pixel versus a constant value for each variable.
+
+11. subaeroret is called three times with eps = 1.0, 1.75, and 2.5 for each
+    pixel.  The algorithm looks for the eps that minimizes the residual.  Then
+    that eps, residual, and raot are carried forward.  Previously subaeroret
+    was only called once, and the eps was not used.
+
+12. The if-check on the model residual in relation to the aerosol impact has
+    been modified.
+
+13. The model residual is checked with several checks, including the NDVI check.
+    Pixels failing are flagged as water.  These pixels are then reprocessed for
+    aerosol retrieval, using the new aerosol retrieval algorithm for water.
+
+14. The aerosol interpolation is handled differently.  The average taero and
+    teps values in a surrounding 11x11 window are computed and used.  In the
+    event that not enough valid values are available, the taeros is set to
+    0.05 and teps is set to 1.5 as the defaults.
+
+15. Cloud QA processing is now handled at the end of the algorithm, after the
+    aerosol retrieval/interpoloation and the surface reflectance corrections
+    have been completed.  Therefore, the algorithm is no longer reliant upon
+    cloud QA information, and I confirmed that with Jean-Claude.  I asked him
+    if we could simply skip doing the cloud QA processing and he reconfirmed
+    that the cloud QA is no longer needed.  The C code will not run the cloud
+    QA processing, since there are way better cloud algorithms in existence.
+    This also means that the algorithm is no longer reliant upon the TIRS bands.
+
+16. The aerosol QA information has changed slightly and that QA band will now
+    also include the aerosol QA confidence that used to be stored in the cloud
+    QA band.  This new band will be the "aerosol" band and it replaces the
+    "cloud" and "ipflag" bands.
+
+* ESPA Enhancements
+17. The per-pixel approximations for the solar and view angles have been
+    replaced with the angle values in the per-pixel angle bands, which are
+    generated from the Level-1 angle coefficient file. This makes the newly
+    delivered l8geom.hdf file obsolete.
