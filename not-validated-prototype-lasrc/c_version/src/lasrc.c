@@ -17,56 +17,6 @@ SUCCESS         Processing was successful
 PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
 
-HISTORY:
-Date          Programmer       Reason
-----------    ---------------  -------------------------------------
-6/30/2014     Gail Schmidt     Conversion of the original L8 SR code delivered
-                               by Eric Vermote to adhere to ESPA software
-                               guidelines and file formats
-7/15/2014     Gail Schmidt     Cleaned up some of the divide by constants so
-                               that we could speed up the processing
-7/21/2014     Gail Schmidt     Set all int16 output bands to use the same fill
-                               value, which is a change for bands 10 and 11.
-                               The fill value used is -9999 vs. -1000.
-7/22/2014     Gail Schmidt     Made the tauray array a hard-coded array vs.
-                               reading it from a static ASCII file.
-7/22/2014     Gail Schmidt     Cleaned up unused ogtransa0, ogtransc0,
-                               ogtransc1, wvtransc arrays.  Made the rest of
-                               these transmission arrays doubles and hard-coded
-                               their static values in this code vs. reading
-                               from a static ASCII file.
-7/22/2014     Gail Schmidt     Changed the 2D arrays to 1D arrays for the
-                               image data to speed up processing.
-7/29/2014     Gail Schmidt     Defined a static NSR_BANDS variable for the
-                               variables that refer to the surface reflectance
-                               band-related bands (ogtrans, wvtrans, tauray,
-                               erelc, etc.)  These previously were of size 16.
-8/1/2014      Gail Schmidt     Added flag to allow user to specify only TOA
-                               reflectance corrections to be completed and
-                               written.  Also added flag to allow the user to
-                               specify TOA reflectance bands (bands 1-7) should
-                               be written in addition to SR bands.
-8/14/2014     Gail Schmidt     Updated for v1.3 delivered by Eric Vermote
-8/25/2014     Gail Schmidt     Split the main application into smaller modules
-                               for allocating memory and reading the auxiliary
-                               data files.
-11/4/2014     Gail Schmidt     Instead of recalculating the xmus and xmuv values
-                               over and over again, just pass them in from the
-                               main calling routine.  Same goes for the cosine
-                               of azimuthal difference between sun and obs
-                               angles.
-12/1/2014     Gail Schmidt     Removed unused code for true north adjustment
-12/9/2014     Gail Schmidt     Created TOA reflectance and surface reflectance
-                               functions to modularize the overall source code
-12/10/2014    Gail Schmidt     Add check on the solar zenith to make sure the
-                               scene can be processed for surface reflectance.
-                               If solar zenith is too large and process_sr is
-                               true, then exit with an error.  Only TOA and BT
-                               corrections can be made.
-12/10/2014    Gail Schmidt     If this is an OLI-only scene and process_sr is
-                               true, then exit with an error.  Only TOA and BT
-                               corrections can be made.
-
 NOTES:
 1. Bands 1-7 are corrected to surface reflectance.  Band 8 (pand band) is not
    processed.  Band 9 (cirrus band) is corrected to TOA reflectance.  Bands
@@ -76,14 +26,6 @@ NOTES:
 3. Conversion algorithms for TOA reflectance and at-sensor brightness
    temperature are available from
    http://landsat.usgs.gov/Landsat8_Using_Product.php
-4. The quality band has a different bit configuration for pre-collection and
-   collection-based Level-1 products. This application only uses the fill bit,
-   which is consistent for the quality band in both versions of the Level-1
-   product. Therefore, at this time, there is no need to distinguish between
-   pre-collection and collection when reading and using the quality band. If
-   more than just the fill bit is utilized in the future, then the collection
-   products will need to be distinguished from pre-collection and the
-   appropriate bit will need to be used.
 ******************************************************************************/
 int main (int argc, char *argv[])
 {
@@ -387,7 +329,7 @@ int main (int argc, char *argv[])
 
     /* Open the TOA output file, and set up the bands according to whether
        the TOA reflectance bands will be written. */
-    toa_output = open_output (&xml_metadata, input, true /*toa*/, false);
+    toa_output = open_output (&xml_metadata, input, true /*toa*/);
     if (toa_output == NULL)
     {   /* error message already printed */
         error_handler (true, FUNC_NAME, errmsg);

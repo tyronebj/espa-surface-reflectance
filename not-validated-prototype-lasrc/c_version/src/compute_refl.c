@@ -351,27 +351,14 @@ NOTES:
    now hardcoded to save time from reading the file each time.  This file was
    generated (like many of the other auxiliary input tables) by running 6S and
    storing the coefficients.
-3. Snow pixels are commonly flagged as cloud in this algorithm.
-4. Aerosols are not retrieved for cirrus pixels.  They are retrieved for all
-   other non-fill pixels, including water.  If the model residual using the
-   retrieved aerosols is too high, then that pixel is flagged for potential
-   aerosol interpolation.  The pixel is also flagged for potential aerosol
-   interpolation if the NDVI test fails.  However, the aerosols and residuals
-   are retained for those pixels, even though they were flagged.
-   After flagging clouds, shadows, adjacent cloud, a water test is done.  If
-   the current pixel is not cirrus, cloud, shadow, or adjacent cloud, then it's
-   flagged as water if the NDVI < 0.01.
-   Next we loop through all the pixels and do the aerosol interpolation.
-   Aerosol interpolation is attempted on pixels that were flagged due to the
-   residual or NDVI.  Pixels that are cirrus, cloud, or water are not used for
-   the interpolation.
-   The last step is to perform the atmospheric correction based on the
-   aerosols.  This level of correction is not applied to cirrus or cloud pixels.
-5. Collection products will have different QA bands than the pre-collection
-   products.  The pre-collection products have the original output QA band,
-   plus an additional 'ipflag' band which provides information on the
-   aerosol retrieval and interpolation of flagged aerosols.  The collection
-   products will have all the QA information in a single 8-bit QA band.
+4. Aerosols are retrieved for all non-fill pixels.  If the aerosol fails the
+   model residual or NDVI test, then the pixel is flagged as water.  All water
+   pixels are run through a water-specific aerosol retrieval.  If the model
+   residual fails, then that pixel is marked as failed aerosol retrieval.  Any
+   pixel that failed retrieval is then interpolated using an average of the
+   clear (valid land pixel aerosols) and water (valid water pixel aerosols).
+   Those final aerosol values are used for the surface reflectance corrections.
+5. Cloud-based QA information is not processed in this algorithm.
 ******************************************************************************/
 int compute_sr_refl
 (
@@ -394,9 +381,7 @@ int compute_sr_refl
     char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
-    char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
-    bool process_collection /* I: should this scene be processed as a collection
-                               product, which affects the output of QA bands */
+    char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
@@ -469,12 +454,8 @@ int compute_sr_refl
                                         line+1, samp; and line+1, samp+1 */
     float pres11, pres12, pres21, pres22;  /* pressure at line,samp;
                              line, samp+1; line+1, samp; and line+1, samp+1 */
-    uint8 *cloud = NULL;  /* bit-packed value that represent clouds,
+    uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
-    int8 *ipflag = NULL;  /* QA flag to assist with aerosol interpolation,
-                             nlines x nsamps */
-    uint16 *cloud_aero = NULL;  /* bit-packed value that represent the combined
-                             clouds and aerosol QA data, nlines x nsamps */
     float *twvi = NULL;   /* interpolated water vapor value,
                              nlines x nsamps */
     float *tozi = NULL;   /* interpolated ozone value, nlines x nsamps */
@@ -638,13 +619,12 @@ int compute_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
-    retval = memory_allocation_sr (nlines, nsamps, process_collection, &aerob1,
-        &aerob2, &aerob4, &aerob5, &aerob7, &cloud, &ipflag, &cloud_aero,
-        &twvi, &tozi, &tp, &taero, &taeros, &teps, &tepss, &smflag, &dem,
-        &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2,
-        &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt,
-        &transt, &sphalbt, &normext, &vza, &vaa, &tsmax, &tsmin, &nbfic, &nbfi,
-        &ttv);
+    retval = memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2, &aerob4,
+        &aerob5, &aerob7, &ipflag, &twvi, &tozi, &tp, &taero, &taeros, &teps,
+        &tepss, &smflag, &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7,
+        &intratiob1, &intratiob2, &intratiob7, &slpratiob1, &slpratiob2,
+        &slpratiob7, &wv, &oz, &rolutt, &transt, &sphalbt, &normext, &vza,
+        &vaa, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
@@ -814,7 +794,7 @@ int compute_sr_refl
             /* If this pixel is fill, then don't process */
             if (qaband[curr_pix] == 1)
             {
-                ipflag[curr_pix] = IPFLAG_FILL;
+                ipflag[curr_pix] |= (1 << IPFLAG_FILL);
                 continue;
             }
 
@@ -939,9 +919,6 @@ int compute_sr_refl
             {
                 /* Fill pixels in the DEM are ocean and deep water pixels */
                 pres11 = 1013.0;
-                cloud[curr_pix] |= (1 << WAT_QA);
-                if (process_collection)
-                    cloud_aero[curr_pix] |= (1 << WAT_QA);
             }
 
             if (dem[cmg_pix12] != -9999)
@@ -1316,29 +1293,24 @@ int compute_sr_refl
                 if ((ros5 > 0.1) && ((ros5 - ros4) / (ros5 + ros4) > 0))
                 {
                     taero[curr_pix] = raot;
-                    ipflag[curr_pix] = IPFLAG_CLEAR;
+                    ipflag[curr_pix] |= (1 << IPFLAG_CLEAR);
                 }
                 else
                 {
                     /* This is water and the retrieval needs to be redone */
                     taero[curr_pix] = raot;
-                    ipflag[curr_pix] = IPFLAG_WATER;
-                    if (process_collection)
-                        cloud_aero[curr_pix] |=
-                            (1 << AERO_RETRIEVAL_NDVI_QA);
+                    ipflag[curr_pix] |= (1 << IPFLAG_WATER);
                 }
             }
             else
             {
                 /* Retrieval needs to be redone */
                 taero[curr_pix] = raot;
-                ipflag[curr_pix] = IPFLAG_WATER;
-                if (process_collection)
-                    cloud_aero[curr_pix] |= (1 << AERO_RETRIEVAL_RESID_QA);
+                ipflag[curr_pix] |= (1 << IPFLAG_WATER);
             }
 
             /* Redo the aerosol retrieval if flagged as water */
-            if (ipflag[curr_pix] == IPFLAG_WATER)
+            if (btest (ipflag[curr_pix], IPFLAG_WATER))
             {
                 /* Reset variables */
                 erelc[DN_BAND1] = 1.0;
@@ -1405,9 +1377,9 @@ int compute_sr_refl
                 /* Test the quality of the aerosol inversion */
                 if (residual > (0.01 + 0.005 * corf) || ros1 < 0)
                 {
-                    ipflag[curr_pix] = IPFLAG_RETRIEVAL_FAIL;
-                    if (process_collection)
-                        cloud_aero[curr_pix] |= (1 << WAT_QA);
+                    /* Set the retrieval failed bit, and unset the water bit */
+                    ipflag[curr_pix] &= ~(1 << IPFLAG_WATER);
+                    ipflag[curr_pix] |= (1 << IPFLAG_RETRIEVAL_FAIL);
                 }
                 else
                 {
@@ -1460,7 +1432,7 @@ int compute_sr_refl
         {
             /* If this pixel needs interpolated then look at the pixels in the
                surrounding window */
-            if (ipflag[curr_pix] == IPFLAG_RETRIEVAL_FAIL)
+            if (btest (ipflag[curr_pix], IPFLAG_RETRIEVAL_FAIL))
             {
                 /* Check the 5x5 window around the current pixel */
                 for (k = i-2; k <= i+2; k++)
@@ -1477,9 +1449,12 @@ int compute_sr_refl
                             continue;
 
                         /* If this is a clear ipflag then set it to be
-                           interpolated */
-                        if (ipflag[win_pix] == IPFLAG_CLEAR)
-                            ipflag[win_pix] = IPFLAG_TMP_NEIGHBOR;
+                           interpolated. Unset the clear bit. */
+                        if (btest (ipflag[win_pix], IPFLAG_CLEAR))
+                        {
+                            ipflag[win_pix] &= ~(1 << IPFLAG_CLEAR);
+                            ipflag[win_pix] |= (1 << IPFLAG_TMP_NEIGHBOR);
+                        }
                     }  /* for l */
                 }  /* for k */
             }  /* if ipflag == retrieval failed */
@@ -1489,16 +1464,17 @@ int compute_sr_refl
     /* Reset any pixels flagged as neighbors to interpolation failed */
     for (i = 0; i < nlines*nsamps; i++)
     {
-        if (ipflag[i] == IPFLAG_TMP_NEIGHBOR)
-            ipflag[i] = IPFLAG_RETRIEVAL_FAIL;
+        if (btest (ipflag[i], IPFLAG_TMP_NEIGHBOR))
+        {
+            /* Set the retrieval failed, but unset the temp neighbor */
+            ipflag[i] &= ~(1 << IPFLAG_TMP_NEIGHBOR);
+            ipflag[i] |= (1 << IPFLAG_RETRIEVAL_FAIL);
+        }
     }
 
     /* Compute the average of the 11x11 window of aersols for each pixel */
     nbpixnf = 0;
     nbpixtot = 0;
-//#ifdef _OPENMP
-//    #pragma omp parallel for private (i, j, curr_pix, k, l, win_pix, nbaeroavg, taeroavg, tepsavg) firstprivate(nbpixnf, nbpixtot)
-//#endif
     for (i = 0; i < nlines; i++)
     {
         curr_pix = i * nsamps;
@@ -1530,8 +1506,8 @@ int compute_sr_refl
 
                         /* If the pixel has clear retrieval of aerosols or
                            valid water aerosols then add it to the total sum */
-                        if (ipflag[win_pix] == IPFLAG_CLEAR ||
-                            ipflag[win_pix] == IPFLAG_WATER)
+                        if (btest (ipflag[win_pix], IPFLAG_CLEAR) ||
+                            btest (ipflag[win_pix], IPFLAG_WATER))
                         {
                             nbaeroavg++;
                             taeroavg += taero[win_pix];
@@ -1652,13 +1628,15 @@ int compute_sr_refl
            this is a cirrus or cloud pixel, however the cloud QA array has not
            yet been set for cirrus clouds or regular clouds.  Furthermore that
            code has been removed altogether.  Therefore the cloud checks have
-           been removed from this if statement.  At this time, the only cloud
-           information flagged is deep water from the DEM. */
-        if (ipflag[i] == IPFLAG_RETRIEVAL_FAIL)
+           been removed from this if statement. */
+        if (btest (ipflag[i], IPFLAG_RETRIEVAL_FAIL))
         {
             taero[i] = taeros[i];
             teps[i] = tepss[i];
-            ipflag[i] = IPFLAG_INTERP;
+
+            /* Set the aerosol interpolated, but unset the retrieval failed */
+            ipflag[i] |= (1 << IPFLAG_INTERP);
+            ipflag[i] &= ~(1 << IPFLAG_RETRIEVAL_FAIL);
         }
     }
 
@@ -1757,27 +1735,18 @@ int compute_sr_refl
                     tmpf = fabs (rsurf - roslamb);
                     if (tmpf <= 0.015)
                     {  /* Set the first aerosol bit (low aerosols) */
-                        cloud[curr_pix] |= (1 << AERO1_QA);
-                        if (process_collection)
-                            cloud_aero[curr_pix] |= (1 << AERO1_QA);
+                        ipflag[curr_pix] |= (1 << AERO1_QA);
                     }
                     else
                     {
                         if (tmpf < 0.03)
                         {  /* Set the second aerosol bit (average aerosols) */
-                            cloud[curr_pix] |= (1 << AERO2_QA);
-                            if (process_collection)
-                                cloud_aero[curr_pix] |= (1 << AERO2_QA);
+                            ipflag[curr_pix] |= (1 << AERO2_QA);
                         }
                         else
                         {  /* Set both aerosol bits (high aerosols) */
-                            cloud[curr_pix] |= (1 << AERO1_QA);
-                            cloud[curr_pix] |= (1 << AERO2_QA);
-                            if (process_collection)
-                            {
-                                cloud_aero[curr_pix] |= (1 << AERO1_QA);
-                                cloud_aero[curr_pix] |= (1 << AERO2_QA);
-                            }
+                            ipflag[curr_pix] |= (1 << AERO1_QA);
+                            ipflag[curr_pix] |= (1 << AERO2_QA);
                         }
                     }
                 }  /* end if this is the coastal aerosol band */
@@ -1811,8 +1780,7 @@ int compute_sr_refl
         "files ...\n");
 
     /* Open the output file */
-    sr_output = open_output (xml_metadata, input, false /*surf refl*/,
-        process_collection);
+    sr_output = open_output (xml_metadata, input, false /*surf refl*/);
     if (sr_output == NULL)
     {   /* error message already printed */
         error_handler (true, FUNC_NAME, errmsg);
@@ -1863,44 +1831,22 @@ int compute_sr_refl
         exit (ERROR);
     }
 
-    /* Determine if this is pre-collection or collection cloud mask */
-    if (!process_collection)
+    /* Write the aerosol QA band */
+    printf ("  Band %d: %s\n", SR_AEROSOL+1,
+            sr_output->metadata.band[SR_AEROSOL].file_name);
+    if (put_output_lines (sr_output, ipflag, SR_AEROSOL, 0, nlines,
+        sizeof (uint8)) != SUCCESS)
     {
-        /* Write the cloud mask band, using the cloud mask as-is. This is an
-           8-bit band. */
-        printf ("  Band %d: %s\n", SR_CLOUD+1,
-                sr_output->metadata.band[SR_CLOUD].file_name);
-        if (put_output_lines (sr_output, cloud, SR_CLOUD, 0, nlines,
-            sizeof (uint8)) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing pre-collection cloud mask output data");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-    }
-    else
-    {
-        /* Write the QA band using the cloud mask and the ipflag combined
-           into one. This is a 16-bit band. */
-        printf ("  Band %d: %s\n", SR_CLOUD+1,
-                sr_output->metadata.band[SR_CLOUD].file_name);
-        if (put_output_lines (sr_output, cloud_aero, SR_CLOUD, 0, nlines,
-            sizeof (uint16)) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing collection cloud mask output data");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Free the combined array */
-        free (cloud_aero);
+        sprintf (errmsg, "Writing aerosol QA output data");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
     }
 
-    /* Free memory for cloud data */
-    free (cloud);
+    /* Free memory for ipflag data */
+    free (ipflag);
 
-    /* Create the ENVI header for the cloud mask band */
-    if (create_envi_struct (&sr_output->metadata.band[SR_CLOUD],
+    /* Create the ENVI header for the aerosol QA band */
+    if (create_envi_struct (&sr_output->metadata.band[SR_AEROSOL],
         &xml_metadata->global, &envi_hdr) != SUCCESS)
     {
         sprintf (errmsg, "Creating ENVI header structure.");
@@ -1909,7 +1855,7 @@ int compute_sr_refl
     }
 
     /* Write the ENVI header */
-    strcpy (envi_file, sr_output->metadata.band[SR_CLOUD].file_name);
+    strcpy (envi_file, sr_output->metadata.band[SR_AEROSOL].file_name);
     cptr = strchr (envi_file, '.');
     strcpy (cptr, ".hdr");
     if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
@@ -1919,60 +1865,14 @@ int compute_sr_refl
         exit (ERROR);
     }
 
-    /* Append the cloud mask band to the XML file */
-    if (append_metadata (1, &sr_output->metadata.band[SR_CLOUD],
+    /* Append the aerosol QA band to the XML file */
+    if (append_metadata (1, &sr_output->metadata.band[SR_AEROSOL],
         xml_infile) != SUCCESS)
     {
-        sprintf (errmsg, "Appending cloud mask band to XML file.");
+        sprintf (errmsg, "Appending aerosol QA band to XML file.");
         error_handler (true, FUNC_NAME, errmsg);
         exit (ERROR);
     }
-
-    /* If processing pre-collection data, write the ipflag mask band */
-    if (!process_collection)
-    {
-        printf ("  Band %d: %s\n", SR_IPFLAG+1,
-                sr_output->metadata.band[SR_IPFLAG].file_name);
-        if (put_output_lines (sr_output, ipflag, SR_IPFLAG, 0, nlines,
-            sizeof (int8)) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing ipflag mask output data");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Create the ENVI header for the ipflag mask band */
-        if (create_envi_struct (&sr_output->metadata.band[SR_IPFLAG],
-            &xml_metadata->global, &envi_hdr) != SUCCESS)
-        {
-            sprintf (errmsg, "Creating ENVI header structure.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Write the ENVI header */
-        strcpy (envi_file, sr_output->metadata.band[SR_IPFLAG].file_name);
-        cptr = strchr (envi_file, '.');
-        strcpy (cptr, ".hdr");
-        if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing ENVI header file.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Append the ipflag mask band to the XML file */
-        if (append_metadata (1, &sr_output->metadata.band[SR_IPFLAG],
-            xml_infile) != SUCCESS)
-        {
-            sprintf (errmsg, "Appending ipflag mask band to XML file.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-    }
-
-    /* Free memory for ipflag data */
-    free (ipflag);
 
     /* Close the output surface reflectance products */
     close_output (sr_output, false /*sr products*/);
@@ -2390,10 +2290,23 @@ int scene_center_and_image_rotation
     printf ("DEBUG: fourth corner line, samp - %d, %d\n", c4l, c4s);
 
 /* TODO GAIL remove these after debugging */
+/* LC80470272013287LGN00
+c1l = 11-1; c1s = 1701-1;
+c2l = 1645-1; c2s = 7851-1;
+c3l = 7983-1; c3s = 6150-1;
+c4l = 6317-1; c4s = 10-1; */
+
+/* LC81440402015045LGN00
+c1l = 12-1; c1s = 1467-1;
+c2l = 1391-1; c2s = 7631-1;
+c3l = 7804-1; c3s = 6194-1;
+c4l = 6395-1; c4s = 18-1; */
+
+/* LC81680812016120LGN00
 c1l = 12-1; c1s = 1331-1;
 c2l = 1300-1; c2s = 7610-1;
 c3l = 7701-1; c3s = 6310-1;
-c4l = 6421-1; c4s = 19-1;
+c4l = 6421-1; c4s = 19-1; */
 
     /* Determine the scene center of the non-fill imagery */
     *center_samp = (c1s + c2s + c3s + c4s) / 4.0;

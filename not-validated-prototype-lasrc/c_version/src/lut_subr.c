@@ -1947,15 +1947,11 @@ NOTES:
      calling routine to free this memory.
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
-  3. The combined cloud aerosol QA array is allocated only if processing
-     Collection data.
 ******************************************************************************/
 int memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
-    bool process_collection, /* I: should this scene be processed as a
-                                   collection product */
     int16 **aerob1,      /* O: atmospherically corrected band 1 data
                                (TOA refl), nlines x nsamps */
     int16 **aerob2,      /* O: atmospherically corrected band 2 data
@@ -1966,13 +1962,8 @@ int memory_allocation_sr
                                (TOA refl), nlines x nsamps */
     int16 **aerob7,      /* O: atmospherically corrected band 7 data
                                (TOA refl), nlines x nsamps */
-    uint8 **cloud,       /* O: bit-packed value that represent clouds,
+    uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
-    int8 **ipflag,       /* O: QA flag to assist with aerosol interpolation,
-                               nlines x nsamps */
-    uint16 **cloud_aero, /* O: bit-packed value that represents clouds and
-                               aerosols combined (only allocated if processing
-                               collection products), nlines x nsamps */
     float **twvi,        /* O: interpolated water vapor value,
                                nlines x nsamps */
     float **tozi,        /* O: interpolated ozone value, nlines x nsamps */
@@ -2126,33 +2117,12 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *cloud = calloc (nlines*nsamps, sizeof (uint8));
-    if (*cloud == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for cloud");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *ipflag = calloc (nlines*nsamps, sizeof (int8));
+    *ipflag = calloc (nlines*nsamps, sizeof (uint8));
     if (*ipflag == NULL)
     {
         sprintf (errmsg, "Error allocating memory for ipflag");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
-    }
-
-    /* Allocate memory for the combined cloud/aerosol QA band if processing
-       collection data */
-    if (process_collection)
-    {
-        *cloud_aero = calloc (nlines*nsamps, sizeof (uint16));
-        if (*cloud_aero == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for cloud_aero");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
     }
 
     /* Allocate memory for all the climate modeling grid files */
