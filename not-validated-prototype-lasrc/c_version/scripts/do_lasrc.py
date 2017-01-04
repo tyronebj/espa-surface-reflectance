@@ -145,11 +145,13 @@ class SurfaceReflectance():
         if base_xmlfile[0:3] in l8_prefixes_old:
             # Old-style Level-1 naming convention. Just pull the year and DOY
             # from the XML filename.
+            processing_collection = False
             aux_file = 'L8ANC' + base_xmlfile[9:16] + '.hdf_fused'
         elif base_xmlfile[0:4] in l8_prefixes_collection:
             # New-style collection naming convention. Pull the year, month,
             # day from the XML filename. It should be the 4th group, separated
             # by underscores. Then convert month, day to DOY.
+            processing_collection = True
             aux_date = base_xmlfile.split('_')[3]
             aux_year = aux_date[0:4]
             aux_month = aux_date[4:6]
@@ -164,6 +166,27 @@ class SurfaceReflectance():
             os.chdir (mydir)
             return ERROR
 
+        # if processing collections, the per-pixel angle bands need to be
+        # generated for band 4 (representative band)
+        if processing_collection:
+            cmdstr = "create_l8_angle_bands --xml %s" % (base_xmlfile)
+#            logger.debug('per-pixel angles command: {0}'.format(cmdstr))
+            (status, output) = commands.getstatusoutput(cmdstr)
+            logger.info(output)
+            exit_code = status >> 8
+            if exit_code != 0:
+                logger.error('Error running create_l8_angle_bands. Processing '
+                             'will terminate.')
+                os.chdir(mydir)
+                return ERROR
+
+        # determine the application name depending on whether or not we are
+        # processing collection or pre-collection data
+        if processing_collection:
+            app_name = 'lasrc'
+        else:
+            app_name = 'lasrc_pre_collection'
+ 
         # run surface reflectance algorithm, checking the return status.  exit
         # if any errors occur.
         process_sr_opt_str = "--process_sr=true "
@@ -174,8 +197,9 @@ class SurfaceReflectance():
         if write_toa:
             write_toa_opt_str = "--write_toa "
 
-        cmdstr = "lasrc --xml=%s --aux=%s %s%s--verbose" % \
-            (xml_infile, aux_file, process_sr_opt_str, write_toa_opt_str)
+        cmdstr = "%s --xml=%s --aux=%s %s%s--verbose" % \
+            (app_name, xml_infile, aux_file, process_sr_opt_str,
+             write_toa_opt_str)
         msg = 'Executing lasrc command: %s' % cmdstr
         logger.info (msg)
         (status, output) = commands.getstatusoutput (cmdstr)
