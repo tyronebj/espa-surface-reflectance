@@ -26,6 +26,21 @@ NOTES:
 3. Conversion algorithms for TOA reflectance and at-sensor brightness
    temperature are available from
    http://landsat.usgs.gov/Landsat8_Using_Product.php
+4. The TOA and SR corrections utilize solar and view angles.  Previous versions
+   simply corrected every pixel for the solar angles at the scene center.
+   However as of version 1.0.0, the solar and view angles are read from the
+   per-pixel angle bands and better reflect the angle at that location within
+   the scene.
+5. The solar angles from band to band are fairly stable, thus a single array of
+   per-pixel angles will be used.  The array can be from a "representative
+   band" for the reflectance bands or it can be an average of the reflectance
+   bands. We will use band 4 as the representative band for these per-pixel
+   angle values.
+6. The view/observation angles from band to band are a bit more unstable
+   (particularly the view azimuth) near nadir.  A single array of per-pixel
+   angles will still be used, however the information near nadir may be slightly
+   affected.  We will use band 4 as the representative band for these per-pixel
+   angle values.
 ******************************************************************************/
 int main (int argc, char *argv[])
 {
