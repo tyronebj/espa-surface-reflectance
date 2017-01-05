@@ -99,8 +99,8 @@ int main(int argc, char **argv)
             !strcmp (xml_metadata.band[ib].product, "sr_refl"))
             printf (":Band5 = %s\n", xml_metadata.band[ib].file_name);
 
-        if ((!strcmp (xml_metadata.band[ib].name, "toa_band6") ||
-             !strcmp (xml_metadata.band[ib].name, "toa_band61")) &&
+        if ((!strcmp (xml_metadata.band[ib].name, "bt_band6") ||
+             !strcmp (xml_metadata.band[ib].name, "bt_band61")) &&
             !strcmp (xml_metadata.band[ib].product, "toa_bt"))
             printf (":Band6 = %s\n", xml_metadata.band[ib].file_name);
 

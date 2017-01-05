@@ -493,7 +493,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     {  /* thermal band */
         for (i = 0; i < metadata->nbands; i++)
         {
-            if (!strcmp (metadata->band[i].name, "toa_band6") &&
+            if (!strcmp (metadata->band[i].name, "bt_band6") &&
                 !strcmp (metadata->band[i].product, "toa_bt"))
             {
                 /* this is the index we'll use for reflectance band info */
@@ -503,7 +503,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
                 this->file_name[0] = strdup (metadata->band[i].file_name);
             }
 
-            if (!strcmp (metadata->band[i].name, "toa_band6_qa") &&
+            if (!strcmp (metadata->band[i].name, "bt_band6_qa") &&
                 !strcmp (metadata->band[i].product, "toa_bt"))
             {
                 this->file_name_qa = strdup (metadata->band[i].file_name);

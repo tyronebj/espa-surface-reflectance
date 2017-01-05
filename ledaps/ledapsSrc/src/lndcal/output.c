@@ -185,7 +185,7 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
       }
       else
       {
-        sprintf (bmeta[ib].name, "toa_band%d", input->meta.iband_th);
+        sprintf (bmeta[ib].name, "bt_band%d", input->meta.iband_th);
         bmeta[ib].scale_factor = lut->scale_factor_ref;
         bmeta[ib].scale_factor = lut->scale_factor_th;
         bmeta[ib].add_offset = lut->add_offset_th;
@@ -224,7 +224,7 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
       }
       else
       {
-        strcpy (bmeta[ib].name, "toa_band6_qa");
+        strcpy (bmeta[ib].name, "bt_band6_qa");
         if (allocate_bitmap_metadata (&bmeta[ib], 8) != SUCCESS)
           RETURN_ERROR("allocating 8 bits for the bitmap", "OpenOutput", NULL); 
         bmeta[ib].bitmap_description[0] =
