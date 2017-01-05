@@ -8,7 +8,7 @@
 include make.config
 
 DIR_LEDAPS = ledaps
-DIR_LaSRC = not-validated-prototype-lasrc
+DIR_LaSRC = lasrc
 
 #-----------------------------------------------------------------------------
 all: all-script all-ledaps all-lasrc
