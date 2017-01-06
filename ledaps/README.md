@@ -94,3 +94,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ## Release Notes
   1. Updated lndcal to change the band 6 brightness temp filenames to use bt_band6 instead of toa_band6.
   2. Updated lndcal to combine the TOA QA and band 6 QA (which identify fill and saturated pixels) into one QA band.  In this case, any pixel that has fill for any band will be marked as fill.  Previously reflectance and thermal fill values were treated separately.
+  3. Updated lndsr and lndsrbm to use the new brightness temp band name.
+  4. Updated lndsr to only read the single QA band and not expect two QA bands.

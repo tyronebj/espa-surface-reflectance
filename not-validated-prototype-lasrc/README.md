@@ -1,5 +1,5 @@
-## LaSRC Version 0.10.0 Release Notes
-Release Date: January 2017
+## LaSRC Version 0.11.0 Release Notes
+Release Date: February 2017
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/l8sr_auxiliary/l8sr_auxiliary.tar.gz
 
-See git tag [lasrc-version_0.10.0]
+See git tag [lasrc-version_0.11.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,5 +80,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Updated to utilize the new Level-1 band names which were changed in espa-product-formatter to be more consistent with the Level-1 naming convention.
-  2. Modified the ancillary code to remove libcrypto in the linking and also switched the include hdf_netcdf.h to netcdf.h.
+  1. Updated LaSRC to change the thermal brightness temp filenames to use bt_band6 instead of toa_band6.
