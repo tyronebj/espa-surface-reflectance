@@ -1,5 +1,5 @@
-## Ledaps Version 3.0.0 Release Notes
-Release Date: January 2017
+## Ledaps Version 3.1.0 Release Notes
+Release Date: February 2017
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2014.tar.gz
 
-See git tag [ledaps-version_3.0.0]
+See git tag [ledaps-version_3.1.0]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,6 +92,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Updated lndcal to utilize the new Level-1 band names which were changed in espa-product-formatter to be more consistent with the Level-1 naming convention.
-  2. Updated do_ledaps.py to identify Collection products and call the associated applications with the --process_collection command-line argument. If processing Collection products, then the per-pixel angle bands are generated for band 4.  This is the representative band for the per-pixel angle bands.
-  3. Modified lndcal to utilize the per-pixel angle bands for the representative band in the TOA corrections for Collection products.  These TOA-corrected products are fed into the lndsr code for surface reflectance corrections.
+  1. Updated lndcal to change the band 6 brightness temp filenames to use bt_band6 instead of toa_band6.
+  2. Updated lndcal to combine the TOA QA and band 6 QA (which identify fill and saturated pixels) into one QA band.  In this case, any pixel that has fill for any band will be marked as fill.  Previously reflectance and thermal fill values were treated separately.
