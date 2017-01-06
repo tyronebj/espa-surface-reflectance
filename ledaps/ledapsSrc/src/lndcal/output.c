@@ -75,7 +75,10 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
   else
     nband = input->nband_th;
 
-  if (mss_flag == 1) 
+  /* QA will not be writen for MSS data or for thermal.  In the case of the
+     thermal processing, the saturation QA band has already been generated as
+     part of the XML information in the reflectance bands. */
+  if (mss_flag == 1 || thermal)
     nband_tot = nband;
   else
     nband_tot = nband + NBAND_QA;
@@ -198,52 +201,27 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
     }
     else  /* QA band */
     {
-      if (!thermal)
-      {
-        /* Set up QA bitmap information */
-        strcpy (bmeta[ib].name, "toa_qa");
-        if (allocate_bitmap_metadata (&bmeta[ib], 8) != SUCCESS)
-          RETURN_ERROR("allocating 8 bits for the bitmap", "OpenOutput", NULL); 
+      /* Set up QA bitmap information */
+      strcpy (bmeta[ib].name, "radsat_qa");
+      if (allocate_bitmap_metadata (&bmeta[ib], 8) != SUCCESS)
+        RETURN_ERROR("allocating 8 bits for the bitmap", "OpenOutput", NULL); 
+      strcpy (bmeta[ib].bitmap_description[0],
+        "Data Fill Flag (0 = valid data, 1 = invalid data)");
+      strcpy (bmeta[ib].bitmap_description[1],
+        "Band 1 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[2],
+        "Band 2 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[3],
+        "Band 3 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[4],
+        "Band 4 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[5],
+        "Band 5 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[6],
+        "Band 6 Data Saturation Flag (0 = valid data, 1 = saturated data)");
+      strcpy (bmeta[ib].bitmap_description[7],
+        "Band 7 Data Saturation Flag (0 = valid data, 1 = saturated data)");
 
-        bmeta[ib].bitmap_description[0] =
-          "Data Fill Flag (0 = valid data, 1 = invalid data)";
-	    strcpy (bmeta[ib].bitmap_description[1],
-          "Band 1 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[2],
-          "Band 2 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[3],
-          "Band 3 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[4],
-          "Band 4 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[5],
-          "Band 5 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[6],
-          "Band 6 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[7],
-          "Band 7 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-      }
-      else
-      {
-        strcpy (bmeta[ib].name, "bt_band6_qa");
-        if (allocate_bitmap_metadata (&bmeta[ib], 8) != SUCCESS)
-          RETURN_ERROR("allocating 8 bits for the bitmap", "OpenOutput", NULL); 
-        bmeta[ib].bitmap_description[0] =
-          "Data Fill Flag (0 = valid data, 1 = invalid data)";
-	    strcpy (bmeta[ib].bitmap_description[1],
-          "Band 1 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[2],
-          "Band 2 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[3],
-          "Band 3 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[4],
-          "Band 4 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[5],
-          "Band 5 Data Saturation Flag (not set)");
-	    strcpy (bmeta[ib].bitmap_description[6],
-          "Band 6 Data Saturation Flag (0 = valid data, 1 = saturated data)");
-	    strcpy (bmeta[ib].bitmap_description[7],
-          "Band 7 Data Saturation Flag (not set)");
-      }
       bmeta[ib].data_type = ESPA_UINT8;
       bmeta[ib].fill_value = lut->qa_fill;
       strcpy (bmeta[ib].long_name, "QA band");

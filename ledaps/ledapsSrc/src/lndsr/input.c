@@ -94,12 +94,14 @@ Input_t *OpenInput(Espa_internal_meta_t *metadata, bool thermal)
     this->open[ib] = true;
   }
 
-  /* Open QA file for access */
-  this->fp_bin_qa = fopen(this->file_name_qa, "r");
-  if (this->fp_bin_qa == NULL) 
-    error_string = "opening QA binary file";
-  else
-    this->open_qa = true;
+  /* Open QA file for access, if not processing thermal band */
+  if (!thermal) {
+    this->fp_bin_qa = fopen(this->file_name_qa, "r");
+    if (this->fp_bin_qa == NULL) 
+      error_string = "opening QA binary file";
+    else
+      this->open_qa = true;
+  }
 
   if (error_string != NULL) {
     for (ib = 0; ib < this->nband; ib++) {
@@ -111,10 +113,13 @@ Input_t *OpenInput(Espa_internal_meta_t *metadata, bool thermal)
         this->open[ib] = false;
       }
     }
-    free(this->file_name_qa);
-    this->file_name_qa = NULL;
-    fclose(this->fp_bin_qa);  
-    this->open_qa = false;
+    if (!thermal) {
+      free(this->file_name_qa);
+      this->file_name_qa = NULL;
+      fclose(this->fp_bin_qa);  
+      this->open_qa = false;
+    }
+
     free(this);
     this = NULL;
     RETURN_ERROR(error_string, "OpenInput", NULL);
@@ -160,9 +165,8 @@ bool CloseInput(Input_t *this)
     }
   }
 
-  /*** now close the QA file ***/
-  if (this->open_qa) 
-  {
+  /*** now close the QA file, if it's open ***/
+  if (this->open_qa) {
     fclose(this->fp_bin_qa);
     this->open_qa = false;
   }
@@ -482,7 +486,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
                 this->file_name[5] = strdup (metadata->band[i].file_name);
             }
 
-            if (!strcmp (metadata->band[i].name, "toa_qa") &&
+            if (!strcmp (metadata->band[i].name, "radsat_qa") &&
                 !strcmp (metadata->band[i].product, "toa_refl"))
             {
                 this->file_name_qa = strdup (metadata->band[i].file_name);
@@ -501,12 +505,6 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
 
                 /* get the band1 info */
                 this->file_name[0] = strdup (metadata->band[i].file_name);
-            }
-
-            if (!strcmp (metadata->band[i].name, "bt_band6_qa") &&
-                !strcmp (metadata->band[i].product, "toa_bt"))
-            {
-                this->file_name_qa = strdup (metadata->band[i].file_name);
             }
         }  /* for i */
     }
