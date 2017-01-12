@@ -122,6 +122,47 @@ Input_t *open_input
         this->open_qa[ib] = true;
     }
 
+    this->fp_bin_sza = open_raw_binary (this->file_name_sza, "rb");
+    if (this->fp_bin_sza == NULL)
+    {
+        sprintf (errmsg, "Opening solar zenith raw binary file: %s",
+            this->file_name_sza);
+        error_handler (true, FUNC_NAME, errmsg);
+        free_input (this);
+        return (NULL);
+    }
+
+    this->fp_bin_saa = open_raw_binary (this->file_name_saa, "rb");
+    if (this->fp_bin_saa == NULL)
+    {
+        sprintf (errmsg, "Opening solar zenith raw binary file: %s",
+            this->file_name_saa);
+        error_handler (true, FUNC_NAME, errmsg);
+        free_input (this);
+        return (NULL);
+    }
+
+    this->fp_bin_vza = open_raw_binary (this->file_name_vza, "rb");
+    if (this->fp_bin_vza == NULL)
+    {
+        sprintf (errmsg, "Opening view zenith raw binary file: %s",
+            this->file_name_vza);
+        error_handler (true, FUNC_NAME, errmsg);
+        free_input (this);
+        return (NULL);
+    }
+
+    this->fp_bin_vaa = open_raw_binary (this->file_name_vaa, "rb");
+    if (this->fp_bin_vaa == NULL)
+    {
+        sprintf (errmsg, "Opening view zenith raw binary file: %s",
+            this->file_name_vaa);
+        error_handler (true, FUNC_NAME, errmsg);
+        free_input (this);
+        return (NULL);
+    }
+    this->open_ppa = true;
+
     /* Do a cursory check to make sure the bands and QA band exist and have
        been opened */
     if (!this->open[0])
@@ -143,6 +184,14 @@ Input_t *open_input
     if (!this->open_qa[0])
     {
         sprintf (errmsg, "QA band is not open.");
+        error_handler (true, FUNC_NAME, errmsg);
+        free_input (this);
+        return (NULL);
+    }
+
+    if (!this->open_ppa)
+    {
+        sprintf (errmsg, "Per-pixel angle bands are not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
@@ -207,6 +256,16 @@ void close_input
             close_raw_binary (this->fp_bin_qa[ib]);
             this->open_qa[ib] = false;
         }
+    }
+
+    /* Close the per-pixel angle band files */
+    if (this->open_ppa)
+    {
+        close_raw_binary (this->fp_bin_sza);
+        close_raw_binary (this->fp_bin_saa);
+        close_raw_binary (this->fp_bin_vza);
+        close_raw_binary (this->fp_bin_vaa);
+        this->open_ppa = false;
     }
 }
 
@@ -568,6 +627,131 @@ int get_input_qa_lines
 }
 
 
+/******************************************************************************
+MODULE:  get_input_ppa_lines
+
+PURPOSE:  Reads the per-pixel angle data for the current solar/view angle bands
+and populates the output buffer.
+
+RETURN VALUE:
+Type = int
+Value      Description
+-----      -----------
+ERROR      Error occurred reading data for these bands
+SUCCESS    Successful completion
+
+NOTES:
+  1. The Input_t data structure needs to be populated and memory allocated
+     before calling this routine.  Use open_input to do that.
+******************************************************************************/
+int get_input_ppa_lines
+(
+    Input_t *this,   /* I: pointer to input data structure */
+    int iline,       /* I: current line to read (0-based) */
+    int nlines,      /* I: number of lines to read */
+    int16 *sza_arr, /* O: output solar zenith array to populate */
+    int16 *saa_arr, /* O: output solar azimuth array to populate */
+    int16 *vza_arr, /* O: output view zenith array to populate */
+    int16 *vaa_arr  /* O: output view azimuth array to populate */
+)
+{
+    char FUNC_NAME[] = "get_input_ppa_lines";   /* function name */
+    char errmsg[STR_SIZE];    /* error message */
+    long loc;                 /* current location in the input file */
+  
+    /* Check the parameters */
+    if (this == NULL) 
+    {
+        strcpy (errmsg, "Input structure has not been opened/initialized");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+    if (!this->open_ppa)
+    {
+        strcpy (errmsg, "Per-pixel angle bands have not been opened");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+    if (iline < 0 || iline >= this->size_ppa.nlines)
+    {
+        strcpy (errmsg, "Invalid line number for per-pixel angle bands");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+  
+    /* Read the solar zenith data, but first seek to the correct line */
+    loc = (long) iline * this->size_ppa.nsamps * sizeof (int16);
+    if (fseek (this->fp_bin_sza, loc, SEEK_SET))
+    {
+        strcpy (errmsg, "Seeking to the current line in the sza input file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (read_raw_binary (this->fp_bin_sza, nlines, this->size_ppa.nsamps,
+        sizeof (int16), sza_arr) != SUCCESS)
+    {
+        sprintf (errmsg, "Reading %d lines from solar zenith band starting "
+            "at line %d", nlines, iline);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+  
+    /* Read the solar azimuth data, but first seek to the correct line */
+    if (fseek (this->fp_bin_saa, loc, SEEK_SET))
+    {
+        strcpy (errmsg, "Seeking to the current line in the saa input file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (read_raw_binary (this->fp_bin_saa, nlines, this->size_ppa.nsamps,
+        sizeof (int16), saa_arr) != SUCCESS)
+    {
+        sprintf (errmsg, "Reading %d lines from solar azimuth band starting "
+            "at line %d", nlines, iline);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+  
+    /* Read the view zenith data, but first seek to the correct line */
+    if (fseek (this->fp_bin_vza, loc, SEEK_SET))
+    {
+        strcpy (errmsg, "Seeking to the current line in the vza input file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (read_raw_binary (this->fp_bin_vza, nlines, this->size_ppa.nsamps,
+        sizeof (int16), vza_arr) != SUCCESS)
+    {
+        sprintf (errmsg, "Reading %d lines from view zenith band starting "
+            "at line %d", nlines, iline);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Read the view azimuth data, but first seek to the correct line */
+    if (fseek (this->fp_bin_vaa, loc, SEEK_SET))
+    {
+        strcpy (errmsg, "Seeking to the current line in the vaa input file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (read_raw_binary (this->fp_bin_vaa, nlines, this->size_ppa.nsamps,
+        sizeof (int16), vaa_arr) != SUCCESS)
+    {
+        sprintf (errmsg, "Reading %d lines from view azimuth band starting "
+            "at line %d", nlines, iline);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    return (SUCCESS);
+}
+
+
 #define DATE_STRING_LEN (50)
 #define TIME_STRING_LEN (50)
 
@@ -604,6 +788,10 @@ int get_xml_input
     int th_indx=-9;      /* band index in XML file for the thermal band */
     int pan_indx=-9;     /* band index in XML file for the pan band */
     int qa_indx=-9;      /* band index in XML file for the QA band */
+    int sza_indx=-9;     /* band index in XML file for the solar zenith band */
+    int saa_indx=-9;     /* band index in XML file for the solar azimuth band */
+    int vza_indx=-9;     /* band index in XML file for the view zenith band */
+    int vaa_indx=-9;     /* band index in XML file for the view azimuth band */
     Espa_global_meta_t *gmeta = &metadata->global; /* pointer to global meta */
 
     /* Initialize the input fields */
@@ -662,6 +850,16 @@ int get_xml_input
         this->open_qa[ib] = false;
         this->fp_bin_qa[ib] = NULL;
     }
+
+    this->file_name_sza = NULL;
+    this->file_name_saa = NULL;
+    this->file_name_vza = NULL;
+    this->file_name_vaa = NULL;
+    this->open_ppa = NULL;
+    this->fp_bin_sza = NULL;
+    this->fp_bin_saa = NULL;
+    this->fp_bin_vza = NULL;
+    this->fp_bin_vaa = NULL;
 
     /* Pull the appropriate data from the XML file */
     acq_date[0] = acq_time[0] = '\0';
@@ -872,6 +1070,39 @@ int get_xml_input
             /* get the QA band info */
             this->file_name_qa[0] = strdup (metadata->band[i].file_name);
         }
+
+        else if (!strcmp (metadata->band[i].name, "solar_zenith_band4"))
+        {
+            /* this is the index we'll use for sza band info */
+            sza_indx = i;
+
+            /* get the solar zenith band info */
+            this->file_name_sza = strdup (metadata->band[i].file_name);
+        }
+        else if (!strcmp (metadata->band[i].name, "solar_azimuth_band4"))
+        {
+            /* this is the index we'll use for saa band info */
+            saa_indx = i;
+
+            /* get the solar azimuth band info */
+            this->file_name_saa = strdup (metadata->band[i].file_name);
+        }
+        else if (!strcmp (metadata->band[i].name, "sensor_zenith_band4"))
+        {
+            /* this is the index we'll use for vza band info */
+            vza_indx = i;
+
+            /* get the view zenith band info */
+            this->file_name_vza = strdup (metadata->band[i].file_name);
+        }
+        else if (!strcmp (metadata->band[i].name, "sensor_azimuth_band4"))
+        {
+            /* this is the index we'll use for vaa band info */
+            vaa_indx = i;
+
+            /* get the view azimuth band info */
+            this->file_name_vaa = strdup (metadata->band[i].file_name);
+        }
     }  /* for i */
 
     /* Make sure the bands were found in the XML file */
@@ -899,6 +1130,31 @@ int get_xml_input
     if (qa_indx == -9)
     {
         sprintf (errmsg, "QA band (bqa) was not found in the XML file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (sza_indx == -9)
+    {
+        sprintf (errmsg, "Solar zenith band was not found in the XML file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+    if (saa_indx == -9)
+    {
+        sprintf (errmsg, "Solar azimuth band was not found in the XML file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+    if (vza_indx == -9)
+    {
+        sprintf (errmsg, "View zenith band was not found in the XML file");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+    if (vaa_indx == -9)
+    {
+        sprintf (errmsg, "View azimuth band was not found in the XML file");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
@@ -938,6 +1194,12 @@ int get_xml_input
     this->size_qa.nlines = metadata->band[qa_indx].nlines;
     this->size_qa.pixsize[0] = metadata->band[qa_indx].pixel_size[0];
     this->size_qa.pixsize[1] = metadata->band[qa_indx].pixel_size[1];
+
+    /* Assume the per-pixel angle bands all have the same size and resolution */
+    this->size_ppa.nsamps = metadata->band[sza_indx].nsamps;
+    this->size_ppa.nlines = metadata->band[sza_indx].nlines;
+    this->size_ppa.pixsize[0] = metadata->band[sza_indx].pixel_size[0];
+    this->size_ppa.pixsize[1] = metadata->band[sza_indx].pixel_size[1];
 
     /* Check WRS path/rows */
     if (this->meta.wrs_sys == WRS_1)

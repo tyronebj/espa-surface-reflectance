@@ -1,6 +1,5 @@
 #include "lasrc.h"
 #include "time.h"
-#include "possolp.h"
 
 /******************************************************************************
 MODULE:  compute_toa_refl
@@ -32,27 +31,19 @@ int compute_toa_refl
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
+    int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
+                              nlines x nsamps */
     int16 **sband       /* O: output TOA reflectance and brightness temp
                               values (scaled) */
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
     char FUNC_NAME[] = "compute_toa_refl";   /* function name */
-    int retval;          /* return status */
     int i;               /* looping variable for pixels */
     int line, samp;      /* looping variables for lines and samples */
     int ib;              /* looping variable for input bands */
     int sband_ib;        /* looping variable for output bands */
     int iband;           /* current band */
-    int center_line;     /* line index for the non-fill scene center */
-    int center_samp;     /* sample index for the non-fill scene center */
-    int doy;             /* day of year of acquisition */
-    int hour;            /* hour of acquisition */
-    int minute;          /* minute of acquisition */
-    int second;          /* second of acquisition */
-    int rj;              /* value for computing the solar angles */
-    double rotang;       /* image rotation angle (degrees) */
-    double rotang_rad;   /* image rotation angle (radians) */
     float rotoa;         /* top of atmosphere reflectance */
     float tmpf;          /* temporary floating point value */
     float refl_mult;     /* reflectance multiplier for bands 1-9 */
@@ -64,38 +55,10 @@ int compute_toa_refl
     float k2b10;         /* K2 temperature constant for band 10 */
     float k2b11;         /* K2 temperature constant for band 11 */
     float xmus;          /* cosine of solar zenith angle (per-pixel) */
-    float sza;           /* per-pixel solar zenith angle */
-    float saa;           /* per-pixel solar azimuth angle */
-    float lat, lon;      /* pixel lat, long location */
-    double dt;           /* delta time for computing solar angle */
-    double tu;           /* acquisition time in floating point hours */
-    double xtu;          /* acquisition time for current pixel */
     uint16 *uband = NULL;  /* array for input image data for a single band,
                               nlines x nsamps */
 
-    /* Vars for forward/inverse mapping space */
-    Geoloc_t *space = NULL;       /* structure for geolocation information */
-    Space_def_t space_def;        /* structure to define the space mapping */
-    Img_coord_float_t img;        /* coordinate in line/sample space */
-    Geo_coord_t geo;              /* coordinate in lat/long space */
-
-    /* Initialize the geolocation space applications */
-    if (!get_geoloc_info (xml_metadata, &space_def))
-    {
-        sprintf (errmsg, "Getting the space definition from the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-
-    space = setup_mapping (&space_def);
-    if (space == NULL)
-    {
-        sprintf (errmsg, "Setting up the geolocation mapping");
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-
-    /* Allocate space for band data */
+    /* Allocate memory for band data */
     uband = calloc (nlines*nsamps, sizeof (uint16));
     if (uband == NULL)
     {
@@ -104,28 +67,8 @@ int compute_toa_refl
         return (ERROR);
     }
 
-    /* Determine the scene center and image rotation. Scene center is based
-       on actual valid image data versus the corners of the scene. */
-    retval = scene_center_and_image_rotation (nlines, nsamps, qaband,
-        &center_line, &center_samp, &rotang);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Error determining the scene center for non-fill "
-            "values as well as the rotation angle.");
-        error_handler (false, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Convert the scene acquisition time to fractional hours */
-    doy = input->meta.acq_date.doy;
-    hour = input->meta.acq_date.hour;
-    minute = input->meta.acq_date.minute;
-    second = input->meta.acq_date.second;
-    tu = hour + ((minute + second / 60.0) / 60.0);
-
     /* Loop through all the bands (except the pan band) and compute the TOA
        reflectance and at-sensor brightness temp */
-    rotang_rad = rotang * DEG2RAD;
     for (ib = DN_BAND1; ib <= DN_BAND11; ib++)
     {
         /* Don't process the pan band */
@@ -162,7 +105,7 @@ int compute_toa_refl
             refl_add = input->meta.bias[iband];
 
 #ifdef _OPENMP
-            #pragma omp parallel for private (line, samp, i, img, geo, lat, lon, rj, dt, xtu, sza, saa, xmus, rotoa)
+            #pragma omp parallel for private (line, samp, i, xmus, rotoa)
 #endif
             for (line = 0; line < nlines; line++)
             {
@@ -172,32 +115,10 @@ int compute_toa_refl
                     /* If this pixel is not fill */
                     if (qaband[i] != 1)
                     {
-                        /* Get the lat/long for the current pixel, for the
-                           center of the pixel */
-                        img.l = line - 0.5;
-                        img.s = samp + 0.5;
-                        img.is_fill = false;
-                        if (!from_space (space, &img, &geo))
-                        {
-                            sprintf (errmsg, "Mapping line/sample (%d, %d) to "
-                                "geolocation coords", line, samp);
-                            error_handler (true, FUNC_NAME, errmsg);
-                            exit (ERROR);
-                        }
-                        lat = geo.lat * RAD2DEG;
-                        lon = geo.lon * RAD2DEG;
-
-                        /* Determine the solar angles for the current pixel
-                           (solar azimuth is not used) */
-                        rj = (int)((samp - center_samp) * sin(-rotang_rad) +
-                                   (line - center_line) * cos(-rotang_rad));
-                        dt = -(rj * 32.0 / 6524.0) / 60.0 / 60.0;
-                        xtu = tu + dt;
-                        possolp (doy, xtu, lon, lat, &sza, &saa);
-                        xmus = cos(sza * DEG2RAD);
-
                         /* Compute the TOA reflectance based on the per-pixel
-                           sun angle.  Scale the value for output. */
+                           sun angle (need to unscale). Scale the TOA value for
+                           output. */
+                        xmus = cos(sza[i] * 0.01 * DEG2RAD);
                         rotoa = (uband[i] * refl_mult) + refl_add;
                         rotoa = rotoa * MULT_FACTOR / xmus;
     
@@ -322,7 +243,6 @@ int compute_toa_refl
 
     /* The input data has been read and calibrated. The memory can be freed. */
     free (uband);
-    free (space);
 
     /* Successful completion */
     return (SUCCESS);
@@ -371,6 +291,14 @@ int compute_sr_refl
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
     int16 **sband,      /* I/O: input TOA and output surface reflectance */
+    int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
+                              nlines x nsamps */
+    int16 *saa,         /* I: scaled per-pixel solar azimuth angles (degrees),
+                              nlines x nsamps */
+    int16 *vza,         /* I: scaled per-pixel view zenith angles (degrees),
+                              nlines x nsamps */
+    int16 *vaa,         /* I: scaled per-pixel view azimuth angles (degrees),
+                              nlines x nsamps */
     float xts,          /* I: solar zenith angle (deg) */
     float xfs,          /* I: solar azimuth angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
@@ -378,7 +306,6 @@ int compute_sr_refl
     char *intrefnm,     /* I: intrinsic reflectance filename */
     char *transmnm,     /* I: transmission filename */
     char *spheranm,     /* I: spherical albedo filename */
-    char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
@@ -425,23 +352,6 @@ int compute_sr_refl
 #ifndef _OPENMP
     int curr_tmp_percent; /* percentage for current line */
 #endif
-
-    double rotang;       /* image rotation angle (degrees) */
-    double rotang_rad;   /* image rotation angle (radians) */
-    int center_line;     /* line index for the non-fill scene center */
-    int center_samp;     /* sample index for the non-fill scene center */
-    int doy;             /* day of year of acquisition */
-    int hour;            /* hour of acquisition */
-    int minute;          /* minute of acquisition */
-    int second;          /* second of acquisition */
-    float sza;           /* per-pixel solar zenith angle */
-    float saa;           /* per-pixel solar azimuth angle */
-    float half_geom_indx;/* index halfway into the sza and saa arrays */
-    double tu;           /* acquisition time in floating point hours */
-    double xtu;          /* acquisition time for current pixel */
-    int ri;              /* value for computing the solar angles */
-    int rj;              /* value for computing the solar angles */
-    double dt;           /* delta time for computing solar angle */
 
     float lat, lon;       /* pixel lat, long location */
     int lcmg, scmg;       /* line/sample index for the CMG */
@@ -499,10 +409,6 @@ int compute_sr_refl
     float ***normext = NULL;    /* aerosol extinction coefficient at the
                                    current wavelength (normalized at 550nm)
                                    [NSR_BANDS][7][22] */
-    int16 *vza = NULL;          /* L8 view zenith angle table [6366], scaled
-                                   by 100 */
-    int16 *vaa = NULL;          /* L8 view azimuth angle table [6366], scaled
-                                   by 100  */
     float **tsmax = NULL;       /* maximum scattering angle table [20][22] */
     float **tsmin = NULL;       /* minimum scattering angle table [20][22] */
     float **nbfi = NULL;        /* number of azimuth angles [20][22] */
@@ -512,8 +418,6 @@ int compute_sr_refl
     float tts[22];              /* sun angle table */
     int32 indts[22];            /* index for sun angle table */
     int iaots;                  /* index for AOTs */
-    float viewzenith;           /* view zenith angle for current pixel */
-    float viewazimuth;          /* view azimuth angle for current pixel */
 
     /* Auxiliary file variables */
     int16 *dem = NULL;        /* CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
@@ -623,8 +527,8 @@ int compute_sr_refl
         &aerob5, &aerob7, &ipflag, &twvi, &tozi, &tp, &taero, &taeros, &teps,
         &tepss, &smflag, &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7,
         &intratiob1, &intratiob2, &intratiob7, &slpratiob1, &slpratiob2,
-        &slpratiob7, &wv, &oz, &rolutt, &transt, &sphalbt, &normext, &vza,
-        &vaa, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
+        &slpratiob7, &wv, &oz, &rolutt, &transt, &sphalbt, &normext, &tsmax,
+        &tsmin, &nbfic, &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
@@ -651,12 +555,12 @@ int compute_sr_refl
 
     /* Initialize the look up tables and atmospheric correction variables */
     retval = init_sr_refl (nlines, nsamps, input, space, anglehdf, intrefnm,
-        transmnm, spheranm, geomhdf, cmgdemnm, rationm, auxnm, &eps, &iaots,
-        &xtv, &xmuv, &xfi, &cosxfi, &raot550nm, &pres, &uoz, &uwv, &xtsstep,
+        transmnm, spheranm, cmgdemnm, rationm, auxnm, &eps, &iaots, &xtv,
+        &xmuv, &xfi, &cosxfi, &raot550nm, &pres, &uoz, &uwv, &xtsstep,
         &xtsmin, &xtvstep, &xtvmin, tsmax, tsmin, tts, ttv, indts, rolutt,
-        transt, sphalbt, normext, vza, vaa, nbfic, nbfi, dem, andwi, sndwi,
-        ratiob1, ratiob2, ratiob7, intratiob1, intratiob2, intratiob7,
-        slpratiob1, slpratiob2, slpratiob7, wv, oz);
+        transt, sphalbt, normext, nbfic, nbfi, dem, andwi, sndwi, ratiob1,
+        ratiob2, ratiob7, intratiob1, intratiob2, intratiob7, slpratiob1,
+        slpratiob2, slpratiob7, wv, oz);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error initializing the lookup tables and "
@@ -664,30 +568,6 @@ int compute_sr_refl
         error_handler (false, FUNC_NAME, errmsg);
         return (ERROR);
     }
-
-    /* Determine the scene center and image rotation. Scene center is based
-       on actual valid image data versus the corners of the scene. */
-    retval = scene_center_and_image_rotation (nlines, nsamps, qaband,
-        &center_line, &center_samp, &rotang);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Error determining the scene center for non-fill "
-            "values as well as the rotation angle.");
-        error_handler (false, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Convert the scene acquisition time to fractional hours */
-    doy = input->meta.acq_date.doy;
-    hour = input->meta.acq_date.hour;
-    minute = input->meta.acq_date.minute;
-    second = input->meta.acq_date.second;
-    tu = hour + ((minute + second / 60.0) / 60.0);
-
-    /* Loop through all the bands (except the pan band) and compute the TOA
-       reflectance and at-sensor brightness temp */
-    half_geom_indx = 6366 / 2.0;
-    rotang_rad = rotang * DEG2RAD;
 
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
@@ -770,7 +650,7 @@ int compute_sr_refl
     printf ("Interpolating the auxiliary data ...\n");
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, th1, th2, ri, rj, dt, viewzenith, viewazimuth, xtu, sza, saa, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, th1, th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i++)
     {
@@ -1107,26 +987,12 @@ int compute_sr_refl
             troatm[DN_BAND4] = aerob4[curr_pix] * SCALE_FACTOR;
             troatm[DN_BAND7] = aerob7[curr_pix] * SCALE_FACTOR;
 
-            /* Determine the solar and view angles for the current pixel,
-               using already calculated lat/long */
-            ri = (int)(half_geom_indx + (j - center_samp) * cos(-rotang_rad) -
-                                        (i - center_line) * sin(-rotang_rad));
-            rj = (int)((j - center_samp) * sin(-rotang_rad) +
-                       (i - center_line) * cos(-rotang_rad));
-            dt = -(rj * 32.0 / 6524.0) / 60.0 / 60.0;
-            if (ri < 0)
-                ri = 0;
-            if (ri >= 6366)
-                ri = 6366 - 1;
-            viewzenith = vza[ri];
-            viewazimuth = vaa[ri];
-            xtu = tu + dt;
-            possolp (doy, xtu, lon, lat, &sza, &saa);
-            xtv = viewzenith * 0.01;              /* vs. / 100. */
+            /* Determine the solar and view angles for the current pixel */
+            xtv = vza[curr_pix] * 0.01;
             xmuv = cos(xtv * DEG2RAD);
-            xts = sza;
-            xmus = cos(sza * DEG2RAD);
-            xfi = saa - (viewazimuth * 0.01);     /* vs / 100. */
+            xts = sza[curr_pix] * 0.01;
+            xmus = cos(xts * DEG2RAD);
+            xfi = saa[curr_pix] * 0.01 - vaa[curr_pix] * 0.01 ;
             cosxfi = cos(xfi * DEG2RAD);
 
             /* Retrieve the aerosol information for eps 1.0 */
@@ -1653,7 +1519,7 @@ int compute_sr_refl
     {
         printf ("  Band %d\n", ib+1);
 #ifdef _OPENMP
-        #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, ri, rj, dt, viewzenith, viewazimuth, xtu, sza, saa, xtv, xts, xmus, xmuv, xfi, cosxfi, rsurf, rotoa, raot550nm, eps, pres, uwv, uoz, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
+        #pragma omp parallel for private (i, j, curr_pix, xtv, xts, xmus, xmuv, xfi, cosxfi, rsurf, rotoa, raot550nm, eps, pres, uwv, uoz, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
         for (i = 0; i < nlines; i++)
         {
@@ -1664,42 +1530,12 @@ int compute_sr_refl
                 if (qaband[curr_pix] == 1)
                     continue;
 
-                /* Get the lat/long for the current pixel, for the center of
-                   the pixel */
-                img.l = i - 0.5;
-                img.s = j + 0.5;
-                img.is_fill = false;
-                if (!from_space (space, &img, &geo))
-                {
-                    sprintf (errmsg, "Mapping line/sample (%d, %d) to "
-                        "geolocation coords", i, j);
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
-                lat = geo.lat * RAD2DEG;
-                lon = geo.lon * RAD2DEG;
-
-                /* Determine the solar and view angles for the current pixel,
-                   using already calculated lat/long */
-                ri = (int)(half_geom_indx +
-                           (j - center_samp) * cos(-rotang_rad) -
-                           (i - center_line) * sin(-rotang_rad));
-                rj = (int)((j - center_samp) * sin(-rotang_rad) +
-                           (i - center_line) * cos(-rotang_rad));
-                dt = -(rj * 32.0 / 6524.0) / 60.0 / 60.0;
-                if (ri < 0)
-                    ri = 0;
-                if (ri >= 6366)
-                    ri = 6366 - 1;
-                viewzenith = vza[ri];
-                viewazimuth = vaa[ri];
-                xtu = tu + dt;
-                possolp (doy, xtu, lon, lat, &sza, &saa);
-                xtv = viewzenith * 0.01;              /* vs. / 100. */
+                /* Determine the solar and view angles for the current pixel */
+                xtv = vza[curr_pix] * 0.01;
                 xmuv = cos(xtv * DEG2RAD);
-                xts = sza;
-                xmus = cos(sza * DEG2RAD);
-                xfi = saa - (viewazimuth * 0.01);     /* vs / 100. */
+                xts = sza[curr_pix] * 0.01;
+                xmus = cos(xts * DEG2RAD);
+                xfi = saa[curr_pix] * 0.01 - vaa[curr_pix] * 0.01;
                 cosxfi = cos(xfi * DEG2RAD);
 
                 /* Correct all pixels */
@@ -1772,8 +1608,6 @@ int compute_sr_refl
     free (tp);
     free (taero);
     free (teps);
-    free (vza);
-    free (vaa);
  
     /* Write the data to the output file */
     printf ("Writing surface reflectance corrected data to the output "
@@ -1958,7 +1792,6 @@ int init_sr_refl
     char *intrefnm,     /* I: intrinsic reflectance filename */
     char *transmnm,     /* I: transmission filename */
     char *spheranm,     /* I: spherical albedo filename */
-    char *geomhdf,      /* I: L8 geometry HDF filename */
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
@@ -1990,8 +1823,6 @@ int init_sr_refl
     float ***normext,   /* O: aerosol extinction coefficient at the current
                               wavelength (normalized at 550nm)
                               [NSR_BANDS][7][22] */
-    int16 vza[6366],    /* O: view zenith angle table */
-    int16 vaa[6366],    /* O: view azimuth angle table */
     float **nbfic,      /* O: communitive number of azimuth angles [20][22] */
     float **nbfi,       /* O: number of azimuth angles [20][22] */
     int16 *dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
@@ -2035,8 +1866,8 @@ int init_sr_refl
     *xtvmin = 2.84090;
     *xtvstep = 6.52107 - *xtvmin;
     retval = readluts (tsmax, tsmin, ttv, tts, nbfic, nbfi, indts, rolutt,
-        transt, sphalbt, normext, vza, vaa, *xtsstep, *xtsmin, anglehdf,
-        intrefnm, transmnm, spheranm, geomhdf);
+        transt, sphalbt, normext, *xtsstep, *xtsmin, anglehdf,
+        intrefnm, transmnm, spheranm);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Reading the LUTs");
@@ -2121,202 +1952,5 @@ int init_sr_refl
     *raot550nm = 0.05;
 
     /* Successful completion */
-    return (SUCCESS);
-}
-
-
-/******************************************************************************
-MODULE:  scene_center_and_image_rotation
-
-PURPOSE:  Finds the actual image corners without fill data, then determines
-the scene center and image rotation from those corners.
-
-RETURN VALUE:
-Type = int
-Value           Description
------           -----------
-ERROR           Error finding the non-fill corners
-SUCCESS         No errors encountered
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-1. The view angle is set to 0.0 and this never changes.
-******************************************************************************/
-int scene_center_and_image_rotation
-(
-    int nlines,           /* I: number of lines in reflectance, thermal bands */
-    int nsamps,           /* I: number of samps in reflectance, thermal bands */
-    uint16 *qaband,       /* I: QA band for the input image, nlines x nsamps */
-    int *center_line,     /* O: line index for the scene center */
-    int *center_samp,     /* O: sample index for the scene center */
-    double *rotate_angle  /* O: image rotation angle (degrees) */
-)
-{
-    char errmsg[STR_SIZE];                                /* error message */
-    char FUNC_NAME[] = "scene_center_and_image_rotation"; /* function name */
-    int line;       /* current line location */
-    int samp;       /* current sample location */
-    int curr_pix;   /* current pixel in the band */
-    int c1l, c1s;   /* line, sample location of the first corner */
-    int c2l, c2s;   /* line, sample location of the second corner */
-    int c3l, c3s;   /* line, sample location of the third corner */
-    int c4l, c4s;   /* line, sample location of the fourth corner */
-    bool found;     /* was a non-fill pixel found */
-
-    /* Look for the first corner pixel that is not fill. This starts at the UL
-       of the image and scans across the lines of the scene, from left to
-       right and top to bottom. */
-    found = false;
-    for (line = 0; line < nlines; line++)
-    {
-        curr_pix = line * nsamps;
-        for (samp = 0; samp < nsamps; samp++, curr_pix++)
-        {
-            /* If this pixel is not fill */
-            if (qaband[curr_pix] != 1)
-            {
-                found = true;
-                c1s = samp;
-                c1l = line;
-                break;
-            }
-        }
-
-        if (found)
-            break;
-    }
-
-    if (!found)
-    {
-        sprintf (errmsg, "Error looking for the non-fill corners (c1)");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("DEBUG: first corner line, samp - %d, %d\n", c1l, c1s);
-
-    /* Look for the second corner pixel that is not fill. This starts at the UR
-       of the image and scans down the pixels of the scene, from top to bottom
-       and right to left. */
-    found = false;
-    for (samp = nsamps-1; samp >= 0; samp--)
-    {
-        for (line = 0; line < nlines; line++)
-        {
-            /* If this pixel is not fill */
-            curr_pix = line * nsamps + samp;
-            if (qaband[curr_pix] != 1)
-            {
-                found = true;
-                c2s = samp;
-                c2l = line;
-                break;
-            }
-        }
-
-        if (found)
-            break;
-    }
-
-    if (!found)
-    {
-        sprintf (errmsg, "Error looking for the non-fill corners (c2)");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("DEBUG: second corner line, samp - %d, %d\n", c2l, c2s);
-
-    /* Look for the third corner pixel that is not fill. This starts at the LL
-       of the image and scans across the lines of the scene, from left to
-       right and bottom to top. */
-    found = false;
-    for (line = nlines-1; line >= 0; line--)
-    {
-        curr_pix = line * nsamps;
-        for (samp = 0; samp < nsamps; samp++, curr_pix++)
-        {
-            /* If this pixel is not fill */
-            if (qaband[curr_pix] != 1)
-            {
-                found = true;
-                c3s = samp;
-                c3l = line;
-                break;
-            }
-        }
-
-        if (found)
-            break;
-    }
-
-    if (!found)
-    {
-        sprintf (errmsg, "Error looking for the non-fill corners (c3)");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("DEBUG: third corner line, samp - %d, %d\n", c3l, c3s);
-
-    /* Look for the fourth corner pixel that is not fill. This starts at the LL
-       of the image and scans across the lines of the scene, from left to right
-       and bottom to top. */
-    found = false;
-    for (samp = 0; samp < nsamps; samp++)
-    {
-        for (line = nlines-1; line >= 0; line--)
-        {
-            /* If this pixel is not fill */
-            curr_pix = line * nsamps + samp;
-            if (qaband[curr_pix] != 1)
-            {
-                found = true;
-                c4s = samp;
-                c4l = line;
-                break;
-            }
-        }
-
-        if (found)
-            break;
-    }
-
-    if (!found)
-    {
-        sprintf (errmsg, "Error looking for the non-fill corners (c4)");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("DEBUG: fourth corner line, samp - %d, %d\n", c4l, c4s);
-
-/* TODO GAIL remove these after debugging */
-/* LC80470272013287LGN00
-c1l = 11-1; c1s = 1701-1;
-c2l = 1645-1; c2s = 7851-1;
-c3l = 7983-1; c3s = 6150-1;
-c4l = 6317-1; c4s = 10-1; */
-
-/* LC81440402015045LGN00
-c1l = 12-1; c1s = 1467-1;
-c2l = 1391-1; c2s = 7631-1;
-c3l = 7804-1; c3s = 6194-1;
-c4l = 6395-1; c4s = 18-1; */
-
-/* LC81680812016120LGN00
-c1l = 12-1; c1s = 1331-1;
-c2l = 1300-1; c2s = 7610-1;
-c3l = 7701-1; c3s = 6310-1;
-c4l = 6421-1; c4s = 19-1; */
-
-    /* Determine the scene center of the non-fill imagery */
-    *center_samp = (c1s + c2s + c3s + c4s) / 4.0;
-    *center_line = (c1l + c2l + c3l + c4l) / 4.0;
-    printf ("DEBUG: scene center line, samp - %d, %d\n", *center_line, *center_samp);
-
-    /* Determine the image rotation angle in degrees */
-    *rotate_angle = atan ((float) (c2l - c1l) / (float) (c2s - c1s)) * RAD2DEG;
-    printf ("DEBUG: scene rotation angle - %lf\n", *rotate_angle);
-
-    /* Successful processing */
     return (SUCCESS);
 }

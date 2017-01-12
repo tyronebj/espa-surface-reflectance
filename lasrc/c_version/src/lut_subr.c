@@ -1194,17 +1194,12 @@ int readluts
     float ***normext,           /* O: aerosol extinction coefficient at the
                                       current wavelength (normalized at 550nm)
                                       [NSR_BANDS][7][22] */
-    int16 vza[6366],            /* O: L8 view zenith angle table, scaled
-                                      by 100 */
-    int16 vaa[6366],            /* O: L8 view azimuth angle table, scaled
-                                      by 100 */
     float xtsstep,              /* I: solar zenith step value */
     float xtsmin,               /* I: minimum solar zenith value */
     char anglehdf[STR_SIZE],    /* I: angle HDF filename */
     char intrefnm[STR_SIZE],    /* I: intrinsic reflectance filename */
     char transmnm[STR_SIZE],    /* I: transmission filename */
-    char spheranm[STR_SIZE],    /* I: spherical albedo filename */
-    char geomhdf[STR_SIZE]      /* I: L8 geometry HDF filename */
+    char spheranm[STR_SIZE]     /* I: spherical albedo filename */
 )
 {
     char FUNC_NAME[] = "readluts";   /* function name */
@@ -1772,93 +1767,6 @@ int readluts
     /* Close spherical albedo file */
     fclose (fp);
 
-    /* Open as HDF file for reading */
-    sd_id = SDstart (geomhdf, DFACC_RDONLY);
-    if (sd_id < 0)
-    {
-        sprintf (errmsg, "Unable to open %s for reading as SDS", geomhdf);
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Read the 1D bands from the L8 geometry HDF file */
-    start[0] = 0;   /* lines */
-    start[1] = 0;   /* samples */
-    start[2] = 0;   /* just to zero it out from above HDF reads */
-    edges[0] = 1;     /* number of lines */
-    edges[1] = 6366;  /* number of samples */
-    edges[2] = 0;     /* just to zero it out from above HDF reads */
-
-    /* Find the viewzenithangle SDS */
-    sds_index = SDnametoindex (sd_id, "viewzenithangle");
-    if (sds_index == -1)
-    {
-        sprintf (errmsg, "Unable to find viewzenithangle in the HDF file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Open the current band as an SDS */
-    sds_id = SDselect (sd_id, sds_index);
-    if (sds_id < 0)
-    {
-        sprintf (errmsg, "Unable to access viewzenithangle for reading");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    status = SDreaddata (sds_id, start, NULL, edges, vza);
-    if (status == -1)
-    {
-        sprintf (errmsg, "Reading data from the viewzenithangle SDS");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Close the HDF SDS */
-    status = SDendaccess (sds_id);
-    if (status == -1)
-    {
-        sprintf (errmsg, "Ending access to viewzenithangle SDS");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Find the viewazimuthangle SDS */
-    sds_index = SDnametoindex (sd_id, "viewazimuthangle");
-    if (sds_index == -1)
-    {
-        sprintf (errmsg, "Unable to find viewazimuthangle in the HDF file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Open the current band as an SDS */
-    sds_id = SDselect (sd_id, sds_index);
-    if (sds_id < 0)
-    {
-        sprintf (errmsg, "Unable to access viewazimuthangle for reading");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    status = SDreaddata (sds_id, start, NULL, edges, vaa);
-    if (status == -1)
-    {
-        sprintf (errmsg, "Reading data from the viewazimuthangle SDS");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Close the HDF SDS */
-    status = SDendaccess (sds_id);
-    if (status == -1)
-    {
-        sprintf (errmsg, "Ending access to viewazimuthangle SDS");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
     /* Successful completion */
     return (SUCCESS);
 }
@@ -1887,6 +1795,10 @@ int memory_allocation_main
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
+    int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
+    int16 **saa,         /* O: solar azimuth angle table, nlines x nsamps */
+    int16 **vza,         /* O: view zenith angle, nlines x nsamps  */
+    int16 **vaa,         /* O: view azimuth angle table, nlines x nsamps */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     int16 ***sband       /* O: output surface reflectance and brightness temp
                                bands */
@@ -1895,6 +1807,38 @@ int memory_allocation_main
     char FUNC_NAME[] = "memory_allocation_main"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
     int i;                   /* looping variables */
+
+    *sza = calloc (nlines*nsamps, sizeof (int16));
+    if (*sza == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for sza");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *saa = calloc (nlines*nsamps, sizeof (int16));
+    if (*saa == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for saa");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *vza = calloc (nlines*nsamps, sizeof (int16));
+    if (*vza == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for vza");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *vaa = calloc (nlines*nsamps, sizeof (int16));
+    if (*vaa == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for vaa");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
 
     *qaband = calloc (nlines*nsamps, sizeof (uint16));
     if (*qaband == NULL)
@@ -2000,8 +1944,6 @@ int memory_allocation_sr
     float ****normext,   /* O: aerosol extinction coefficient at the current
                                wavelength (normalized at 550nm)
                                [NSR_BANDS][7][22] */
-    int16 **vza,         /* O: view zenith angle table [6366] */
-    int16 **vaa,         /* O: view azimuth angle table [6366] */
     float ***tsmax,      /* O: maximum scattering angle table [20][22] */
     float ***tsmin,      /* O: minimum scattering angle table [20][22] */
     float ***nbfic,      /* O: communitive number of azimuth angles [20][22] */
@@ -2444,22 +2386,6 @@ int memory_allocation_sr
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
-    }
-
-    *vza = calloc (6366, sizeof (int16));
-    if (*vza == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for vza");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *vaa = calloc (6366, sizeof (int16));
-    if (*vaa == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for vaa");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
     }
 
     /* Successful completion */

@@ -196,15 +196,12 @@ int readluts
     float ***normext,           /* O: aerosol extinction coefficient at the
                                       current wavelength (normalized at 550nm)
                                       [NSR_BANDS][7][22] */
-    int16 vza[6366],            /* O: view zenith angle table */
-    int16 vaa[6366],            /* O: view azimuth angle table */
     float xtsstep,              /* I: solar zenith step value */
     float xtsmin,               /* I: minimum solar zenith value */
     char anglehdf[STR_SIZE],    /* I: angle HDF filename */
     char intrefnm[STR_SIZE],    /* I: intrinsic reflectance filename */
     char transmnm[STR_SIZE],    /* I: transmission filename */
-    char spheranm[STR_SIZE],    /* I: spherical albedo filename */
-    char geomhdf[STR_SIZE]      /* I: L8 geometry HDF filename */
+    char spheranm[STR_SIZE]     /* I: spherical albedo filename */
 );
 
 int subaeroret
@@ -323,6 +320,10 @@ int memory_allocation_main
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
+    int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
+    int16 **saa,         /* O: solar azimuth angle table, nlines x nsamps */
+    int16 **vza,         /* O: view zenith angle, nlines x nsamps  */
+    int16 **vaa,         /* O: view azimuth angle table, nlines x nsamps */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     int16 ***sband       /* O: output surface reflectance and brightness temp
                                bands */
@@ -380,8 +381,6 @@ int memory_allocation_sr
     float ****normext,   /* O: aerosol extinction coefficient at the current
                                wavelength (normalized at 550nm)
                                [NSR_BANDS][7][22] */
-    int16 **vza,         /* O: view zenith angle table [6366] */
-    int16 **vaa,         /* O: view azimuth angle table [6366] */
     float ***tsmax,      /* O: maximum scattering angle table [20][22] */
     float ***tsmin,      /* O: minimum scattering angle table [20][22] */
     float ***nbfic,      /* O: communitive number of azimuth angles [20][22] */

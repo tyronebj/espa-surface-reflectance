@@ -45,32 +45,47 @@ typedef struct {
 
 /* Structure for the input data */
 typedef struct {
-    Input_meta_t meta;        /* input metadata */
-    int nband;                /* number of reflectance bands */
-    int nband_th;             /* number of thermal bands */
-    int nband_pan;            /* number of pan bands */
-    int nband_qa;             /* number of QA bands */
-    Img_coord_info_t size;    /* input file size */
-    Img_coord_info_t size_th; /* input thermal file size */
-    Img_coord_info_t size_pan;/* input pan file size */
-    Img_coord_info_t size_qa; /* input QA file size */
+    Input_meta_t meta;         /* input metadata */
+    int nband;                 /* number of reflectance bands */
+    int nband_th;              /* number of thermal bands */
+    int nband_pan;             /* number of pan bands */
+    int nband_qa;              /* number of QA bands */
+
+    Img_coord_info_t size;     /* input file size */
+    Img_coord_info_t size_th;  /* input thermal file size */
+    Img_coord_info_t size_pan; /* input pan file size */
+    Img_coord_info_t size_qa;  /* input QA file size */
+    Img_coord_info_t size_ppa; /* input per-pixel angle file size */
+
     float scale_factor;       /* scale factor for reflectance bands */
     float scale_factor_th;    /* scale factor for thermal bands */
     float scale_factor_pan;   /* scale factor for pan bands */
-    char *file_name[NBAND_REFL_MAX];  /* name of the input reflectance files */
-    char *file_name_th[NBAND_THM_MAX];   /* name of the input thermal files */
-    char *file_name_pan[NBAND_PAN_MAX];  /* name of the input pan files */
-    char *file_name_qa[NBAND_QA_MAX];    /* name of the input QA files */
+
+    char *file_name[NBAND_REFL_MAX];    /* name of input reflectance files */
+    char *file_name_th[NBAND_THM_MAX];  /* name of input thermal files */
+    char *file_name_pan[NBAND_PAN_MAX]; /* name of input pan files */
+    char *file_name_qa[NBAND_QA_MAX];   /* name of input QA files */
+    char *file_name_sza;                /* name of input solar zenith files */
+    char *file_name_saa;                /* name of input solar azimuth files */
+    char *file_name_vza;                /* name of input view zenith files */
+    char *file_name_vaa;                /* name of input view azimuth files */
+
     bool open[NBAND_REFL_MAX]; /* flag to indicate whether the specific input
                                   file is open for access; 'true' = open, 
                                   'false' = not open */
     bool open_th[NBAND_THM_MAX];  /* thermal band open flag */
     bool open_pan[NBAND_PAN_MAX]; /* pan band open flag */
     bool open_qa[NBAND_QA_MAX];   /* QA band open flag */
+    bool open_ppa;                /* per-pixel angle bands open flag */
+
     FILE *fp_bin[NBAND_REFL_MAX]; /* pointer for reflectance binary files */
-    FILE *fp_bin_th[NBAND_THM_MAX];  /* pointer for thermal binary files */
-    FILE *fp_bin_pan[NBAND_PAN_MAX]; /* pointer for pan binary files */
-    FILE *fp_bin_qa[NBAND_QA_MAX];   /* pointer for QA binary files */
+    FILE *fp_bin_th[NBAND_THM_MAX]; /* pointer for thermal binary files */
+    FILE *fp_bin_pan[NBAND_PAN_MAX];/* pointer for pan binary files */
+    FILE *fp_bin_qa[NBAND_QA_MAX];  /* pointer for QA binary files */
+    FILE *fp_bin_sza;               /* pointer for solar zenith binary files */
+    FILE *fp_bin_saa;               /* pointer for solar azimuth binary files */
+    FILE *fp_bin_vza;               /* pointer for view zenith binary files */
+    FILE *fp_bin_vaa;               /* pointer for view azimuth binary files */
 } Input_t;
 
 /* Prototypes */
@@ -124,6 +139,17 @@ int get_input_qa_lines
     int iline,       /* I: current line to read (0-based) */
     int nlines,      /* I: number of lines to read */
     uint16 *out_arr  /* O: output array to populate */
+);
+
+int get_input_ppa_lines
+(
+    Input_t *this,   /* I: pointer to input data structure */
+    int iline,       /* I: current line to read (0-based) */
+    int nlines,      /* I: number of lines to read */
+    int16 *sza_arr, /* O: output solar zenith array to populate */
+    int16 *saa_arr, /* O: output solar azimuth array to populate */
+    int16 *vza_arr, /* O: output view zenith array to populate */
+    int16 *vaa_arr  /* O: output view azimuth array to populate */
 );
 
 int get_xml_input

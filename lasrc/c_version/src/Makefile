@@ -14,7 +14,7 @@ RM    = rm
 EXTRA = -Wall $(EXTRA_OPTIONS)
 
 # Define the include files
-INC = common.h date.h input.h output.h possolp.h lut_subr.h lasrc.h
+INC = common.h date.h input.h output.h lut_subr.h lasrc.h
 
 # Define the source code and object files
 SRC = compute_refl.c      \
@@ -23,7 +23,6 @@ SRC = compute_refl.c      \
       input.c             \
       lut_subr.c          \
       output.c            \
-      possolp.c           \
       subaeroret.c        \
       lasrc.c
 OBJ = $(SRC:.c=.o)

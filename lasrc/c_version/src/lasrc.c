@@ -30,7 +30,8 @@ NOTES:
    simply corrected every pixel for the solar angles at the scene center.
    However as of version 1.0.0, the solar and view angles are read from the
    per-pixel angle bands and better reflect the angle at that location within
-   the scene.
+   the scene.  These solar/view angles are scaled int16s and therefore need to
+   be unscaled (multiply by 0.01) before using.  They are in units of degrees.
 5. The solar angles from band to band are fairly stable, thus a single array of
    per-pixel angles will be used.  The array can be from a "representative
    band" for the reflectance bands or it can be an average of the reflectance
@@ -66,9 +67,14 @@ int main (int argc, char *argv[])
     Envi_header_t envi_hdr;      /* output ENVI header information */
     struct stat statbuf;      /* buffer for the file stat function */
 
-    uint16 *qaband = NULL;    /* QA band for the input image, nlines x nsamps */
+    int16 *sza = NULL;  /* per-pixel solar zenith angles, nlines x nsamps */
+    int16 *saa = NULL;  /* per-pixel solar azimuth angles, nlines x nsamps */
+    int16 *vza = NULL;  /* per-pixel view zenith angles, nlines x nsamps */
+    int16 *vaa = NULL;  /* per-pixel view azimuth angles, nlines x nsamps */
     int16 **sband = NULL;     /* output surface reflectance and brightness
                                  temp bands, qa band is separate as a uint16 */
+    uint16 *qaband = NULL;    /* QA band for the input image, nlines x nsamps */
+
     float xts;           /* solar zenith angle (deg) */
     float xfs;           /* solar azimuth angle (deg) */
     float xmus;          /* cosine of solar zenith angle */
@@ -91,7 +97,6 @@ int main (int argc, char *argv[])
     char intrefnm[STR_SIZE];  /* intrinsic reflectance filename */
     char transmnm[STR_SIZE];  /* transmission filename */
     char spheranm[STR_SIZE];  /* spherical albedo filename */
-    char geomhdf[STR_SIZE];   /* L8 geometry HDF filename */
     char cmgdemnm[STR_SIZE];  /* climate modeling grid DEM filename */
     char rationm[STR_SIZE];   /* ratio averages filename ("ratio map" used by
                                  the aerosol retrieval algorithm) */
@@ -213,7 +218,8 @@ int main (int argc, char *argv[])
     /* Allocate memory for all the data arrays */
     if (verbose)
         printf ("Allocating memory for the data arrays ...\n");
-    retval = memory_allocation_main (nlines, nsamps, &qaband, &sband);
+    retval = memory_allocation_main (nlines, nsamps, &sza, &saa, &vza, &vaa,
+        &qaband, &sband);
     if (retval != SUCCESS)
     {   /* get_args already printed the error message */
         sprintf (errmsg, "Error allocating memory for the data arrays from "
@@ -226,6 +232,15 @@ int main (int argc, char *argv[])
     if (get_input_qa_lines (input, 0, 0, nlines, qaband) != SUCCESS)
     {
         sprintf (errmsg, "Reading QA band");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+
+    /* Read the scaled solar and view azimuth/zenith per pixel angle bands
+       which are in degrees */
+    if (get_input_ppa_lines (input, 0, nlines, sza, saa, vza, vaa) != SUCCESS)
+    {
+        sprintf (errmsg, "Reading per-pixel solar and view angle bands");
         error_handler (true, FUNC_NAME, errmsg);
         exit (ERROR);
     }
@@ -260,7 +275,6 @@ int main (int argc, char *argv[])
             aux_path);
         sprintf (spheranm, "%s/LDCMLUT/AERO_LUT_V3.0-URBANCLEAN-V2.0.ASCII",
             aux_path);
-        sprintf (geomhdf, "%s/LDCMLUT/l8geom.hdf", aux_path);
         sprintf (cmgdemnm, "%s/CMGDEM.hdf", aux_path);
         sprintf (rationm, "%s/ratiomapndwiexp.hdf", aux_path);
         sprintf (auxnm, "%s/LADS/%s/%s", aux_path, aux_year, aux_infile);
@@ -297,14 +311,6 @@ int main (int argc, char *argv[])
             exit (ERROR);
         }
 
-        if (stat (geomhdf, &statbuf) == -1)
-        {
-            sprintf (errmsg, "Could not find L8 geometry data file: %s\n Check "
-                "L8_AUX_DIR environment variable.", geomhdf);
-            error_handler (false, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
         if (stat (cmgdemnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find cmgdemnm data file: %s\n  Check "
@@ -333,7 +339,7 @@ int main (int argc, char *argv[])
     /* Compute the TOA reflectance and at-sensor brightness temp */
     printf ("Calculating TOA reflectance and at-sensor brightness temps...");
     retval = compute_toa_refl (input, &xml_metadata, qaband, nlines, nsamps,
-        gmeta->instrument, sband);
+        gmeta->instrument, sza, sband);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error computing TOA reflectance and at-sensor "
@@ -469,8 +475,8 @@ int main (int argc, char *argv[])
         printf ("Performing atmospheric corrections for each reflectance "
             "band ...\n");
         retval = compute_sr_refl (input, &xml_metadata, xml_infile, qaband,
-            nlines, nsamps, pixsize, sband, xts, xfs, xmus, anglehdf,
-            intrefnm, transmnm, spheranm, geomhdf, cmgdemnm, rationm, auxnm);
+            nlines, nsamps, pixsize, sband, sza, saa, vza, vaa, xts, xfs, xmus,
+            anglehdf, intrefnm, transmnm, spheranm, cmgdemnm, rationm, auxnm);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Error computing surface reflectance");
@@ -492,6 +498,10 @@ int main (int argc, char *argv[])
     free (aux_infile);
 
     /* Free memory for band data */
+    free (sza);
+    free (saa);
+    free (vza);
+    free (vaa);
     free (qaband);
     for (i = 0; i < NBAND_TTL_OUT-1; i++)
         free (sband[i]);
