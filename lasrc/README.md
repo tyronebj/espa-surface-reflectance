@@ -174,7 +174,14 @@ code include the following:
     "cloud" and "ipflag" bands.
 
 * ESPA Enhancements
-17. The per-pixel approximations for the solar and view angles have been
-    replaced with the angle values in the per-pixel angle bands, which are
-    generated from the Level-1 angle coefficient file. This makes the newly
-    delivered l8geom.hdf file obsolete.
+17. For collection products, the per-pixel approximations for the solar and
+    view angles have been replaced with the angle values from the Landsat
+    per-pixel angle bands, which are generated from the Level-1 angle
+    coefficient file. This makes the newly delivered l8geom.hdf file obsolete.
+    There is a src directory and src_pre_collection directory under the c_code
+    for LaSRC.  The src_pre_collection source code still uses the original
+    angle approximations, since pre-collection scenes don't have the angle
+    coefficient file.  The src directory contains the source code to be used
+    for the collection products.  do_lasrc.py has been modified to call the
+    different versions of C-code, depending on whether the data is
+    pre-collection or collection.
