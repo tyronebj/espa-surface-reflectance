@@ -650,8 +650,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
             }
         }
         else if (process_collection &&
-            !strcmp (metadata->band[i].name, "solar_zenith_band4") &&
-            !strcmp (metadata->band[i].product, "intermediate_data"))
+            !strcmp (metadata->band[i].name, "solar_zenith_band4"))
         {
             /* get the solar zenith representative band info */
             this->file_name_sun_zen = strdup (metadata->band[i].file_name);
