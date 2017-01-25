@@ -278,10 +278,17 @@ class Ledaps():
                 os.chdir(mydir)
                 return ERROR
 
+        # set up the command-line option for lndpm if processing surface
+        # reflectance
+        if process_sr == "True":
+            process_sr_opt_str = "--process_sr=true"
+        else:
+            process_sr_opt_str = "--process_sr=false"
+
         # run LEDAPS modules, checking the return status of each module.
         # exit if any errors occur.
-        cmdstr = "lndpm %s" % base_xmlfile
-        # logger.debug('lndpm command: {0}'.format(cmdstr))
+        cmdstr = "lndpm --xml %s %s" % (base_xmlfile, process_sr_opt_str)
+        logger.debug('lndpm command: {0}'.format(cmdstr))
         (status, output) = commands.getstatusoutput(cmdstr)
         logger.info(output)
         exit_code = status >> 8

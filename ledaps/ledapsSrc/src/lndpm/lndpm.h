@@ -26,6 +26,7 @@ NOTES:
 #include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <getopt.h>
 #include "espa_metadata.h"
 #include "parse_metadata.h"
 #include "error_handler.h"
@@ -34,7 +35,7 @@ NOTES:
 
 /* Defines */
 /* LEDAPS VERSION definitions */
-#define LEDAPS_VERSION "3.0.0"
+#define LEDAPS_VERSION "3.1.1"
 
 /* define useful constants */
 #define MAX_STRING_LENGTH 1000
