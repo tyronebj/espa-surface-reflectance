@@ -416,8 +416,8 @@ int main (int argc, char **argv)
             !strcmp (xml_metadata.band[ib].product, "sr_refl"))
             band5_fp = open_raw_binary (xml_metadata.band[ib].file_name, "rb");
 
-        if ((!strcmp (xml_metadata.band[ib].name, "toa_band6") ||
-             !strcmp (xml_metadata.band[ib].name, "toa_band61")) &&
+        if ((!strcmp (xml_metadata.band[ib].name, "bt_band6") ||
+             !strcmp (xml_metadata.band[ib].name, "bt_band61")) &&
             !strcmp (xml_metadata.band[ib].product, "toa_bt"))
             band6_fp = open_raw_binary (xml_metadata.band[ib].file_name, "rb");
 

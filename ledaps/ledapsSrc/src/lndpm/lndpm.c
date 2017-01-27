@@ -73,9 +73,6 @@ int main (int argc, char *argv[])
     {   /* get_args already printed the error message */
         exit (ERROR);
     }
-printf ("DEBUG: xml_infile: %s\n", xml_infile);
-if (process_sr) printf ("Process SR\n");
-else printf ("Don't process SR\n");
 
     /* Validate the input metadata file */
     if (validate_xml_file (xml_infile) != SUCCESS)
