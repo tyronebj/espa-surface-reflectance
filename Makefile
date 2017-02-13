@@ -3,7 +3,7 @@
 #
 # Project Name: surface reflectance
 #-----------------------------------------------------------------------------
-.PHONY: check-environment all install clean all-script install-script clean-script all-ledaps install-ledaps clean-ledaps all-ledaps-aux install-ledaps-aux clean-ledaps-aux all-lasrc install-lasrc clean-lasrc all-lasrc-aux install-lasrc-aux clean-lasrc-aux all-aux install-aux rpms base-rpm aux-rpms ledaps-rpm ledaps-aux-rpm lasrc-rpm lasrc-aux-rpm
+.PHONY: check-environment all install clean all-script install-script clean-script all-ledaps install-ledaps clean-ledaps all-ledaps-aux install-ledaps-aux clean-ledaps-aux all-lasrc install-lasrc clean-lasrc all-lasrc-aux install-lasrc-aux clean-lasrc-aux all-aux install-aux
 
 include make.config
 
@@ -86,26 +86,6 @@ clean-ledaps-aux:
 all-aux: all-ledaps-aux all-lasrc-aux
 
 install-aux: install-ledaps-aux install-lasrc-aux
-
-#-----------------------------------------------------------------------------
-rpms: base-rpm ledaps-rpm lasrc-rpm
-
-base-rpm:
-	rpmbuild -bb --clean RPM_spec_files/RPM.spec
-
-ledaps-rpm:
-	rpmbuild -bb --clean RPM_spec_files/RPM-Ledaps.spec
-
-lasrc-rpm:
-	rpmbuild -bb --clean RPM_spec_files/RPM-LaSRC.spec
-
-aux-rpms: ledaps-aux-rpm lasrc-aux-rpm
-
-ledaps-aux-rpm:
-	rpmbuild -bb --clean RPM_spec_files/RPM-Ledaps-Aux.spec
-
-lasrc-aux-rpm:
-	rpmbuild -bb --clean RPM_spec_files/RPM-LaSRC-Aux.spec
 
 #-----------------------------------------------------------------------------
 check-environment:
