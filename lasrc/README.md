@@ -185,3 +185,7 @@ code include the following:
     for the collection products.  do_lasrc.py has been modified to call the
     different versions of C-code, depending on whether the data is
     pre-collection or collection.
+    NOTE: It will be necessary to re-download the l8sr_auxiliary.tar.gz file
+    and install it in your L8_AUX_DIR. The .tar.gz file has been updated to
+    contain the l8geom.hdf file which will be required to process pre-collection
+    products.
