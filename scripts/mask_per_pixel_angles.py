@@ -227,7 +227,7 @@ class MaskAngles():
         logger.info('Completion of per-pixel angle masking.')
         return SUCCESS
 
-# ##### end of Ledaps class #####
+# ##### end of MaskAngles class #####
 
 if __name__ == "__main__":
     # Setup the default logger format and level. Log to STDOUT.

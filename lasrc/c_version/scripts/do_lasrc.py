@@ -180,6 +180,17 @@ class SurfaceReflectance():
                 os.chdir(mydir)
                 return ERROR
 
+            # Mask the angle bands to match the band quality band
+            cmdstr = ('mask_per_pixel_angles.py --xml {}'
+                      .format(base_xmlfile))
+            (status, output) = commands.getstatusoutput(cmdstr)
+            logger.info(output)
+            exit_code = status >> 8
+            if exit_code != 0:
+                logger.error('Error masking angle bands with the band '
+                             'quality band. Processing will terminate.')
+                return ERROR
+
         # determine the application name depending on whether or not we are
         # processing collection or pre-collection data
         if processing_collection:
