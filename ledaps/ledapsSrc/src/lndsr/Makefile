@@ -17,7 +17,7 @@ RM    = rm
 EXTRA = -Wall $(EXTRA_OPTIONS)
 
 # Define the include files
-C_INC = ar.h bool.h clouds.h const.h date.h error.h external_pgm.h grib.h \
+C_INC = ar.h bool.h clouds.h const.h date.h error.h grib.h \
         input.h keyvalue.h lndsr.h lut.h myhdf.h myproj_const.h myproj.h \
         mystring.h output.h param.h prwv_input.h read_grib_tools.h \
         sixs_runs.h sr.h

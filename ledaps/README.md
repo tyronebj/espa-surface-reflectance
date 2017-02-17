@@ -99,3 +99,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
   3. Per-pixel angle bands are masked to match the band quality image extents,
      and therefore fill pixels in the band quality are masked as fill pixels in
      the per-pixel angle bands.
+  4. Removed the "pull the sixs path from the lndsr executable" code. All our
+     scripts and applications require called scripts and applications to be
+     installed in the PATH, so the whole set and get sixs path functionality
+     is not required. It was also problematic in the Docker environment.

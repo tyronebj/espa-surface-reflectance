@@ -4,6 +4,7 @@
 
 #define SIXS_NB_AOT 15
 #define SIXS_NB_BANDS 6
+#define SIXS_APP "sixsV1.0B"
 
 typedef enum {
   SIXS_INST_NULL = -1,

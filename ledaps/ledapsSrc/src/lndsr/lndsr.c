@@ -114,7 +114,6 @@ void chand(float *phi,float *muv,float *mus,float *tau_ray,float *actual_rho_ray
 void csalbr(float *tau_ray,float *actual_S_r);
 int update_atmos_coefs(atmos_t *atmos_coef,Ar_gridcell_t *ar_gridcell, sixs_tables_t *sixs_tables,int ***line_ar,Lut_t *lut,int nband, int bkgd_aerosol);
 int update_gridcell_atmos_coefs(int irow,int icol,atmos_t *atmos_coef,Ar_gridcell_t *ar_gridcell, sixs_tables_t *sixs_tables,int **line_ar,Lut_t *lut,int nband, int bkgd_aerosol);
-void set_sixs_path_from(const char *path);
 float calcuoz(short jday,float flat);
 float get_dem_spres(short *dem,float lat,float lon);
 
@@ -218,8 +217,6 @@ int main (int argc, char *argv[]) {
     debug_flag= DEBUG_FLAG;
     no_ozone_file=0;
   
-    set_sixs_path_from(argv[0]);
-
     /* Read the parameters from the command-line and input parameter file */
     param = GetParam(argc, argv);
     if (param == NULL) EXIT_ERROR("getting runtime parameters", "main");
@@ -1806,80 +1803,4 @@ void sun_angles
     *fs=azim*180./M_PI;
 
     return;
-}
-
-/*
- * make sure the SIXS application exists in the path supplied.
- */
-#define MAX_SIXS_PATH_LEN 2048
-#define SIXS_APP   "sixsV1.0B"
-static char sixs_path[MAX_SIXS_PATH_LEN+1] = "";
-void set_sixs_path_from(const char *path)
-{
-    struct stat stbuf;
-    char *cptr = (char *)NULL;
-  
-    /*
-     * if passed in arg is path to a file, get the directory path
-     */
-    strncpy(sixs_path, path, MAX_SIXS_PATH_LEN);
-
-    /*
-     * if path ends in /, remove
-     */
-    for (cptr = &(sixs_path[strlen(sixs_path)-1]);
-         *cptr == '/' && cptr >= &sixs_path[0]; --cptr)
-    {
-        *cptr = (char) 0;
-    }
-  
-    if (stat(sixs_path, &stbuf) != 0)    /* make sure the path exists */
-    {
-    /*    fprintf(stderr, "find_file: can't stat %s\n", sixs_path);
-        exit(EXIT_FAILURE);*/
-    }
-  
-    /* if it's a file, find the end of the directory */
-    cptr = (char *)NULL;
-    if (! S_ISDIR(stbuf.st_mode))   /* not a directory */
-    {
-        cptr = rindex(sixs_path, '/');
-        if (cptr == NULL)            /* current directory */
-            sixs_path[0] = (char) 0;
-    }
-   
-    /*
-     * create path to sixs application file
-     */
-    if (cptr)
-    {
-        strcpy((cptr+1), SIXS_APP);
-    }
-    else
-    {
-        strcat(sixs_path, SIXS_APP);
-    }
-   
-    /*
-     * and make sure it exists
-     */
-    if (stat(sixs_path, &stbuf) != 0)
-    {
-    /*   fprintf(stderr, "find_file: can't stat %s\n", sixs_path);
-         exit(EXIT_FAILURE);*/
-    }
-}
-
-char *get_sixs_path()
-{
-    if (strlen(sixs_path) < 1)
-    {
-        printf("%s\n%s\n%s\n",
-            "NO SIXS_PATH defined!",
-            "  YOU FORGOT TO CALL set_sixs_path_from",
-            "  Cannot continue");
-        exit(-1);
-    }
-  
-    return &sixs_path[0];
 }

@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "sixs_runs.h"
-#include "external_pgm.h"
 
 struct etm_spectral_function_t {
 	int nbvals[SIXS_NB_BANDS];
@@ -88,7 +87,7 @@ int create_6S_tables(sixs_tables_t *sixs_tables, Input_meta_t *meta) {
 				exit(-1);
 			}
 
-			fprintf(fd,"%s <<+ >%s\n",get_sixs_path(),sixs_out_filename);
+			fprintf(fd,"%s <<+ >%s\n",SIXS_APP,sixs_out_filename);
 			fprintf(fd,"0 (user defined)\n");
 			fprintf(fd,"%.2f %.2f %.2f %.2f %d %d (geometrical conditions sza saz vza vaz month day)\n",sixs_tables->sza,sixs_tables->phi,sixs_tables->vza,0.,sixs_tables->month,sixs_tables->day);
 			fprintf(fd,"8 (option for water vapor and ozone)\n");
@@ -405,7 +404,7 @@ int create_6S_tables_water(sixs_tables_t *sixs_tables) {
 				exit(-1);
 			}
 
-			fprintf(fd,"%s <<+ >%s\n",get_sixs_path(),sixs_out_filename);
+			fprintf(fd,"%s <<+ >%s\n",SIXS_APP,sixs_out_filename);
 			fprintf(fd,"0 (user defined)\n");
 			fprintf(fd,"%.2f %.2f %.2f %.2f %d %d (geometrical conditions sza saz vza vaz month day)\n",sixs_tables->sza,sixs_tables->phi,sixs_tables->vza,0.,sixs_tables->month,sixs_tables->day);
 			fprintf(fd,"8 (option for water vapor and ozone)\n");
@@ -686,7 +685,7 @@ int compute_atmos_params_6S(sixs_atmos_params_t *sixs_atmos_params) {
 		fprintf(stderr,"ERROR: creating temporary file %s\n",sixs_cmd_filename);
 		exit(-1);
 	}
-	fprintf(fd,"%s <<+ >%s\n",get_sixs_path(),sixs_out_filename);
+	fprintf(fd,"%s <<+ >%s\n",SIXS_APP,sixs_out_filename);
 	fprintf(fd,"0\n");
 	fprintf(fd,"%.2f %.2f %.2f %.2f %d %d\n",sixs_atmos_params->sza,sixs_atmos_params->phi,sixs_atmos_params->vza,0.,sixs_atmos_params->month,sixs_atmos_params->day);
 	fprintf(fd,"8\n");
