@@ -25,14 +25,17 @@ class MaskAngles():
         pass
 
     ########################################################################
-    # Description: Reads the band quality file and masks the pixels of the
-    # per-pixel angle file that are fill.
+    # Description: Reads the per-pixel angle band and uses the band quality
+    # array to mask the pixels of the per-pixel angle file that are fill.
+    # The per-pixel angle band is closed, but the band quality array is not
+    # modified.
     #
     # Inputs:
-    #   ppa_file - name of ESPA raw binary per-pixel angle file to be masked
+    #   ppa_file - name of ESPA raw binary per-pixel angle file to be masked;
+    #              file is read then overwritten with the masked data
     #            - this should be an INT16 band
-    #   bqa_file - name of Level-1 band quality file to use as the mask
-    #            - this should be a UINT16 band
+    #   bqa - array of band quality data to be used for masking
+    #       - this should be a UINT16 band
     #
     # Returns:
     #     ERROR - error masking the per-pixel angle file
@@ -40,48 +43,33 @@ class MaskAngles():
     #
     # Notes:
     #######################################################################
-    def maskFill(self, ppa_file, bqa_file):
+    def maskFill(self, ppa_file, bqa):
         logger = logging.getLogger(__name__)
 
-        # Open connection to the PPA (read/write) and BQA (read-only) bands
+        # Open connection to the PPA (read/write) band
         ppa_ds = gdal.Open(ppa_file, GA_Update)
         if ppa_ds is None:
             logger.error('GDAL could not open PPA file: {}'.format(ppa_file))
             return ERROR
 
-        bqa_ds = gdal.Open(bqa_file)
-        if bqa_ds is None:
-            logger.error('GDAL could not open BQA file: {}'.format(bqa_file))
-            return ERROR
-
-        # Create connections to the bands
+        # Create a connection to the PPA band
         ppa_band = ppa_ds.GetRasterBand(1)
         if ppa_band is None:
             logger.error('Could not connect to PPA file: {}'.format(ppa_file))
             return ERROR
 
-        bqa_band = bqa_ds.GetRasterBand(1)
-        if bqa_band is None:
-            logger.error('Could not connect to BQA file: {}'.format(bqa_file))
-            return ERROR
-
-        # Read the bands
-        bqa = bqa_band.ReadAsArray(0, 0, bqa_ds.RasterXSize, bqa_ds.RasterYSize)
+        # Read the PPA band
         ppa = ppa_band.ReadAsArray(0, 0, ppa_ds.RasterXSize, ppa_ds.RasterYSize)
 
         # Mask the PPA band for the fill pixels in the BQA band
         ppa[bqa == 1] = -9999
 
-        # Write the new PPA values, after rewinding the file pointer
-#        ppa_band.seek(0)
+        # Write the new PPA values
         ppa_band.WriteArray(ppa, 0, 0)
 
-        # Close the datasets and files
-        ppa = None
+        # Close the PPA dataset, file, and array
         bqa = None
-        ppa_band = None
         bqa_band = None
-        ppa_ds = None
         bqa_ds = None
 
         # Masking complete
@@ -89,27 +77,23 @@ class MaskAngles():
 
 
     ########################################################################
-    # Description: runLedaps will use the parameter passed for the xmlfile.
-    # If xmlfile is None (i.e. not specified) then the command-line parameters
-    # will be parsed for this information.  The LEDAPS applications are then
-    # executed on the specified XML file.  If a log file was specified, then
-    # the output from each LEDAPS application will be logged to that file.
+    # Description: runMask reads the band quality file and then masks the
+    # per-pixel files to mark the fill pixels.  The band quality file is
+    # read and then passed to the masking routine for each per-pixel angle
+    # band to minimize the need to open, read, re-open, re-read that band
+    # multiple times.
     #
     # Inputs:
     #   xmlfile - name of the Landsat XML file to be processed
-    #   process_sr - specifies whether the surface reflectance processing,
-    #       should be completed.  True or False.  Default is True, otherwise
-    #       the processing will halt after the TOA reflectance products are
-    #       complete.
     #
     # Returns:
-    #     ERROR - error running the LEDAPS applications
-    #     SUCCESS - successful processing
+    #     ERROR - error running the masking applications
+    #     SUCCESS - successful masking
     #
     # Notes:
     #   1. The script obtains the path of the XML file and changes
-    #      directory to that path for running the LEDAPS code.  If the
-    #      xmlfile directory is not writable, then this script exits with
+    #      directory to that path for running the masking code.  If the
+    #      xml_file directory is not writable, then this script exits with
     #      an error.
     #######################################################################
     def runMask(self, xml_file=None):
@@ -202,22 +186,47 @@ class MaskAngles():
                              'XML directory. {}'.format(xml_dir))
                 return ERROR
     
+            # Open connection to the BQA (read-only) band, since it's used for
+            # all the masks.  No need to open/reopen and read/re-read multiple
+            # times.
+            bqa_ds = gdal.Open(bqa_file)
+            if bqa_ds is None:
+                logger.error('GDAL could not open BQA file: {}'
+                             .format(bqa_file))
+                return ERROR
+
+            # Create a connection to the BQA band
+            bqa_band = bqa_ds.GetRasterBand(1)
+            if bqa_band is None:
+                logger.error('Could not connect to BQA file: {}'
+                             .format(bqa_file))
+                return ERROR
+
+            # Read the BQA band
+            bqa = bqa_band.ReadAsArray(0, 0, bqa_ds.RasterXSize,
+                                       bqa_ds.RasterYSize)
+
             # Mask all four bands using the BQA band
-            if self.maskFill(solar_az_file, bqa_file) != SUCCESS:
+            if self.maskFill(solar_az_file, bqa) != SUCCESS:
                 logger.error('Error masking solar azimuth file')
                 return ERROR
 
-            if self.maskFill(solar_zen_file, bqa_file) != SUCCESS:
+            if self.maskFill(solar_zen_file, bqa) != SUCCESS:
                 logger.error('Error masking solar zenith file')
                 return ERROR
 
-            if self.maskFill(sensor_az_file, bqa_file) != SUCCESS:
+            if self.maskFill(sensor_az_file, bqa) != SUCCESS:
                 logger.error('Error masking sensor azimuth file')
                 return ERROR
 
-            if self.maskFill(sensor_zen_file, bqa_file) != SUCCESS:
+            if self.maskFill(sensor_zen_file, bqa) != SUCCESS:
                 logger.error('Error masking sensor zenith file')
                 return ERROR
+
+            # Close the BQA dataset, file, and array
+            bqa = None
+            bqa_band = None
+            bqa_ds = None
 
         finally:
             # Return to the original directory
