@@ -96,3 +96,6 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
      since the auxiliary data files are not needed for TOA/BT processing.
   2. Updated do_ledaps.py to support the above change to lndpm by passing in
      the flag for TOA/SR processing.
+  3. Per-pixel angle bands are masked to match the band quality image extents,
+     and therefore fill pixels in the band quality are masked as fill pixels in
+     the per-pixel angle bands.

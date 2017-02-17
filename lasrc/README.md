@@ -189,3 +189,7 @@ code include the following:
     and install it in your L8_AUX_DIR. The .tar.gz file has been updated to
     contain the l8geom.hdf file which will be required to process pre-collection
     products.
+
+18. Per-pixel angle bands are masked to match the band quality image extents,
+    and therefore fill pixels in the band quality are masked as fill pixels in
+    the per-pixel angle bands.
