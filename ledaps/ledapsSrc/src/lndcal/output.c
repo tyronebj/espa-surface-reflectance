@@ -223,6 +223,7 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
         "Band 7 Data Saturation Flag (0 = valid data, 1 = saturated data)");
 
       /* Update RADSAT-specific fields */
+      strcpy (bmeta[ib].product, "toa_refl");
       bmeta[ib].data_type = ESPA_UINT8;
       bmeta[ib].fill_value = lut->qa_fill;
       strcpy (bmeta[ib].long_name, "saturation mask");
