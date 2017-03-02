@@ -222,13 +222,18 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
       strcpy (bmeta[ib].bitmap_description[7],
         "Band 7 Data Saturation Flag (0 = valid data, 1 = saturated data)");
 
+      /* Update RADSAT-specific fields */
       bmeta[ib].data_type = ESPA_UINT8;
       bmeta[ib].fill_value = lut->qa_fill;
-      strcpy (bmeta[ib].long_name, "QA band");
+      strcpy (bmeta[ib].long_name, "saturation mask");
       strcpy (bmeta[ib].data_units, "bitmap");
       strcpy (bmeta[ib].category, "qa");
       bmeta[ib].valid_range[0] = 0.0;
       bmeta[ib].valid_range[1] = 255.0;
+
+      strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 3);
+      bmeta[ib].short_name[3] = '\0';
+      strcat (bmeta[ib].short_name, "RADSAT");
     }
 
     /* Set up the filename with the scene name and band name and open the

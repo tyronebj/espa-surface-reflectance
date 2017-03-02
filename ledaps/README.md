@@ -103,3 +103,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
      scripts and applications require called scripts and applications to be
      installed in the PATH, so the whole set and get sixs path functionality
      is not required. It was also problematic in the Docker environment.
+  5. Updated the short_name and long_name for the RADSAT band to be more
+     specific to RADSAT and consistent with L8 RADSAT.
