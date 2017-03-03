@@ -48,7 +48,7 @@ EXLIB = -L$(ESPALIB) -l_espa_raw_binary -l_espa_common \
         -L$(XML2LIB) -lxml2 \
         -L$(LZMALIB) -llzma \
         -L$(ZLIBLIB) -lz
-SDS_EXLIB = -L$(HDFLIB) -lmfhdf -ldf -L$(JPEGLIB) -ljpeg
+SDS_EXLIB = -L$(HDFLIB) -lmfhdf -ldf -L$(SZIPLIB) -lsz -L$(JPEGLIB) -ljpeg
 GEOLOC_EXLIB  = -L$(HDFEOS_GCTPLIB) -lGctp
 MATHLIB = -lm
 LOADLIB = $(EXLIB) $(MATHLIB)
