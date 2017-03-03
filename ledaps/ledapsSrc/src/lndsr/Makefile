@@ -58,9 +58,9 @@ NCFLAGS = $(EXTRA) $(INCDIR) $(HDF_INCDIR)
 EXLIB = -L$(ESPALIB) -l_espa_raw_binary -l_espa_common -l_espa_format_conversion \
         -L$(XML2LIB) -lxml2 \
         -L$(LZMALIB) -llzma \
-        -L$(SZIPLIB) -lsz \
         -L$(ZLIBLIB) -lz
 HDF_EXLIB = -L$(HDFLIB) -lmfhdf -ldf \
+            -L$(SZIPLIB) -lsz \
             -L$(JPEGLIB) -ljpeg \
             -L$(HDFEOS_GCTPLIB) -lGctp
 MATHLIB = -lm
