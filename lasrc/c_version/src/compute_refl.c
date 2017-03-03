@@ -6,7 +6,8 @@ MODULE:  compute_toa_refl
 
 PURPOSE:  Computes the TOA reflectance and at-sensor brightness temps for all
 the bands except the pan band. Uses a per-pixel solar zenith angle for the
-TOA corrections.
+TOA corrections. Also determines radiometric saturation for each band, as
+available.
 
 RETURN VALUE:
 Type = int
@@ -33,8 +34,11 @@ int compute_toa_refl
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
     int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
                               nlines x nsamps */
-    int16 **sband       /* O: output TOA reflectance and brightness temp
+    int16 **sband,      /* O: output TOA reflectance and brightness temp
                               values (scaled) */
+    uint16 *radsat      /* O: radiometric saturation QA band, nlines x nsamps;
+                              array should be all zeros on input to this
+                              routine*/
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
@@ -100,7 +104,8 @@ int compute_toa_refl
                 return (ERROR);
             }
 
-            /* Get TOA reflectance coefficients for this band from XML file */
+            /* Get TOA reflectance coefficients for this reflectance band from
+               XML file */
             refl_mult = input->meta.gain[iband];
             refl_add = input->meta.bias[iband];
 
@@ -129,12 +134,18 @@ int compute_toa_refl
                         else if (rotoa > MAX_VALID)
                             sband[sband_ib][i] = MAX_VALID;
                         else
-                            /* TODO FORTRAN code doesn't round here, but it's
-                               probably a good idea */
                             sband[sband_ib][i] = (int) (roundf (rotoa));
+
+                        /* Check for saturation. Saturation is when the pixel
+                           reaches the max allowed value. */
+                        if (uband[i] == L1_SATURATED)
+                            radsat[i] |= 1 << (ib+1);
                     }
                     else
+                    {
                         sband[sband_ib][i] = FILL_VALUE;
+                        radsat[i] = RADSAT_FILL_VALUE;
+                    }
                 }  /* for samp */
             }  /* for line */
         }  /* end if band <= band 9 */
@@ -181,12 +192,17 @@ int compute_toa_refl
                     else if (tmpf > MAX_VALID_TH)
                         sband[SR_BAND10][i] = MAX_VALID_TH;
                     else
-                        /* TODO FORTRAN code doesn't round here, but it's
-                           probably a good idea */
                         sband[SR_BAND10][i] = (int) (roundf (tmpf));
+
+                    /* Check for saturation */
+                    if (uband[i] == L1_SATURATED)
+                        radsat[i] |= 1 << (ib+1);
                 }
                 else
+                {
                     sband[SR_BAND10][i] = FILL_VALUE;
+                    radsat[i] = RADSAT_FILL_VALUE;
+                }
             }
         }  /* end if band 10 */
 
@@ -230,12 +246,17 @@ int compute_toa_refl
                     else if (tmpf > MAX_VALID_TH)
                         sband[SR_BAND11][i] = MAX_VALID_TH;
                     else
-                        /* TODO FORTRAN code doesn't round here, but it's
-                           probably a good idea */
                         sband[SR_BAND11][i] = (int) (roundf (tmpf));
+
+                    /* Check for saturation only */
+                    if (uband[i] == L1_SATURATED)
+                        radsat[i] |= 1 << (ib+1);
                 }
                 else
+                {
                     sband[SR_BAND11][i] = FILL_VALUE;
+                    radsat[i] = RADSAT_FILL_VALUE;
+                }
             }
         }  /* end if band 11 */
     }  /* end for ib */
@@ -687,8 +708,6 @@ int compute_sr_refl
 
             /* Get the lat/long for the current pixel, for the center of
                the pixel */
-            /* TODO the line/sample conversion should use the center of the
-               pixel, however that's not being done in the FORTRAN code */
             img.l = i - 0.5;
             img.s = j + 0.5;
             img.is_fill = false;
@@ -1490,7 +1509,7 @@ int compute_sr_refl
     /* Fill in the pixels where the aerosol retrieval failed */
     for (i = 0; i < nlines*nsamps; i++)
     {
-        /* TODO Note the FORTRAN code also checks the cloud QA as to whether
+        /* Note the FORTRAN code also checks the cloud QA as to whether
            this is a cirrus or cloud pixel, however the cloud QA array has not
            yet been set for cirrus clouds or regular clouds.  Furthermore that
            code has been removed altogether.  Therefore the cloud checks have
@@ -1595,8 +1614,6 @@ int compute_sr_refl
                 else if (roslamb > MAX_VALID)
                     sband[ib][curr_pix] = MAX_VALID;
                 else
-                    /* TODO FORTRAN code doesn't round here, but it's probably
-                       a good idea */
                     sband[ib][curr_pix] = (int) (roundf (roslamb));
             }  /* end for j */
         }  /* end for i */
@@ -1614,7 +1631,7 @@ int compute_sr_refl
         "files ...\n");
 
     /* Open the output file */
-    sr_output = open_output (xml_metadata, input, false /*surf refl*/);
+    sr_output = open_output (xml_metadata, input, OUTPUT_SR);
     if (sr_output == NULL)
     {   /* error message already printed */
         error_handler (true, FUNC_NAME, errmsg);
@@ -1709,7 +1726,7 @@ int compute_sr_refl
     }
 
     /* Close the output surface reflectance products */
-    close_output (sr_output, false /*sr products*/);
+    close_output (sr_output, OUTPUT_SR);
     free_output (sr_output);
 
     /* Free the spatial mapping pointer */

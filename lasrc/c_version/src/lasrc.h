@@ -49,9 +49,13 @@ int compute_toa_refl
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
-    int16 *sza,         /* I: per-pixel solar zenith angles, nlines x nsamps */
-    int16 **sband       /* O: output surface reflectance and brightness
-                              temp bands */
+    int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
+                              nlines x nsamps */
+    int16 **sband,      /* O: output TOA reflectance and brightness temp
+                              values (scaled) */
+    uint16 *radsat      /* O: radiometric saturation QA band, nlines x nsamps;
+                              array should be all zeros on input to this
+                              routine*/
 );
 
 int compute_sr_refl

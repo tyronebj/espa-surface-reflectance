@@ -35,8 +35,8 @@ Output_t *open_output
 (
     Espa_internal_meta_t *in_meta,  /* I: input metadata structure */
     Input_t *input,                 /* I: input band data structure */
-    bool toa                        /* I: set this structure up for the TOA
-                                          bands vs. the SR bands */
+    Myoutput_t output_type          /* I: are we processing TOA, SR, RADSAT
+                                          outputs? */
 )
 {
     Output_t *this = NULL;
@@ -92,8 +92,11 @@ Output_t *open_output
     /* Copy the instrument type */
     this->inst = input->meta.inst;
 
-    /* Allocate memory for the total bands */
-    nband = NBAND_TTL_OUT;
+    /* Allocate memory for the total bands; radsat is only one band */
+    if (output_type == OUTPUT_RADSAT)
+        nband = 1;
+    else
+        nband = NBAND_TTL_OUT;
     if (allocate_band_metadata (&this->metadata, nband) != SUCCESS)
     {
         sprintf (errmsg, "Allocating band metadata.");
@@ -141,7 +144,7 @@ Output_t *open_output
     {
         strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 3);
         bmeta[ib].short_name[3] = '\0';
-        if (toa)
+        if (output_type == OUTPUT_TOA)
         {
             strcat (bmeta[ib].short_name, "TOA");
             if ((ib == SR_BAND10) || (ib == SR_BAND11))
@@ -149,10 +152,16 @@ Output_t *open_output
             else
                 strcpy (bmeta[ib].product, "toa_refl");
         }
-        else
+        else if (output_type == OUTPUT_SR)
         {
             strcat (bmeta[ib].short_name, "SR");
             strcpy (bmeta[ib].product, "sr_refl");
+        }
+        else if (output_type == OUTPUT_RADSAT)
+        {
+            strcat (bmeta[ib].short_name, "RADSAT");
+            strcpy (bmeta[ib].product, "toa_refl");
+            strcpy (bmeta[ib].source, "level1");
         }
 
         bmeta[ib].nlines = this->nlines;
@@ -166,13 +175,14 @@ Output_t *open_output
 
         /* Handle the aerosol band differently.  If this is only TOA then we
            don't need to process the aerosol mask.  If this is SR, then we
-           don't need to process the cirrus or thermal bands. */
-        if (toa && (ib == SR_AEROSOL))
+           don't need to process the cirrus or thermal bands.  If this is
+           RADSAT then we only have one band. */
+        if ((output_type == OUTPUT_TOA) && (ib == SR_AEROSOL))
             continue;
-        else if (!toa &&
+        else if ((output_type == OUTPUT_SR) &&
             ((ib == SR_BAND9) || (ib == SR_BAND10) || (ib == SR_BAND11)))
             continue;
-        else if (ib == SR_AEROSOL)
+        else if ((output_type == OUTPUT_SR) && (ib == SR_AEROSOL))
         {
             /* Common QA band fields */
             bmeta[ib].data_type = ESPA_UINT8;
@@ -201,6 +211,64 @@ Output_t *open_output
             strcpy (bmeta[ib].bitmap_description[5], "internal");
             strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
             strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
+
+            strncpy (bmeta[ib].short_name,
+                in_meta->band[refl_indx].short_name, 3);
+            bmeta[ib].short_name[3] = '\0';
+            strcat (bmeta[ib].short_name, "AERO");
+        }
+        else if (output_type == OUTPUT_RADSAT)
+        {
+            /* Common QA band fields */
+            bmeta[ib].data_type = ESPA_UINT16;
+            bmeta[ib].fill_value = RADSAT_FILL_VALUE;
+            strcpy (bmeta[ib].name, "radsat_qa");
+            strcpy (bmeta[ib].long_name, "saturation mask");
+            strcpy (bmeta[ib].category, "qa");
+            strcpy (bmeta[ib].data_units, "bitmap");
+
+            /* Set up radsat bitmap information */
+            if (allocate_bitmap_metadata (&bmeta[ib], 12) != SUCCESS)
+            {
+                sprintf (errmsg, "Allocating radsat bitmap.");
+                error_handler (true, FUNC_NAME, errmsg);
+                return (NULL);
+            }
+
+            /* Identify the bitmap values for the mask */
+            strcpy (bmeta[ib].bitmap_description[0],
+                "Data Fill Flag (0 = valid data, 1 = invalid data)");
+            strcpy (bmeta[ib].bitmap_description[1],
+                "Band 1 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[2],
+                "Band 2 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[3],
+                "Band 3 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[4],
+                "Band 4 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[5],
+                "Band 5 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[6],
+                "Band 6 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[7],
+                "Band 7 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[8], "N/A");
+            strcpy (bmeta[ib].bitmap_description[9],
+                "Band 9 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[10],
+                "Band 10 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
+            strcpy (bmeta[ib].bitmap_description[11],
+                "Band 11 Data Saturation Flag (0 = valid data, "
+                    "1 = saturated data)");
         }
         else
         {
@@ -224,13 +292,13 @@ Output_t *open_output
 
             if (ib >= SR_BAND1 && ib <= SR_BAND7)
             {
-                if (toa)
+                if (output_type == OUTPUT_TOA)
                 {
                     sprintf (bmeta[ib].name, "toa_band%d", ib+1);
                     sprintf (bmeta[ib].long_name, "band %d top-of-atmosphere "
                         "reflectance", ib+1);
                 }
-                else
+                else if (output_type == OUTPUT_SR)
                 {
                     sprintf (bmeta[ib].name, "sr_band%d", ib+1);
                     sprintf (bmeta[ib].long_name, "band %d surface reflectance",
@@ -296,7 +364,7 @@ NOTES:
 int close_output
 (
     Output_t *this,   /* I/O: Output data structure to close */
-    bool toa          /* I: output structure is for TOA bands vs. SR bands */
+    Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 )
 {
     char FUNC_NAME[] = "close_output";   /* function name */
@@ -313,9 +381,9 @@ int close_output
     /* Close raw binary products */
     for (ib = 0; ib < this->nband; ib++)
     {
-        if (toa && (ib == SR_AEROSOL))
+        if ((output_type == OUTPUT_TOA) && (ib == SR_AEROSOL))
             continue;
-        else if (!toa &&
+        else if ((output_type == OUTPUT_SR) &&
             ((ib == SR_BAND9) || (ib == SR_BAND10) || (ib == SR_BAND11)))
             continue;
         else
@@ -363,12 +431,18 @@ int free_output
   
     if (this != NULL)
     {
-        /* Free the bitmap data for the cloud band */
+        /* Free the bitmap data for the aerosol and radsat bands */
         if (this->metadata.band[SR_AEROSOL].nbits > 0)
         {
             for (b = 0; b < this->metadata.band[SR_AEROSOL].nbits; b++)
                 free (this->metadata.band[SR_AEROSOL].bitmap_description[b]);
             free (this->metadata.band[SR_AEROSOL].bitmap_description);
+        }
+        else if (this->metadata.band[SR_RADSAT].nbits > 0)
+        {
+            for (b = 0; b < this->metadata.band[SR_RADSAT].nbits; b++)
+                free (this->metadata.band[SR_RADSAT].bitmap_description[b]);
+            free (this->metadata.band[SR_RADSAT].bitmap_description);
         }
 
         /* Free the band data */

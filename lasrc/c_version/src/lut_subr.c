@@ -1800,6 +1800,8 @@ int memory_allocation_main
     int16 **vza,         /* O: view zenith angle, nlines x nsamps  */
     int16 **vaa,         /* O: view azimuth angle table, nlines x nsamps */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
+    uint16 **radsat,     /* O: radiometric saturation band for the input image,
+                               nlines x nsamps */
     int16 ***sband       /* O: output surface reflectance and brightness temp
                                bands */
 )
@@ -1844,6 +1846,14 @@ int memory_allocation_main
     if (*qaband == NULL)
     {
         sprintf (errmsg, "Error allocating memory for qaband");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *radsat = calloc (nlines*nsamps, sizeof (uint16));
+    if (*radsat == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for radsat");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }

@@ -325,6 +325,8 @@ int memory_allocation_main
     int16 **vza,         /* O: view zenith angle, nlines x nsamps  */
     int16 **vaa,         /* O: view azimuth angle table, nlines x nsamps */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
+    uint16 **radsat,     /* O: radiometric saturation band for the input image,
+                               nlines x nsamps */
     int16 ***sband       /* O: output surface reflectance and brightness temp
                                bands */
 );

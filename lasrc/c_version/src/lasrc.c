@@ -62,6 +62,8 @@ int main (int argc, char *argv[])
     Input_t *input = NULL;       /* input structure for the Landsat product */
     Output_t *toa_output = NULL; /* output structure and metadata for the TOA
                                     product */
+    Output_t *radsat_output = NULL; /* output structure and metadata for the
+                                       RADSAT product */
     Espa_internal_meta_t xml_metadata;  /* XML metadata structure */
     Espa_global_meta_t *gmeta = NULL;   /* pointer to global meta */
     Envi_header_t envi_hdr;      /* output ENVI header information */
@@ -74,6 +76,8 @@ int main (int argc, char *argv[])
     int16 **sband = NULL;     /* output surface reflectance and brightness
                                  temp bands, qa band is separate as a uint16 */
     uint16 *qaband = NULL;    /* QA band for the input image, nlines x nsamps */
+    uint16 *radsat = NULL;    /* QA band for radiometric saturation of the
+                                 Level-1 product, nlines x nsamps */
 
     float xts;           /* solar zenith angle (deg) */
     float xfs;           /* solar azimuth angle (deg) */
@@ -219,7 +223,7 @@ int main (int argc, char *argv[])
     if (verbose)
         printf ("Allocating memory for the data arrays ...\n");
     retval = memory_allocation_main (nlines, nsamps, &sza, &saa, &vza, &vaa,
-        &qaband, &sband);
+        &qaband, &radsat, &sband);
     if (retval != SUCCESS)
     {   /* get_args already printed the error message */
         sprintf (errmsg, "Error allocating memory for the data arrays from "
@@ -339,7 +343,7 @@ int main (int argc, char *argv[])
     /* Compute the TOA reflectance and at-sensor brightness temp */
     printf ("Calculating TOA reflectance and at-sensor brightness temps...");
     retval = compute_toa_refl (input, &xml_metadata, qaband, nlines, nsamps,
-        gmeta->instrument, sza, sband);
+        gmeta->instrument, sza, sband, radsat);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error computing TOA reflectance and at-sensor "
@@ -350,7 +354,7 @@ int main (int argc, char *argv[])
 
     /* Open the TOA output file, and set up the bands according to whether
        the TOA reflectance bands will be written. */
-    toa_output = open_output (&xml_metadata, input, true /*toa*/);
+    toa_output = open_output (&xml_metadata, input, OUTPUT_TOA);
     if (toa_output == NULL)
     {   /* error message already printed */
         error_handler (true, FUNC_NAME, errmsg);
@@ -456,7 +460,7 @@ int main (int argc, char *argv[])
     }
 
     /* Close the output TOA products, cleanup bands, and free the memory */
-    close_output (toa_output, true /*toa products*/);
+    close_output (toa_output, OUTPUT_TOA);
     if (process_sr && !write_toa)
     {
         /* Remove the TOA bands 1-7 that were created by the open routine,
@@ -465,6 +469,74 @@ int main (int argc, char *argv[])
             unlink (toa_output->metadata.band[ib].file_name);
     }
     free_output (toa_output);
+
+
+
+
+
+
+
+
+    /* GAIL -- Open, write, and close the radsat QA band.  Also append to
+       XML file */
+    /* Open the RADSAT output file */
+    radsat_output = open_output (&xml_metadata, input, OUTPUT_RADSAT);
+    if (radsat_output == NULL)
+    {   /* error message already printed */
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+    printf ("Writing RADSAT data to the output files ...\n");
+
+    /* Write the RADSAT band */
+    if (put_output_lines (radsat_output, radsat, 0, 0, nlines,
+        sizeof (uint16)) != SUCCESS)
+    {
+        sprintf (errmsg, "Writing output RADSAT data");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+
+    /* Create the ENVI header file this band */
+    if (create_envi_struct (&radsat_output->metadata.band[SR_RADSAT],
+        &xml_metadata.global, &envi_hdr) != SUCCESS)
+    {
+        sprintf (errmsg, "Creating ENVI header structure.");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+      
+    /* Write the ENVI header */
+    strcpy (envi_file, radsat_output->metadata.band[SR_RADSAT].file_name);
+    cptr = strchr (envi_file, '.');
+    strcpy (cptr, ".hdr");
+    if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
+    {
+        sprintf (errmsg, "Writing ENVI header file.");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+
+    /* Append the RADSAT band to the XML file */
+    if (append_metadata (1, &radsat_output->metadata.band[SR_RADSAT],
+        xml_infile) != SUCCESS)
+    {
+        sprintf (errmsg, "Appending the RADSAT band to XML file.");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+
+    /* Close the output radsat product, cleanup bands, and free the memory */
+    close_output (radsat_output, OUTPUT_RADSAT);
+    free_output (radsat_output);
+    free (radsat);
+
+
+
+
+
+
+
 
     /* Only continue with the surface reflectance corrections if SR processing
        has been requested and is possible due to the solar zenith angle */
