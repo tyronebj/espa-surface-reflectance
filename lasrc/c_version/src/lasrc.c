@@ -470,15 +470,6 @@ int main (int argc, char *argv[])
     }
     free_output (toa_output);
 
-
-
-
-
-
-
-
-    /* GAIL -- Open, write, and close the radsat QA band.  Also append to
-       XML file */
     /* Open the RADSAT output file */
     radsat_output = open_output (&xml_metadata, input, OUTPUT_RADSAT);
     if (radsat_output == NULL)
@@ -530,13 +521,6 @@ int main (int argc, char *argv[])
     close_output (radsat_output, OUTPUT_RADSAT);
     free_output (radsat_output);
     free (radsat);
-
-
-
-
-
-
-
 
     /* Only continue with the surface reflectance corrections if SR processing
        has been requested and is possible due to the solar zenith angle */
