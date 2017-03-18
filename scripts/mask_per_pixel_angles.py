@@ -16,7 +16,7 @@ from optparse import OptionParser
 ERROR = 1
 SUCCESS = 0
 BQA_FILL = 1             # first bit is turned on for fill
-OUTPUT_FILL = -9999
+OUTPUT_FILL = -32767
 
 
 class MaskAngles():
@@ -62,7 +62,7 @@ class MaskAngles():
         ppa = ppa_band.ReadAsArray(0, 0, ppa_ds.RasterXSize, ppa_ds.RasterYSize)
 
         # Mask the PPA band for the fill pixels in the BQA band
-        ppa[bqa == 1] = -9999
+        ppa[bqa == 1] = OUTPUT_FILL
 
         # Write the new PPA values
         ppa_band.WriteArray(ppa, 0, 0)
