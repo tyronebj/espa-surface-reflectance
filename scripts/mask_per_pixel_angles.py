@@ -16,7 +16,7 @@ from optparse import OptionParser
 ERROR = 1
 SUCCESS = 0
 BQA_FILL = 1             # first bit is turned on for fill
-OUTPUT_FILL = -32767
+OUTPUT_FILL = -32768
 
 
 class MaskAngles():

@@ -13,7 +13,7 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "1.0.0"
+#define SR_VERSION "1.0.1"
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 1000

@@ -1,5 +1,5 @@
-## Ledaps Version 3.1.1 Release Notes
-Release Date: February 2017
+## Ledaps Version 3.1.2 Release Notes
+Release Date: March 2017
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2014.tar.gz
 
-See git tag [ledaps-version_3.1.1]
+See git tag [ledaps-version_3.1.2]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,16 +92,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Modified lndpm to skip the auxiliary data checks if processing TOA/BT only,
-     since the auxiliary data files are not needed for TOA/BT processing.
-  2. Updated do_ledaps.py to support the above change to lndpm by passing in
-     the flag for TOA/SR processing.
-  3. Per-pixel angle bands are masked to match the band quality image extents,
-     and therefore fill pixels in the band quality are masked as fill pixels in
-     the per-pixel angle bands.
-  4. Removed the "pull the sixs path from the lndsr executable" code. All our
-     scripts and applications require called scripts and applications to be
-     installed in the PATH, so the whole set and get sixs path functionality
-     is not required. It was also problematic in the Docker environment.
-  5. Updated the short_name and long_name for the RADSAT band to be more
-     specific to RADSAT and consistent with L8 RADSAT.
+  1. Fill value for the angle bands is -32768 instead of -9999.
