@@ -128,6 +128,19 @@ class MaskAngles():
         # processing is complete
         mydir = os.getcwd()
 
+        # Turn off some of the drivers for gdal since it tends to create issues
+        # with some of our ESPA datasets. The ESPA products intermittently
+        # will be read as JDEM or DOQ instead of UTM or ALBERS. We believe
+        # that GDAL finds a character in the .img file that makes it believe
+        # the image is something other than an ENVI product in the actual
+        # projection we have specified.
+        jdem = gdal.GetDriverByName('JDEM')
+        doq1 = gdal.GetDriverByName('DOQ1')
+        doq2 = gdal.GetDriverByName('DOQ2')
+        jdem.Deregister()
+        doq1.Deregister()
+        doq2.Deregister()
+
         # Strip the path from the XML file and change into the directory
         # containing the XML file
         xml_dir = os.path.dirname(xml_file)
