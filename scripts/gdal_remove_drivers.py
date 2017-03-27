@@ -30,7 +30,6 @@ def main():
     # do not get tagged as something other than ENVI, which has happened with
     # a few of our image files (particularly the solar/sensor angle bands).
     logger.debug('{}'.format(list_gdal_drivers()))
-    #print list_gdal_drivers()
     delete_gdal_drivers(['ENVI'])
     logger.debug('{}'.format(gdal.GetDriverCount()))
 
