@@ -12,6 +12,7 @@ import commands
 import datetime
 import logging
 from optparse import OptionParser
+import gdal_remove_drivers as gdal_deregister
 
 ERROR = 1
 SUCCESS = 0
@@ -134,12 +135,13 @@ class MaskAngles():
         # that GDAL finds a character in the .img file that makes it believe
         # the image is something other than an ENVI product in the actual
         # projection we have specified.
-        jdem = gdal.GetDriverByName('JDEM')
-        doq1 = gdal.GetDriverByName('DOQ1')
-        doq2 = gdal.GetDriverByName('DOQ2')
-        jdem.Deregister()
-        doq1.Deregister()
-        doq2.Deregister()
+#        jdem = gdal.GetDriverByName('JDEM')
+#        doq1 = gdal.GetDriverByName('DOQ1')
+#        doq2 = gdal.GetDriverByName('DOQ2')
+#        jdem.Deregister()
+#        doq1.Deregister()
+#        doq2.Deregister()
+        gdal_deregister.delete_gdal_drivers(['ENVI'])
 
         # Strip the path from the XML file and change into the directory
         # containing the XML file

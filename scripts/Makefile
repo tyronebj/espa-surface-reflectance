@@ -13,7 +13,7 @@ include $(TOP)/make.config
 script_install_path = $(espa_project_dir)/bin
 script_source_link_path = ../$(project_name)/bin
 
-SCRIPTS = surface_reflectance.py mask_per_pixel_angles.py
+SCRIPTS = surface_reflectance.py mask_per_pixel_angles.py gdal_remove_drivers.py
 
 all:
 
