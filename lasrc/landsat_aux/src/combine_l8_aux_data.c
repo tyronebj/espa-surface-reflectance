@@ -1012,7 +1012,7 @@ int metareader
     int data_type;          /* data type of the attribute */
     int nvals;              /* number of values in the attribute */
     int n_obj;              /* number of OBJECT strings we've counted */
-    int n_val;              /* number of values for the current attribute */
+    int n_val=0;            /* number of values for the current attribute */
     int start;              /* location of the character string to start
                                reading lines */
     int obj_offset[10];     /* offset of location of OBJECT token */
