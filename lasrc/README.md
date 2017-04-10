@@ -1,5 +1,5 @@
-## LaSRC Version 1.0.1 Release Notes
-Release Date: March 2017
+## LaSRC Version 1.1.0 Release Notes
+Release Date: April 2017
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/l8sr_auxiliary/l8sr_auxiliary.tar.gz
 
-See git tag [lasrc-version_1.0.1]
+See git tag [lasrc-version_1.1.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -82,4 +82,8 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Fill value for the angle bands is -32768 instead of -9999.
+1. Fixed broken links in the LAADS auxiliary Makefile.
+2. Fixed a compiler warning in the combine LAADS C code.
+3. Modified the LAADS update scripts to use the MODIS public http server -
+   https://ladsweb.modaps.eosdis.nasa.gov instead of the ftp server
+   ftp://ladssci.nascom.nasa.gov.
