@@ -87,3 +87,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 3. Modified the LAADS update scripts to use the MODIS public http server -
    https://ladsweb.modaps.eosdis.nasa.gov instead of the ftp server
    ftp://ladssci.nascom.nasa.gov.
+4. Updated the application version number.
