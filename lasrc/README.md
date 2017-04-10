@@ -65,9 +65,7 @@ See git tag [lasrc-version_1.1.0]
 ### Auxiliary Data Updates
 The baseline auxiliary files provided don't include the daily climate data.  In order to generate or update the auxiliary files to the most recent day of year (actually the most current auxiliary files available will be 2-3 days prior to the current day of year do to the latency of the underlying LAADS products) the user will want to run the updatelads.py script available in $PREFIX/bin.  This script can be run with the "--help" argument to print the usage information.  In general the --quarterly argument will reprocess/update all the LAADS data back to 2013.  This is good to do every once in a while to make sure any updates to the LAADS data products are captured.  The --today command-line argument will process the LAADS data for the most recent year.  In general, it is suggested to run the script with --quarterly once a quarter.  Then run the script with --today on a nightly basis.  This should provide an up-to-date version of the auxiliary input data for LaSRC.  The easiest way to accomplish this is to set up a nightly and quarterly cron job.
 
-The updatelads script requires a username/password to access the ladssci.nascom.nasa.gov FTP site.  The user will need to contact USGS EROS Customer Services to obtain a username/password for the LAADS FTP site.  In your email explain that you will be using this ftp access to obtain LAADS data for processing Landsat 8 products using the LaSRC application provided by the USGS EROS.  For questions regarding this information, please contact the Landsat Contact Us page and specify USGS CDR/ECV in the "Regarding" section. https://landsat.usgs.gov/contactus.php
-
-The provided username and password should be used in the --username and --password command-line arguments for the updatelads.py script.  If not specified the source code will try to use the ESPA_LAADS_CONFIG http service to automatically determine the username/password, which is only available to the USGS LSRD systems.
+The updatelads script now accesses a public http site instead of the previous LAADS FTP site which required a username/password.  Therefore the update LAADS script should be usable by all users, as-is, and should not require additional modifications or a special username and password.
 
 ### Data Preprocessing
 This version of the LaSRC application requires the input Landsat products to be in the ESPA internal file format.  After compiling the product formatter raw\_binary libraries and tools, the convert\_lpgs\_to\_espa command-line tool can be used to create the ESPA internal file format for input to the LaSRC application.
@@ -87,4 +85,6 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 3. Modified the LAADS update scripts to use the MODIS public http server -
    https://ladsweb.modaps.eosdis.nasa.gov instead of the ftp server
    ftp://ladssci.nascom.nasa.gov.
+   This LAADS data has been moved to the public http site and allows all users
+   of the update LAADS scripts to access the data without a username/password.
 4. Updated the application version number.
