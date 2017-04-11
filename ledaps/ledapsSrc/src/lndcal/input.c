@@ -446,7 +446,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     else
     {
         sprintf (temp, "invalid satellite; value = %s", gmeta->satellite);
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     if (!strcmp (gmeta->instrument, "TM"))
@@ -456,7 +456,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     else
     {
         sprintf (temp, "invalid instrument; value = %s", gmeta->instrument);
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     strcpy (acq_date, gmeta->acquisition_date);
@@ -474,7 +474,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     if (this->meta.sun_zen < -90.0 || this->meta.sun_zen > 90.0)
     {
         error_string = "solar zenith angle out of range";
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
     this->meta.sun_zen *= RAD;   /* convert to radians */
 
@@ -482,7 +482,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     if (this->meta.sun_az < -360.0 || this->meta.sun_az > 360.0)
     {
         error_string = "solar azimuth angle out of range";
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
     this->meta.sun_az *= RAD;    /* convert to radians */
 
@@ -495,7 +495,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
         default:
             sprintf (temp, "invalid WRS system; value = %d",
                 gmeta->wrs_system);
-            RETURN_ERROR (temp, "GetXMLInput", true);
+            RETURN_ERROR (temp, "GetXMLInput", false);
     }
     this->meta.ipath = gmeta->wrs_path;
     this->meta.irow = gmeta->wrs_row;
@@ -660,7 +660,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     if (refl_indx == -99)
     {
         sprintf (temp, "band 1 (b1) was not found in the XML file");
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     /* Make sure the solar zenith band was found if processing Collections */
@@ -668,7 +668,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     {
         sprintf (temp, "Representative band for the solar zenith data was "
             "not found in the XML file.  It is required for Collections.");
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     /* Let the user know if the XML params are being used or the LUT params */
@@ -709,7 +709,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
 
     if (error_string != NULL)
     {
-        RETURN_ERROR (error_string, "GetHeaderInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", true);
     }
 
     /* Check satellite/instrument combination */
@@ -738,7 +738,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
 
     if (error_string != NULL)
     {
-        RETURN_ERROR (error_string, "GetHeaderInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", true);
     }
 
     /* Convert the acquisition date/time values */
@@ -746,14 +746,14 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata,
     if (!DateInit (&this->meta.acq_date, temp, DATE_FORMAT_DATEA_TIME))
     {
         error_string = "converting acquisition date/time";
-        RETURN_ERROR (error_string, "GetHeaderInput", false);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
 
     /* Convert the production date value */
     if (!DateInit (&this->meta.prod_date, prod_date, DATE_FORMAT_DATEA))
     {
         error_string = "converting production date";
-        RETURN_ERROR (error_string, "GetHeaderInput", false);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
 
     return true;
