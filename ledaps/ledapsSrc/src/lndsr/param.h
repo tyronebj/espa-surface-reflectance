@@ -63,6 +63,7 @@
 #define PARAM_H
 
 #include "bool.h"
+#include "lndpm.h"  /* For version number */
 
 /* Parameter data structure type definition */
 

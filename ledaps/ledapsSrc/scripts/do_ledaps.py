@@ -167,6 +167,8 @@ class Ledaps():
     #       should be completed.  True or False.  Default is True, otherwise
     #       the processing will halt after the TOA reflectance products are
     #       complete.
+    #   version - request version number be displayed.  In this case, the
+    #       other parameters are not required.
     #
     # Returns:
     #     ERROR - error running the LEDAPS applications
@@ -181,8 +183,13 @@ class Ledaps():
     def runLedaps(self, xmlfile=None, process_sr="True"):
         # If no parameters were passed then get the info from the command line
         if xmlfile is None:
+
+            # Get version number
+            cmdstr = ('lndsr --version')
+            (status, self.version) = commands.getstatusoutput(cmdstr)
+
             # Get the command line argument for the XML file
-            parser = OptionParser()
+            parser = OptionParser(version = self.version)
             parser.add_option("-f", "--xml",
                               type="string", dest="xmlfile",
                               help="name of Landsat XML file",

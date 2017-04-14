@@ -213,13 +213,14 @@ int main (int argc, char *argv[]) {
     int anom;
     float t6,t6s_seuil;
   
-    printf ("\nRunning lndsr ....\n");
     debug_flag= DEBUG_FLAG;
     no_ozone_file=0;
   
     /* Read the parameters from the command-line and input parameter file */
     param = GetParam(argc, argv);
     if (param == NULL) EXIT_ERROR("getting runtime parameters", "main");
+
+    printf ("\nRunning lndsr ....\n");
 
     /* Validate the input metadata file */
     if (validate_xml_file (param->input_xml_file_name) != SUCCESS)
