@@ -106,8 +106,6 @@ int main (int argc, char *argv[])
                                  the aerosol retrieval algorithm) */
     char auxnm[STR_SIZE];     /* auxiliary filename for ozone and water vapor*/
 
-    printf ("Starting TOA and surface reflectance processing ...\n");
-
     /* Read the command-line arguments */
     retval = get_args (argc, argv, &xml_infile, &aux_infile, &process_sr,
         &write_toa, &verbose);
@@ -115,6 +113,8 @@ int main (int argc, char *argv[])
     {   /* get_args already printed the error message */
         exit (ERROR);
     }
+
+    printf ("Starting TOA and surface reflectance processing ...\n");
 
     /* Provide user information if verbose is turned on */
     if (verbose)
@@ -592,7 +592,7 @@ void usage ()
     printf ("usage: lasrc "
             "--xml=input_xml_filename "
             "--aux=input_auxiliary_filename "
-            "--process_sr=true:false --write_toa [--verbose]\n");
+            "--process_sr=true:false --write_toa [--verbose] [--version]\n");
 
     printf ("\nwhere the following parameters are required:\n");
     printf ("    -xml: name of the input XML file to be processed\n");
@@ -610,6 +610,8 @@ void usage ()
             "for bands 1-7 are written to the output file\n");
     printf ("    -verbose: should intermediate messages be printed? (default "
             "is false)\n");
+    printf ("    -version: print the LaSRC version. When this parameter is "
+            "used, none of the other parameters are used or required.\n");
 
     printf ("\nlasrc --help will print the usage statement\n");
     printf ("\nExample: lasrc --xml=LC80410272013181LGN00.xml "

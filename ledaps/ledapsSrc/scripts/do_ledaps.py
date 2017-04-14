@@ -167,8 +167,6 @@ class Ledaps():
     #       should be completed.  True or False.  Default is True, otherwise
     #       the processing will halt after the TOA reflectance products are
     #       complete.
-    #   version - request version number be displayed.  In this case, the
-    #       other parameters are not required.
     #
     # Returns:
     #     ERROR - error running the LEDAPS applications
