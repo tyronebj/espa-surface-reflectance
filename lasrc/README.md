@@ -8,7 +8,7 @@ LaSRC (Landsat Surface Reflectance Code) source code
 
 LaSRC auxiliary files
 
-    http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/l8sr_auxiliary/l8sr_auxiliary.tar.gz
+    http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
 See git tag [lasrc-version_1.1.0]
 
@@ -21,7 +21,7 @@ See git tag [lasrc-version_1.1.0]
 
   * Install baseline auxiliary files and set up the environment variables.
 ```
-    tar -xvzf l8sr_auxiliary.tar.gz
+    tar -xvzf lasrc_auxiliary.tar.gz
     export L8_AUX_DIR="directory_saved_auxiliary_files"
     (or in c shell use 
     setenv L8_AUX_DIR "directory_saved_auxiliary_files")
