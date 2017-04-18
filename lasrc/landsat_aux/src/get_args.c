@@ -117,38 +117,47 @@ int get_args
     }
 
     /* Make sure the Terra/Aqua CMG/CMA files were specified */
-    if (*terra_cmg_file == NULL)
+    if (*terra_cmg_file == NULL && *aqua_cmg_file == NULL)
     {
-        sprintf (errmsg, "Input Terra CMG file is a required argument");
+        sprintf (errmsg, "Input Terra CMG or Aqua CMG file is a required "
+            "argument. At least one must be valid.");
         error_handler (true, FUNC_NAME, errmsg);
         usage ();
         return (ERROR);
     }
 
-    if (*aqua_cmg_file == NULL)
+    if (*terra_cma_file == NULL && *aqua_cma_file == NULL)
     {
-        sprintf (errmsg, "Input Aqua CMG file is a required argument");
+        sprintf (errmsg, "Input Terra CMA or Aqua CMA file is a required "
+            "argument. At least one must be valid.");
         error_handler (true, FUNC_NAME, errmsg);
         usage ();
         return (ERROR);
     }
 
-    if (*terra_cma_file == NULL)
+    /* If Terra CMA is available, then Terra CMG should be available */
+    if (((*terra_cma_file != NULL) && (*terra_cmg_file == NULL)) ||
+        ((*terra_cma_file == NULL) && (*terra_cmg_file != NULL)))
     {
-        sprintf (errmsg, "Input Terra CMA file is a required argument");
+        sprintf (errmsg, "Input Terra CMA and CMG files are required "
+            "to be valid. If one is valid the other must also be valid.");
         error_handler (true, FUNC_NAME, errmsg);
         usage ();
         return (ERROR);
     }
 
-    if (*aqua_cma_file == NULL)
+    /* If Aqua CMA is available, then Aqua CMG should be available */
+    if (((*aqua_cma_file != NULL) && (*aqua_cmg_file == NULL)) ||
+        ((*aqua_cma_file == NULL) && (*aqua_cmg_file != NULL)))
     {
-        sprintf (errmsg, "Input Aqua CMA file is a required argument");
+        sprintf (errmsg, "Input Aqua CMA and CMG files are required "
+            "to be valid. If one is valid the other must also be valid.");
         error_handler (true, FUNC_NAME, errmsg);
         usage ();
         return (ERROR);
     }
 
+    /* Make sure the output directory was specified */
     if (*output_dir == NULL)
     {
         sprintf (errmsg, "Output directory is a required argument");

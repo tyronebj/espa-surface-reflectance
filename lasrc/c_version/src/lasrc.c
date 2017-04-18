@@ -267,7 +267,7 @@ int main (int argc, char *argv[])
         }
 
         /* Grab the year of the auxiliary input file to be used for the correct
-           location of the auxiliary file in the auxliary directory */
+           location of the auxiliary file in the auxiliary directory */
         strncpy (aux_year, &aux_infile[5], 4);
         aux_year[4] = '\0';
 

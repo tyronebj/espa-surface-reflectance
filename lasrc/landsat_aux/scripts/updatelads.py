@@ -262,6 +262,10 @@ def getLadsData (auxdir, year, today):
             continue
 
         # download the daily LAADS files for the specified year and DOY
+        found_mod09cma = True
+        found_mod09cmg = True
+        found_myd09cma = True
+        found_myd09cmg = True
         status = downloadLads (year, doy, dloaddir)
         if status == ERROR:
             # warning message already printed
@@ -276,10 +280,7 @@ def getLadsData (auxdir, year, today):
         # make sure files were found or print a warning
         nfiles = len(fileList)
         if nfiles == 0:
-            msg = ('No LAADS MOD09CMA data available for doy {} year {}.'
-                   .format(doy, year))
-            logger.warning(msg)
-            continue
+            found_mod09cma = False
         else:
             # if only one file was found which matched our date, then that's
             # the file we'll process.  if more than one was found, then we
@@ -301,10 +302,7 @@ def getLadsData (auxdir, year, today):
         # make sure files were found or print a warning
         nfiles = len(fileList)
         if nfiles == 0:
-            msg = ('No LAADS MOD09CMG data available for doy {} year {}.'
-                   .format(doy, year))
-            logger.warning(msg)
-            continue
+            found_mod09cmg = False
         else:
             # if only one file was found which matched our date, then that's
             # the file we'll process.  if more than one was found, then we
@@ -326,10 +324,7 @@ def getLadsData (auxdir, year, today):
         # make sure files were found or print a warning
         nfiles = len(fileList)
         if nfiles == 0:
-            msg = ('No LAADS MYD09CMA data available for doy {} year {}.'
-                   .format(doy, year))
-            logger.warning(msg)
-            continue
+            found_myd09cma = False
         else:
             # if only one file was found which matched our date, then that's
             # the file we'll process.  if more than one was found, then we
@@ -351,10 +346,7 @@ def getLadsData (auxdir, year, today):
         # make sure files were found or print a warning
         nfiles = len(fileList)
         if nfiles == 0:
-            msg = ('No LAADS MYD09CMG data available for doy {} year {}.'
-                   .format(doy, year))
-            logger.warning(msg)
-            continue
+            found_myd09cmg = False
         else:
             # if only one file was found which matched our date, then that's
             # the file we'll process.  if more than one was found, then we
@@ -367,11 +359,43 @@ def getLadsData (auxdir, year, today):
                 logger.error(msg)
                 return ERROR
 
-        # generate the full path for the input and output file to be
-        # processed. if the output file already exists, then remove it.
-        cmdstr = ('combine_l8_aux_data --terra_cmg {} --terra_cma {} '
-                  '--aqua_cmg {} --aqua_cma {} --output_dir {}'
-                  .format(terra_cmg, terra_cma, aqua_cmg, aqua_cma, outputDir))
+        # make sure at least one of the Aqua or Terra CMG files is present
+        if not found_myd09cmg and not found_mod09cmg:
+            msg = ('No Aqua or Terra LAADS CMG data available for doy {} year '
+                   '{}. Skipping this date.'
+                   .format(doy, year))
+            logger.warning(msg)
+            continue
+
+        # make sure at least one of the Aqua or Terra CMA files is present
+        if not found_myd09cma and not found_mod09cma:
+            msg = ('No Aqua or Terra LAADS CMA data available for doy {} year '
+                   '{}. Skipping this date.'
+                   .format(doy, year))
+            logger.warning(msg)
+            continue
+
+        # generate the command-line arguments and executable for combining
+        # the CMG and CMA products
+        terra_cmg_cmdline = ''
+        if found_mod09cmg:
+            terra_cmg_cmdline = '--terra_cmg {}'.format(terra_cmg)
+
+        terra_cma_cmdline = ''
+        if found_mod09cma:
+            terra_cma_cmdline = '--terra_cma {}'.format(terra_cma)
+
+        aqua_cmg_cmdline = ''
+        if found_myd09cmg:
+            aqua_cmg_cmdline = '--aqua_cmg {}'.format(aqua_cmg)
+
+        aqua_cma_cmdline = ''
+        if found_myd09cma:
+            aqua_cma_cmdline = '--aqua_cma {}'.format(aqua_cma)
+
+        cmdstr = ('combine_l8_aux_data {} {} {} {} --output_dir {}'
+                  .format(terra_cmg_cmdline, terra_cma_cmdline,
+                          aqua_cmg_cmdline, aqua_cma_cmdline, outputDir))
         msg = 'Executing {}'.format(cmdstr)
         logger.info(msg)
 
