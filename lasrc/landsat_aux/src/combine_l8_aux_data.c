@@ -25,16 +25,12 @@ NOTES:
 #include "combine_l8_aux_data.h"
 
 /* Program will look for these SDSs in the CMG/CMA inputs */
-#define N_SDS 5
+#define N_SDS 2
 char list_of_sds[N_SDS][50] = {
-    "Coarse Resolution Ozone",                  /* actually used by lasrc */
-    "Coarse Resolution Granule Time", 
-    "Coarse Resolution Water Vapor",            /* actually used by lasrc */
-    "Coarse Resolution Air Temperature (2m)", 
-    "Coarse Resolution AOT at 550 nm"};
+    "Coarse Resolution Ozone",
+    "Coarse Resolution Water Vapor"};
 #define OZONE 0
-#define WV 2
-#define AIR_TEMP_2M 3
+#define WV 1
    
 /* Global variables */
 bool global_yearday_is_set = false;
@@ -505,11 +501,10 @@ int main (int argc, char **argv)
         }
     }
 
-    /* Interpolate water vapor, ozone, and temperature at 2m data.  But, only
-       for lines 1000 to 2600, assuming CMGs (exclude the poles). */
+    /* Interpolate water vapor and ozone data.  But, only for lines 1000 to
+       2600, assuming CMGs (exclude the poles). */
     if (verbose)
-        printf ("Interpolating combined products for WV, OZ, and "
-            "AIR_TEMP_2M ...\n");
+        printf ("Interpolating combined products for WV and OZ ...\n");
     if (dims[0] == 3600)
     {  /* then, yeah, we have a CMG */
         for (line = 1000; line < 2600; line++)
@@ -536,14 +531,11 @@ int main (int argc, char **argv)
                 left--;
 
                 /* Interpolate all the fill pixels between the left and right
-                   non-fill pixels for the ozone, water vapor, and air temp
-                   data */
+                   non-fill pixels for the ozone and water vapor data */
                 interpolate (DFNT_UINT8, terra_params[OZONE].data, pix, left,
                     right);
                 interpolate (DFNT_UINT16, terra_params[WV].data, pix, left,
                     right);
-                interpolate (DFNT_UINT16, terra_params[AIR_TEMP_2M].data, pix,
-                    left, right);
             }
         }
     }  /* if dims[0] */
