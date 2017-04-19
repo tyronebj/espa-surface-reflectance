@@ -1,5 +1,5 @@
 ## LaSRC Version 1.1.0 Release Notes
-Release Date: April 2017
+Release Date: May 2017
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -88,3 +88,10 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
    This LAADS data has been moved to the public http site and allows all users
    of the update LAADS scripts to access the data without a username/password.
 4. Updated the application version number.
+5. Added --version command-line options for applications and scripts.
+6. Updated the LAADS scripts to allow Aqua-only CMG/CMA and/or Terra-only
+   CMG/CMA for the situations when Terra or Aqua is not available.
+7. Removed the unused SDSs from the LAADS hdf_fused auxiliary products.  Only
+   the water vapor and ozone are used by LaSRC.
+8. Updated Makefiles to catch build errors in the for loops.
+

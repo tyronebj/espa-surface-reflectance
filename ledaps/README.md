@@ -1,5 +1,5 @@
-## Ledaps Version 3.1.2 Release Notes
-Release Date: March 2017
+## Ledaps Version 3.1.3 Release Notes
+Release Date: May 2017
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.1.2]
+See git tag [ledaps-version_3.1.3]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,4 +92,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Fill value for the angle bands is -32768 instead of -9999.
+  1. Supported --version for the applications and script.
+  2. Fixed input.c in lndcal and lndsr to correctly handle the input data errors
+     by returning false instead of true from the GetXMLInput function.
+  3. Updated Makefiles to catch build errors in the for loops.
