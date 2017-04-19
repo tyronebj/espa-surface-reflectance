@@ -18,26 +18,26 @@ clean: clean-ledaps clean-ledaps-aux
 #-----------------------------------------------------------------------------
 all-ledaps:
 	echo "make all in $(DIR_LEDAPS)..."; \
-        (cd $(DIR_LEDAPS); $(MAKE))
+        ($(MAKE) -C $(DIR_LEDAPS) || exit 1)
 
 install-ledaps: all-ledaps
 	echo "make install in $(DIR_LEDAPS)..."; \
-        (cd $(DIR_LEDAPS); $(MAKE) install)
+        ($(MAKE) -C $(DIR_LEDAPS) install || exit 1)
 
 clean-ledaps:
 	echo "make clean in $(DIR_LEDAPS)..."; \
-        (cd $(DIR_LEDAPS); $(MAKE) clean)
+        ($(MAKE) -C $(DIR_LEDAPS) clean || exit 1)
 
 #-----------------------------------------------------------------------------
 all-ledaps-aux:
 	echo "make all in $(DIR_LEDAPS_AUX)..."; \
-        (cd $(DIR_LEDAPS_AUX); $(MAKE))
+        ($(MAKE) -C $(DIR_LEDAPS_AUX) || exit 1)
 
 install-ledaps-aux: all-ledaps-aux
 	echo "make install in $(DIR_LEDAPS_AUX)..."; \
-        (cd $(DIR_LEDAPS_AUX); $(MAKE) install)
+        ($(MAKE) -C $(DIR_LEDAPS_AUX) install || exit 1)
 
 clean-ledaps-aux:
 	echo "make clean in $(DIR_LEDAPS_AUX)..."; \
-        (cd $(DIR_LEDAPS_AUX); $(MAKE) clean)
+        ($(MAKE) -C $(DIR_LEDAPS_AUX) clean || exit 1)
 

@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Makefile
 #
-# For building lndcal.
+# For building lndsrbm.
 #-----------------------------------------------------------------------------
 .PHONY: all install clean
 
@@ -91,16 +91,16 @@ install:
 	install -d $(link_path)
 	install -d $(ledaps_bin_install_path)
 	@for executable in $(ALL_EXE); do \
-            cmd="install -m 755 $$executable $(ledaps_bin_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(ledaps_link_source_path)/$$executable $(link_path)/$$executable"; \
-            echo "$$cmd"; $$cmd; \
+            echo "install -m 755 $$executable $(ledaps_bin_install_path)"; \
+            install -m 755 $$executable $(ledaps_bin_install_path) || exit 1; \
+            echo "ln -sf $(ledaps_link_source_path)/$$executable $(link_path)/$$executable"; \
+            ln -sf $(ledaps_link_source_path)/$$executable $(link_path)/$$executable; \
         done
 	@for script in $(SCRIPTS); do \
-            cmd="install -m 755 $$script $(ledaps_bin_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
-            echo "$$cmd"; $$cmd; \
+            echo "install -m 755 $$script $(ledaps_bin_install_path)"; \
+            install -m 755 $$script $(ledaps_bin_install_path) || exit 1; \
+            echo "ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
+            ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script; \
         done
 
 #-----------------------------------------------------------------------------

@@ -9,15 +9,18 @@ MODULES = lndpm lndcal lndsr lndsrbm 6sV-1.0B
 
 all:
 	@for module in $(MODULES); do \
-	    (cd $$module; $(MAKE)) \
+		echo "make all in $$module..."; \
+	    ($(MAKE) -C $$module || exit 1); \
 	done
 
 install:
 	@for module in $(MODULES); do \
-	    (cd $$module; $(MAKE) install) \
+		echo "installing all in $$module..."; \
+	    ($(MAKE) -C $$module install || exit 1); \
 	done
 
 clean:
 	@for module in $(MODULES); do \
-	    (cd $$module; $(MAKE) clean) \
+		echo "make clean in $$module..."; \
+	    ($(MAKE) -C $$module clean || exit 1); \
 	done

@@ -15,7 +15,7 @@ all: all-script all-ledaps all-lasrc
 
 install: check-environment install-script install-ledaps install-lasrc
 
-clean: clean-script clean-ledaps clean-lasrc clean-lasrc-aux clean-ledaps-aux
+clean: clean-script clean-ledaps clean-lasrc
 
 #-----------------------------------------------------------------------------
 all-script:
