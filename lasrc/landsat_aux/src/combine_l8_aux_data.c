@@ -58,9 +58,9 @@ Date         Programmer       Reason
 
 NOTES:
 1. This routine will support the input of terra-only or aqua-only CMA/CMG data.
-   If both Terra and Aqua are not available for CMA/CMG, then the CMA and CMG
-   must both come from Terra or Aqua.  However, one file cannot be from Terra
-   and the other from Aqua.
+   If CMA and CMG are not available for both Terra and Aqua instruments, then
+   the CMA and CMG must both come from either Terra or Aqua.  One file cannot
+   be from Terra and the other from Aqua.
 2. If both Aqua and Terra are not available, then the Aqua data or Terra data
    is used directly.  Any remaining holes will be filled as with the case of
    the "fused" Terra/Aqua dataset.
@@ -84,7 +84,7 @@ int main (int argc, char **argv)
     char *terra_cma_file = NULL;  /* input Terra CMA file */
     char *aqua_cma_file = NULL;   /* input Aqua CMA file */
     char *output_dir = NULL;      /* output directory for the auxiliary file */
-    char sdsname[100];            /* Terra/Aqua SDS name */
+    char sdsname[STR_SIZE];       /* Terra/Aqua SDS name */
     char tmpstr[STR_SIZE];        /* temporary string for creating file
                                      attributes */
     char outfilename[STR_SIZE];   /* name of the output HDF file */
