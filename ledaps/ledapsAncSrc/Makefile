@@ -33,6 +33,7 @@ NCFLAGS = $(EXTRA) $(INCDIR)
 # Define the object libraries and paths
 EXLIB = -L$(CURLLIB) -lcurl \
         -L$(IDNLIB) -lidn -ldl -lrt \
+        -L$(SZIPLIB) -lsz \
         -L$(ZLIBLIB) -lz
 HDF_EXLIB = -L$(HDFLIB) -lmfhdf -ldf \
             -L$(JPEGLIB) -ljpeg
