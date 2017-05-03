@@ -21,7 +21,7 @@ See git tag [ledaps-version_3.1.3]
 
   * Install baseline auxiliary files.  Please note that the original ozone data has data gaps in 1978 (actual data starts on Nov. 1, 1978), 1979 (partial), 1993 (partial), 1994 (partial), 1995 (complete gap), 1996 (partial), 1997 (partial), 1998 (missing DOY 347+), 2008 (missing Sept. 28/29), ...  You will want to run the updatetoms script (described later) on this baseline set of data.  The NASA LEDAPS group has filled some of these larger data gaps by interpolating the missing data. If the ozone data is missing from the NASA ftp site, then the updatetoms script will not try to update that auxiliary file.
 ```
-    tar -xvzf ledaps_aux.1978-2014.tar.gz
+    tar -xvzf ledaps_aux.1978-2017.tar.gz
 ```
 
   * Setup the environment variables for the auxiliary files

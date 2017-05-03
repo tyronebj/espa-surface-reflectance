@@ -19,11 +19,11 @@ install:
 	install -d $(link_path)
 	install -d $(lasrc_bin_install_path)
 	@for script in $(SCRIPTS); do \
-            echo "install -m 755 $$script $(lasrc_bin_install_path)"; \
-            install -m 755 $$script $(lasrc_bin_install_path) || exit 1; \
-            echo "ln -sf $(lasrc_link_source_path)/$$script $(link_path)/$$script"; \
-            ln -sf $(lasrc_link_source_path)/$$script $(link_path)/$$script; \
-        done;
+		cmd="ln -sf $(lasrc_link_source_path)/$$script $(link_path)/$$script"; \
+		echo "Running ... $$cmd"; $$cmd || exit 1; \
+		cmd="ln -sf $(lasrc_link_source_path)/$$script $(link_path)/$$script"; \
+		echo "Running ... $$cmd"; $$cmd || exit 1; \
+	done;
 
 clean:
 

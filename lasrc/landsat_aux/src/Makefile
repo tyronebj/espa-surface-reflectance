@@ -52,7 +52,7 @@ install:
 	install -d $(link_path)
 	install -d $(lasrc_bin_install_path)
 	install -m 755 $(EXE) $(lasrc_bin_install_path)
-	ln -sf $(lasrc_link_source_path)/$(EXE) $(link_path)/$(EXE)
+	ln -sf $(lasrc_link_source_path)/$(EXE) $(link_path)/$(EXE) || exit 1
 
 #-----------------------------------------------------------------------------
 clean:

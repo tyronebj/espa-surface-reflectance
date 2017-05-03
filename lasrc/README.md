@@ -21,7 +21,7 @@ See git tag [lasrc-version_1.1.0]
 
   * Install baseline auxiliary files and set up the environment variables.
 ```
-    tar -xvzf lasrc_auxiliary.tar.gz
+    tar -xvzf lasrc_auxiliary.2013-2017.tar.gz
     export L8_AUX_DIR="directory_saved_auxiliary_files"
     (or in c shell use 
     setenv L8_AUX_DIR "directory_saved_auxiliary_files")
