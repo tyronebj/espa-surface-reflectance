@@ -33,10 +33,10 @@ class DatasourceResolver:
     # products
     # These are version 006 products
     SERVER_URL = 'ladsweb.modaps.eosdis.nasa.gov'
-    TERRA_CMA = '/archive/allData/6/MOD09CMA/'
-    TERRA_CMG = '/archive/allData/6/MOD09CMG/'
-    AQUA_CMA = '/archive/allData/6/MYD09CMA/'
-    AQUA_CMG = '/archive/allData/6/MYD09CMG/'
+    TERRA_CMA = '/allData/6/MOD09CMA/'
+    TERRA_CMG = '/allData/6/MOD09CMG/'
+    AQUA_CMA = '/allData/6/MYD09CMA/'
+    AQUA_CMG = '/allData/6/MYD09CMG/'
 
 
     #######################################################################
@@ -59,23 +59,23 @@ class DatasourceResolver:
         urlList = []     # create empty URL list
 
         # append TERRA CMA data (MOD09CMA)
-        url = ('https://{}{}{}/{:03d}/'
-               .format(self.SERVER_URL, self.TERRA_CMA, year, doy))
+        url = ('ftp://{}{}{}/{:03d}/MOD09CMA.A{}{:03d}.006.*.hdf'
+               .format(self.SERVER_URL, self.TERRA_CMA, year, doy, year, doy))
         urlList.append(url)
 
         # append TERRA CMG data (MOD09CMG)
-        url = ('https://{}{}{}/{:03d}/'
-               .format(self.SERVER_URL, self.TERRA_CMG, year, doy))
+        url = ('ftp://{}{}{}/{:03d}/MOD09CMG.A{}{:03d}.006.*.hdf'
+               .format(self.SERVER_URL, self.TERRA_CMG, year, doy, year, doy))
         urlList.append(url)
 
         # append AQUA CMA data (MYD09CMA)
-        url = ('https://{}{}{}/{:03d}/'
-               .format(self.SERVER_URL, self.AQUA_CMA, year, doy))
+        url = ('ftp://{}{}{}/{:03d}/MYD09CMA.A{}{:03d}.006.*.hdf'
+               .format(self.SERVER_URL, self.AQUA_CMA, year, doy, year, doy))
         urlList.append(url)
 
         # append AQUA CMG data (MYD09CMG)
-        url = ('https://{}{}{}/{:03d}/'
-               .format(self.SERVER_URL, self.AQUA_CMG, year, doy))
+        url = ('ftp://{}{}{}/{:03d}/MYD09CMG.A{}{:03d}.006.*.hdf'
+               .format(self.SERVER_URL, self.AQUA_CMG, year, doy, year, doy))
         urlList.append(url)
 
         return urlList
@@ -113,7 +113,7 @@ def isLeapYear (year):
 
 ############################################################################
 # Description: downloadLads will retrieve the files for the specified year
-# and DOY from the LAADS http site and download to the desired destination.
+# and DOY from the LAADS ftp site and download to the desired destination.
 # If the destination directory does not exist, then it is made before
 # downloading.  Existing files in the download directory are removed/cleaned.
 # This will download the Aqua/Terra CMG and CMA files for the current year, DOY.
@@ -129,6 +129,8 @@ def isLeapYear (year):
 #     SUCCESS - processing completed successfully
 #
 # Notes:
+#   We could use the Python ftplib or urllib modules, however the wget
+#   function is pretty short and sweet, so we'll stick with wget.
 ############################################################################
 def downloadLads (year, doy, destination):
     # get the logger
@@ -161,15 +163,14 @@ def downloadLads (year, doy, destination):
 
     # download the data for the current year from the list of URLs.
     # if there is a problem with the connection, then retry up to 5 times.
-    # Note: if you don't like the wget output, --quiet can be used to minimize
-    # the output info.
+    # don't use the verbose version which fills the log files with the download
+    # percentages.
     msg = 'Downloading data for year {} to {}'.format(year, destination)
     logger.info(msg)
     for url in urlList:
         msg = 'Retrieving {} to {}'.format(url, destination)
         logger.info(msg)
-        cmd = ('wget --tries=5 --directory-prefix=. --no-directories '
-               '--recursive --level=1 --no-parent --accept hdf {}'.format(url))
+        cmd = ('wget --tries=5 --no-verbose {}'.format(url))
         retval = subprocess.call(cmd, shell=True, cwd=destination)
 
         # make sure the wget was successful or retry up to 5 more times and
@@ -393,7 +394,7 @@ def getLadsData (auxdir, year, today):
         if found_myd09cma:
             aqua_cma_cmdline = '--aqua_cma {}'.format(aqua_cma)
 
-        cmdstr = ('combine_l8_aux_data {} {} {} {} --output_dir {}'
+        cmdstr = ('combine_l8_aux_data {} {} {} {} --output_dir {} --verbose'
                   .format(terra_cmg_cmdline, terra_cma_cmdline,
                           aqua_cmg_cmdline, aqua_cma_cmdline, outputDir))
         msg = 'Executing {}'.format(cmdstr)
