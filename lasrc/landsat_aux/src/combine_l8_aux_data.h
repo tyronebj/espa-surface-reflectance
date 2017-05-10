@@ -18,6 +18,7 @@ enum {UNSET, TERRA, AQUA, BOTH};
 #define MAXLENGTH2 5000
 
 /* SRC_DIRECTORY is the location of the output files to be written */
+#define LAADS_FILL 0
 #define FFILL -999.0
 #define IFILL -1
 #define SRC_DIRECTORY  "./"

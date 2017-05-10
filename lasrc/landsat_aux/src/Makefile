@@ -30,6 +30,7 @@ NCFLAGS  = $(EXTRA) $(INCDIR) $(HDF_INCDIR)
 EXLIB = -L$(ESPALIB) -l_espa_common \
         -L$(XML2LIB) -lxml2 \
         -L$(LZMALIB) -llzma \
+        -L$(SZIPLIB) -lsz \
         -L$(ZLIBLIB) -lz
 HDF_EXLIB = -L$(HDFEOS_LIB) -lhdfeos \
             -L$(HDFLIB) -lmfhdf -ldf \
@@ -50,9 +51,9 @@ $(EXE): $(OBJ) $(INC)
 #-----------------------------------------------------------------------------
 install:
 	install -d $(link_path)
-	install -d $(l8_bin_install_path)
-	install -m 755 $(EXE) $(l8_bin_install_path)
-	ln -sf $(l8_link_source_path)/$(EXE) $(link_path)/$(EXE)
+	install -d $(lasrc_bin_install_path)
+	install -m 755 $(EXE) $(lasrc_bin_install_path)
+	ln -sf $(lasrc_link_source_path)/$(EXE) $(link_path)/$(EXE) || exit 1
 
 #-----------------------------------------------------------------------------
 clean:

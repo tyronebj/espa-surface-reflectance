@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Makefile
 #
-# For building lndcal.
+# For building lndsr.
 #-----------------------------------------------------------------------------
 .PHONY: all install clean
 
@@ -15,6 +15,7 @@ CC    = gcc
 FC    = gfortran
 RM    = rm
 EXTRA = -Wall $(EXTRA_OPTIONS)
+LNDPM = ../lndpm
 
 # Define the include files
 C_INC = ar.h bool.h clouds.h const.h date.h error.h grib.h \
@@ -50,7 +51,7 @@ F_OBJ = $(F_SRC:.f=.o)
 ALL_OBJ = $(C_OBJ) $(F_OBJ)
 
 # Define include paths
-INCDIR  = -I. -I$(ESPAINC) -I$(XML2INC)
+INCDIR  = -I. -I${LNDPM} -I$(ESPAINC) -I$(XML2INC)
 HDF_INCDIR = -I$(JPEGINC) -I$(HDFINC) -I$(HDFEOS_GCTPINC)
 NCFLAGS = $(EXTRA) $(INCDIR) $(HDF_INCDIR)
 

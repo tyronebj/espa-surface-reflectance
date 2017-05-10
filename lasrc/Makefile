@@ -18,26 +18,26 @@ clean: clean-lasrc
 #-----------------------------------------------------------------------------
 all-lasrc:
 	echo "make all in $(DIR_LaSRC)..."; \
-        (cd $(DIR_LaSRC); $(MAKE))
+        ($(MAKE) -C $(DIR_LaSRC) || exit 1)
 
 install-lasrc: all-lasrc
 	echo "make install in $(DIR_LaSRC)..."; \
-        (cd $(DIR_LaSRC); $(MAKE) install)
+        ($(MAKE) -C $(DIR_LaSRC) install || exit 1)
 
 clean-lasrc:
 	echo "make clean in $(DIR_LaSRC)..."; \
-        (cd $(DIR_LaSRC); $(MAKE) clean)
+        ($(MAKE) -C $(DIR_LaSRC) clean || exit 1)
 
 #-----------------------------------------------------------------------------
 all-lasrc-aux:
 	echo "make all in $(DIR_LaSRC_AUX)..."; \
-        (cd $(DIR_LaSRC_AUX); $(MAKE))
+        ($(MAKE) -C $(DIR_LaSRC_AUX) || exit 1)
 
 install-lasrc-aux: all-lasrc-aux
 	echo "make install in $(DIR_LaSRC_AUX)..."; \
-        (cd $(DIR_LaSRC_AUX); $(MAKE) install)
+        ($(MAKE) -C $(DIR_LaSRC_AUX) install || exit 1)
 
 clean-lasrc-aux:
 	echo "make clean in $(DIR_LaSRC_AUX)..."; \
-        (cd $(DIR_LaSRC_AUX); $(MAKE) clean)
+        ($(MAKE) -C $(DIR_LaSRC_AUX) clean || exit 1)
 

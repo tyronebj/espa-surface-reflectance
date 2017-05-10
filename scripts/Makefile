@@ -21,11 +21,11 @@ install:
 	install -d $(link_path)
 	install -d $(script_install_path)
 	@for script in $(SCRIPTS); do \
-            cmd="install -m 755 $$script $(script_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(script_source_link_path)/$$script $(link_path)/$$script"; \
-            echo "$$cmd"; $$cmd; \
-        done;
+            echo "install -m 755 $$script $(script_install_path)"; \
+            install -m 755 $$script $(script_install_path) || exit 1; \
+            echo "ln -sf $(script_source_link_path)/$$script $(link_path)/$$script"; \
+            ln -sf $(script_source_link_path)/$$script $(link_path)/$$script; \
+        done
 
 clean:
 

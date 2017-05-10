@@ -41,6 +41,8 @@ int get_args
     static int write_toa_flag=0;     /* write TOA flag */
     char errmsg[STR_SIZE];           /* error message */
     char FUNC_NAME[] = "get_args";   /* function name */
+    static int version_flag=0;       /* flag to print version number instead
+                                        of processing */
     static struct option long_options[] =
     {
         {"verbose", no_argument, &verbose_flag, 1},
@@ -49,6 +51,7 @@ int get_args
         {"aux", required_argument, 0, 'a'},
         {"process_sr", required_argument, 0, 'p'},
         {"help", no_argument, 0, 'h'},
+        {"version", no_argument, &version_flag, 1},
         {0, 0, 0, 0}
     };
 
@@ -112,6 +115,13 @@ int get_args
                 return (ERROR);
                 break;
         }
+    }
+
+    /* Print version number instead of processing */
+    if (version_flag)
+    {
+        printf("%s\n", SR_VERSION);
+        exit(EXIT_SUCCESS);
     }
 
     /* Make sure the XML file was specified */

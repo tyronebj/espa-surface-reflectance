@@ -74,8 +74,12 @@ class SurfaceReflectance():
         # if no parameters were passed then get the info from the
         # command line
         if xml_infile == None:
+            # Get version number
+            cmdstr = ('lasrc --version')
+            (status, self.version) = commands.getstatusoutput(cmdstr)
+
             # get the command line argument for the XML file
-            parser = OptionParser()
+            parser = OptionParser(version = self.version)
             parser.add_option ("-i", "--xml", type="string",
                 dest="xml",
                 help="name of XML file", metavar="FILE")

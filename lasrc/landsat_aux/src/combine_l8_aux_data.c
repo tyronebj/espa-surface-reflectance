@@ -25,16 +25,12 @@ NOTES:
 #include "combine_l8_aux_data.h"
 
 /* Program will look for these SDSs in the CMG/CMA inputs */
-#define N_SDS 5
+#define N_SDS 2
 char list_of_sds[N_SDS][50] = {
     "Coarse Resolution Ozone",
-    "Coarse Resolution Granule Time", 
-    "Coarse Resolution Water Vapor",
-    "Coarse Resolution Air Temperature (2m)", 
-    "Coarse Resolution AOT at 550 nm"};
+    "Coarse Resolution Water Vapor"};
 #define OZONE 0
-#define WV 2
-#define AIR_TEMP_2M 3
+#define WV 1
    
 /* Global variables */
 bool global_yearday_is_set = false;
@@ -61,9 +57,23 @@ Date         Programmer       Reason
                               Eric Vermote, NASA GSFC, for use within ESPA
 
 NOTES:
+1. This routine will support the input of terra-only or aqua-only CMA/CMG data.
+   If CMA and CMG are not available for both Terra and Aqua instruments, then
+   the CMA and CMG must both come from either Terra or Aqua.  One file cannot
+   be from Terra and the other from Aqua.
+2. If both Aqua and Terra are not available, then the Aqua data or Terra data
+   is used directly.  Any remaining holes will be filled as with the case of
+   the "fused" Terra/Aqua dataset.
+3. If both Terra and Aqua are available, then Terra data is the primary data
+   used for each SDS.  If the Terra pixel is fill, then the application tries
+   to use the Aqua pixel.  If Aqua is also fill, then ultimately that pixel
+   value is interpolated.
 ******************************************************************************/
 int main (int argc, char **argv)
 {    
+    bool found;                /* was current SDS found in Aqua/Terra file */
+    bool aqua_input = false;   /* is this Aqua CMA/CMG */
+    bool terra_input = false;  /* is this Terra CMA/CMG */
     bool verbose;              /* verbose flag for printing messages */
     char FUNC_NAME[] = "main"; /* function name */
     char errmsg[STR_SIZE];     /* error message */
@@ -74,11 +84,12 @@ int main (int argc, char **argv)
     char *terra_cma_file = NULL;  /* input Terra CMA file */
     char *aqua_cma_file = NULL;   /* input Aqua CMA file */
     char *output_dir = NULL;      /* output directory for the auxiliary file */
+    char sdsname[STR_SIZE];       /* Terra/Aqua SDS name */
     char tmpstr[STR_SIZE];        /* temporary string for creating file
                                      attributes */
-    char outfilename[STR_SIZE];       /* name of the output HDF file */
-    io_param terra_params[N_SDS];     /* array of Terra SDS parameters */
-    io_param aqua_params[N_SDS];      /* array of Aqua SDS parameters */
+    char outfilename[STR_SIZE];   /* name of the output HDF file */
+    io_param terra_params[N_SDS]; /* array of Terra SDS parameters (if avail) */
+    io_param aqua_params[N_SDS];  /* array of Aqua SDS parameters (if avail) */
     long pix;                /* current pixel location in the 1D array */
     int i, j;                /* looping variables */
     int nbits;               /* number of bits per pixel for this data array */
@@ -94,10 +105,11 @@ int main (int argc, char **argv)
     int32 dimid;             /* dimension ID */
     int32 start[2];          /* starting location in each dimension */
     int32 where[N_SDS];      /* location of any missing SDSs */
+    int32 dtype;             /* Terra/Aqua data type */
     int8 *wherefrom = NULL;  /* array to identify where the pixel value was
                                 pulled from - AQUA or TERRA */
-    uint8 terra_pix;         /* terra pixel */
-    uint8 aqua_pix;          /* aqua pixel */
+    uint8 terra_pix = 0;     /* terra pixel */
+    uint8 aqua_pix = 0;      /* aqua pixel */
     uint8 *tmask = NULL;     /* mask for the Terra pixel values */
     uint8 *amask = NULL;     /* mask for the Aqua pixel values */
 
@@ -126,82 +138,137 @@ int main (int argc, char **argv)
     }
 
     /* Read the input files */
-    retval = parse_sds_info (terra_cmg_file, terra_params, aqua_params);
-    if (retval != SUCCESS)
+    if (terra_cmg_file)
     {
-        sprintf (errmsg, "Error parsing file: %s", terra_cmg_file);
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-       
-    retval = parse_sds_info (aqua_cmg_file, terra_params, aqua_params);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Error parsing file: %s", aqua_cmg_file);
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-       
-    retval = parse_sds_info (terra_cma_file, terra_params, aqua_params);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Error parsing file: %s", terra_cma_file);
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-       
-    retval = parse_sds_info (aqua_cma_file, terra_params, aqua_params);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Error parsing file: %s", aqua_cma_file);
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-
-    /* Check for missing SDSs, flag the missing SDSs in the 'where' array.
-       Loop through each of the SDSs in the Terra and Aqua input structures.
-       Keep track of where the Aqua params line up with the same Terra
-       params. */
-    for (i = 0; i < N_SDS; i++)
-    {
-        where[i] = -1;
-        for (j = 0; j < N_SDS; j++)
+        retval = parse_sds_info (terra_cmg_file, terra_params, aqua_params);
+        if (retval != SUCCESS)
         {
-            if (terra_params[i].data_type == aqua_params[j].data_type &&
-                !strcmp (terra_params[i].sdsname, aqua_params[j].sdsname))
-                where[i] = j;
+            sprintf (errmsg, "Error parsing file: %s", terra_cmg_file);
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
+        }
+    }
+       
+    if (aqua_cmg_file)
+    {
+        retval = parse_sds_info (aqua_cmg_file, terra_params, aqua_params);
+        if (retval != SUCCESS)
+        {
+            sprintf (errmsg, "Error parsing file: %s", aqua_cmg_file);
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
+        }
+    }
+       
+    if (terra_cma_file)
+    {
+        retval = parse_sds_info (terra_cma_file, terra_params, aqua_params);
+        if (retval != SUCCESS)
+        {
+            sprintf (errmsg, "Error parsing file: %s", terra_cma_file);
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
+        }
+    }
+       
+    if (aqua_cma_file)
+    {
+        retval = parse_sds_info (aqua_cma_file, terra_params, aqua_params);
+        if (retval != SUCCESS)
+        {
+            sprintf (errmsg, "Error parsing file: %s", aqua_cma_file);
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
         }
     }
 
-    /* Do we have any missing attributes between Terra and Aqua? */
-    n_bad = 0;   
+    /* Do we have Aqua input or Terra input or both? */
+    if (terra_cmg_file && terra_cma_file)
+        terra_input = true;
+    if (aqua_cmg_file && aqua_cma_file)
+        aqua_input = true;
+
+    /* Make sure each SDS was found in either the Terra file or the Aqua file */
     for (i = 0; i < N_SDS; i++)
     {
-        if (where[i] == -1)
-            n_bad++;
+        found = false;
+        for (j = 0; j < N_SDS; j++)
+        {
+            /* Check Terra */
+            if (terra_input &&
+                !strcmp (terra_params[j].sdsname, list_of_sds[i]))
+                found = true;
+
+            /* Check Aqua */
+            if (aqua_input &&
+                !strcmp (aqua_params[j].sdsname, list_of_sds[i]))
+                found = true;
+        }
+
+        if (!found)
+        {
+            sprintf (errmsg, "Unable to find SDS in either the Aqua or "
+                "Terra file: %s", list_of_sds[i]);
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
+        }
     }
-    if (n_bad > 0)
+
+    /* If both Aqua and Terra input are available, then check for missing SDSs
+       and flag the missing SDSs in the 'where' array.  Loop through each of
+       the SDSs in the Terra and Aqua input structures.  Keep track of where
+       the Aqua params line up with the same Terra params. */
+    if (aqua_input && terra_input)
     {
-        sprintf (errmsg, "Different sets of SDSs have been staged.");
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
+        for (i = 0; i < N_SDS; i++)
+        {
+            where[i] = -1;
+            for (j = 0; j < N_SDS; j++)
+            {
+                if (terra_params[i].data_type == aqua_params[j].data_type &&
+                    !strcmp (terra_params[i].sdsname, aqua_params[j].sdsname))
+                    where[i] = j;
+            }
+        }
+
+        /* Do we have any missing attributes between Terra and Aqua? */
+        n_bad = 0;   
+        for (i = 0; i < N_SDS; i++)
+        {
+            if (where[i] == -1)
+                n_bad++;
+        }
+        if (n_bad > 0)
+        {
+            sprintf (errmsg, "Different sets of SDSs have been staged.");
+            error_handler (true, FUNC_NAME, errmsg);
+            exit (ERROR);
 
 #ifdef DEBUG
-        printf ("\nTerra:\n");
-        for (i = 0; i < N_SDS; i++)
-            printf (" NAME %s, TYPE %d\n", terra_params[i].sdsname,
-                terra_params[i].data_type);
-        printf ("\nAqua:\n");
-        for (i = 0; i < N_SDS; i++)
-            printf (" NAME %s, TYPE %d\n", aqua_params[i].sdsname,
-                aqua_params[i].data_type);
+            printf ("\nTerra:\n");
+            for (i = 0; i < N_SDS; i++)
+                printf (" NAME %s, TYPE %d\n", terra_params[i].sdsname,
+                    terra_params[i].data_type);
+            printf ("\nAqua:\n");
+            for (i = 0; i < N_SDS; i++)
+                printf (" NAME %s, TYPE %d\n", aqua_params[i].sdsname,
+                    aqua_params[i].data_type);
 #endif
+        }
     }
 
-    /* Set the dimensions for the output product.  Use one of the input
-       files. */
-    dims[0] = terra_params[0].sds_dims[0];
-    dims[1] = terra_params[0].sds_dims[1];
+    /* Set the dimensions for the output product.  Use the first input file
+       from Aqua or Terra, depending on whether they are available. */
+    if (terra_input)
+    {
+        dims[0] = terra_params[0].sds_dims[0];
+        dims[1] = terra_params[0].sds_dims[1];
+    }
+    else
+    {
+        dims[0] = aqua_params[0].sds_dims[0];
+        dims[1] = aqua_params[0].sds_dims[1];
+    }
 
     /* Allocate memory for the data arrays, separate memory for each of the
        SDSs we are going to read and output */
@@ -209,39 +276,55 @@ int main (int argc, char **argv)
     n_pixels = dims[1] * dims[0];
     for (i = 0; i < N_SDS; i++)
     {
-        if (terra_params[i].data_type == DFNT_INT16)
+        if (terra_input)
+        {
+            dtype = terra_params[i].data_type;
+            strcpy (sdsname, terra_params[i].sdsname);
+        }
+        else
+        {
+            dtype = aqua_params[i].data_type;
+            strcpy (sdsname, aqua_params[i].sdsname);
+        }
+
+        if (dtype == DFNT_INT16)
             nbits = sizeof (int16);
-        else if (terra_params[i].data_type == DFNT_UINT16)
+        else if (dtype == DFNT_UINT16)
             nbits = sizeof (uint16);
-        else if (terra_params[i].data_type == DFNT_INT8)
+        else if (dtype == DFNT_INT8)
             nbits = sizeof (int8);
-        else if (terra_params[i].data_type == DFNT_UINT8)
+        else if (dtype == DFNT_UINT8)
             nbits = sizeof (uint8);
         else
         {
             sprintf (errmsg, "Unsupported data type for SDS %s.  Only int16 "
-                "uint16, int8, and uint8 are supported.",
-                terra_params[i].sdsname);
+                "uint16, int8, and uint8 are supported.", sdsname);
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
         }
 
+        /* This is the location of the final output data, so allocate this
+           data array regardless of whether or not Terra data is available */
         terra_params[i].data = calloc (n_pixels, nbits);
         if (terra_params[i].data == NULL)
         {
-            sprintf (errmsg, "Allocating memory (%d bits) for Terra SDS: %s",
-                nbits, terra_params[i].sdsname);
+            sprintf (errmsg, "Allocating memory (%d bits) for Terra SDS: "
+                "%s", nbits, sdsname);
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
         }
 
-        aqua_params[i].data = calloc (n_pixels, nbits);
-        if (aqua_params[i].data == NULL)
+        /* Only allocate if Aqua data is available */
+        if (aqua_input)
         {
-            sprintf (errmsg, "Allocating memory (%d bits) for Aqua SDS: %s",
-                nbits, aqua_params[i].sdsname);
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
+            aqua_params[i].data = calloc (n_pixels, nbits);
+            if (aqua_params[i].data == NULL)
+            {
+                sprintf (errmsg, "Allocating memory (%d bits) for Aqua SDS: %s",
+                    nbits, sdsname);
+                error_handler (true, FUNC_NAME, errmsg);
+                exit (ERROR);
+            }
         }
     }  /* end for i */
 
@@ -270,13 +353,26 @@ int main (int argc, char **argv)
        in the output file for that SDS */
     for (i = 0; i < N_SDS; i++)
     {
-        /* Create the SDS using information from the Terra file for this SDS */
-        sds_id[i] = SDcreate (sd_out, terra_params[i].sdsname,
-            terra_params[i].data_type, 2, dims);
+        /* Get the SDS information */
+        if (terra_input)
+        {
+            dtype = terra_params[i].data_type;
+            strcpy (sdsname, terra_params[i].sdsname);
+        }
+        else
+        {
+            dtype = aqua_params[i].data_type;
+            strcpy (sdsname, aqua_params[i].sdsname);
+        }
+
+        /* Create the SDS using information from the Terra or Aqua file */
+        if (verbose)
+             printf ("Creating %s SDS with %d data type and %d x %d ...\n",
+                 sdsname, dtype, dims[0], dims[1]);
+        sds_id[i] = SDcreate (sd_out, sdsname, dtype, 2, dims);
         if (sds_id[i] == -1)
         {
-            sprintf (errmsg, "Creating SDS %s in the output file",
-                terra_params[i].sdsname);
+            sprintf (errmsg, "Creating SDS %s in the output file", sdsname);
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -285,6 +381,7 @@ int main (int argc, char **argv)
         dimid = SDgetdimid (sds_id[i], 0);
         if (dimid != -1)
             SDsetdimname (dimid, dim0name);
+
         dimid = SDgetdimid (sds_id[i], 1);
         if (dimid != -1)
             SDsetdimname (dimid, dim1name); 
@@ -304,6 +401,7 @@ int main (int argc, char **argv)
     dimid = SDgetdimid (sds_id[i], 0);
     if (dimid != -1)
         SDsetdimname (dimid, dim0name);
+
     dimid = SDgetdimid (sds_id[i], 1);
     if (dimid != -1)
         SDsetdimname (dimid, dim1name); 
@@ -323,29 +421,41 @@ int main (int argc, char **argv)
     start[1] = 0;
     for (i = 0; i < N_SDS; i++)
     {
-        if (verbose)
-            printf ("    %s\n", terra_params[i].sdsname);
+        /* Get the SDS information */
+        if (terra_input)
+            strcpy (sdsname, terra_params[i].sdsname);
+        else
+            strcpy (sdsname, aqua_params[i].sdsname);
 
-        /* Read the Terra data for this SDS */
-        retval = SDreaddata (terra_params[i].sds_id, start, NULL, dims,
-            terra_params[i].data);
-        if (retval == -1)
+        if (verbose)
+            printf ("    %s\n", sdsname);
+
+        /* Read the Terra data for this SDS, if it's available */
+        if (terra_input)
         {
-            sprintf (errmsg, "Unable to read the SDS %s from the Terra file.",
-                terra_params[i].sdsname);
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
+            retval = SDreaddata (terra_params[i].sds_id, start, NULL, dims,
+                terra_params[i].data);
+            if (retval == -1)
+            {
+                sprintf (errmsg, "Unable to read SDS %s from the Terra file",
+                    sdsname);
+                error_handler (true, FUNC_NAME, errmsg);
+                exit (ERROR);
+            }
         }
 
-        /* Read the Aqua data for this SDS */
-        retval = SDreaddata (aqua_params[i].sds_id, start, NULL, dims,
-            aqua_params[i].data);
-        if (retval == -1)
+        /* Read the Aqua data for this SDS, if it's available */
+        if (aqua_input)
         {
-            sprintf (errmsg, "Unable to read the SDS %s from the Aqua file.",
-                aqua_params[i].sdsname);
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
+            retval = SDreaddata (aqua_params[i].sds_id, start, NULL, dims,
+                aqua_params[i].data);
+            if (retval == -1)
+            {
+                sprintf (errmsg, "Unable to read SDS %s from the Aqua file",
+                    sdsname);
+                error_handler (true, FUNC_NAME, errmsg);
+                exit (ERROR);
+            }
         }
     }
 
@@ -354,40 +464,47 @@ int main (int argc, char **argv)
     if (verbose)
         printf ("Combining Aqua and Terra products for each SDS ...\n");
     tmask = (uint8 *) terra_params[OZONE].data;
-    amask = (uint8 *) aqua_params[OZONE].data;
+    if (aqua_input)
+        amask = (uint8 *) aqua_params[OZONE].data;
     for (i = 0; i < n_pixels; i++)
     {
         /* Initialize the masks */
         wherefrom[i] = UNSET;
         terra_pix = tmask[i];
-        aqua_pix = amask[i];
+        if (aqua_input)
+            aqua_pix = amask[i];
 
-        /* If the Terra pixel is not fill, then use Terra.  Otherwise if the
-           Terra pixel is fill and the Aqua pixel isn't, then use Aqua.  In
+        /* If the Terra data is available and the pixel is not fill, then use
+           Terra.  Otherwise if the Aqua pixel isn't fill, then use Aqua.  In
            the latter case, the Aqua pixels for each SDS are copied over to the
            Terra array so that at the end the Terra array has all the output
            info. */
-        if (terra_pix != 0)
+        if (terra_input && terra_pix != LAADS_FILL)
         {  /* do nothing but set wherefrom */
             wherefrom[i] = TERRA;
         }
-        else if (terra_pix == 0 && aqua_pix != 0)
+        else if (aqua_input && terra_pix == LAADS_FILL &&
+                 aqua_pix != LAADS_FILL)
         {  /* copy Aqua pixels over to Terra pixels for each SDS and set
               wherefrom */
             for (j = 0; j < N_SDS; j++)
             {
-                copy_param (terra_params[j].data, aqua_params[j].data,
-                    terra_params[j].data_type, i);
+                if (terra_input)
+                    dtype = terra_params[j].data_type;
+                else
+                    dtype = aqua_params[j].data_type;
+
+                copy_param (terra_params[j].data, aqua_params[j].data, dtype,i);
             }
+
             wherefrom[i] = AQUA;
         }
     }
 
-    /* Interpolate water vapor, ozone, and temperature at 2m data.  But, only
-       for lines 1000 to 2600, assuming CMGs (exclude the poles). */
+    /* Interpolate water vapor and ozone data.  But, only for lines 1000 to
+       2600, assuming CMGs (exclude the poles). */
     if (verbose)
-        printf ("Interpolating combined products for WV, OZ, and "
-            "AIR_TEMP_2M ...\n");
+        printf ("Interpolating combined products for WV and OZ ...\n");
     if (dims[0] == 3600)
     {  /* then, yeah, we have a CMG */
         for (line = 1000; line < 2600; line++)
@@ -414,14 +531,11 @@ int main (int argc, char **argv)
                 left--;
 
                 /* Interpolate all the fill pixels between the left and right
-                   non-fill pixels for the ozone, water vapor, and air temp
-                   data */
+                   non-fill pixels for the ozone and water vapor data */
                 interpolate (DFNT_UINT8, terra_params[OZONE].data, pix, left,
                     right);
                 interpolate (DFNT_UINT16, terra_params[WV].data, pix, left,
                     right);
-                interpolate (DFNT_UINT16, terra_params[AIR_TEMP_2M].data, pix,
-                    left, right);
             }
         }
     }  /* if dims[0] */
@@ -431,12 +545,17 @@ int main (int argc, char **argv)
     start[1] = 0;
     for (i = 0; i < N_SDS; i++)
     {
+        if (terra_input)
+            strcpy (sdsname, terra_params[i].sdsname);
+        else
+            strcpy (sdsname, aqua_params[i].sdsname);
+
         retval = SDwritedata (sds_id[i], start, NULL, dims,
             terra_params[i].data); 
         if (retval == -1)
         {
             sprintf (errmsg, "Unable to write the %s SDS to the output file.",
-                terra_params[i].sdsname);
+                sdsname);
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -458,13 +577,19 @@ int main (int argc, char **argv)
     /* Close and clean up */
     for (i = 0; i < N_SDS; i++)
     {
-        SDendaccess (terra_params[i].sds_id);
         free (terra_params[i].data);
-        SDend (terra_params[i].sd_id);
+        if (terra_input)
+        {
+            SDendaccess (terra_params[i].sds_id);
+            SDend (terra_params[i].sd_id);
+        }
 
-        SDendaccess (aqua_params[i].sds_id);
-        free (aqua_params[i].data);
-        SDend (aqua_params[i].sd_id);
+        if (aqua_input)
+        {
+            SDendaccess (aqua_params[i].sds_id);
+            free (aqua_params[i].data);
+            SDend (aqua_params[i].sd_id);
+        }
 
         SDendaccess (sds_id[i]);
     }   
@@ -1012,7 +1137,7 @@ int metareader
     int data_type;          /* data type of the attribute */
     int nvals;              /* number of values in the attribute */
     int n_obj;              /* number of OBJECT strings we've counted */
-    int n_val;              /* number of values for the current attribute */
+    int n_val=0;            /* number of values for the current attribute */
     int start;              /* location of the character string to start
                                reading lines */
     int obj_offset[10];     /* offset of location of OBJECT token */
@@ -1287,6 +1412,13 @@ void usage ()
             "processed\n");
     printf ("    -output_dir: name of the output directory for the combined "
             "auxiliary file to be written\n");
+    printf ("NOTE: At least one of the CMG files (Aqua or Terra) must be "
+            "present.  If only one is provided, then the product will be "
+            "solely from Terra or Aqua and will not be a \"fused\" product. "
+            "The same applies to the CMA files.  In addition, if Terra CMA "
+            "is provided, then CMG must also be available and vice versa.  The "
+            "same applies to Aqua.  Therefore if only two files are specified, "
+            "then they must both either be Aqua or Terra.\n");
 
     printf ("\nwhere the following parameters are optional:\n");
     printf ("    -verbose: should intermediate messages be printed? (default "

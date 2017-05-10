@@ -113,11 +113,14 @@ Param_t *GetParam(int argc, char *argv[])
   int option_index;                /* index for the command-line option */
   static int process_collection_flag=0; /* flag to process this scene as a
                                            collection product */
+  static int version_flag=0;       /* flag to print version number instead
+                                      of processing */ 
   static struct option long_options[] =
   {
       {"process_collection", no_argument, &process_collection_flag, 1},
       {"pfile", required_argument, 0, 'p'},
       {"help", no_argument, 0, 'h'},
+      {"version", no_argument, &version_flag, 1},
       {0, 0, 0, 0}
   };
 
@@ -155,6 +158,13 @@ Param_t *GetParam(int argc, char *argv[])
         RETURN_ERROR(temp, "GetParam", NULL);
         break;
     }
+  }
+
+  /* Print version number instead of processing */
+  if (version_flag)
+  {
+    printf("%s\n", LEDAPS_VERSION);
+    exit(EXIT_SUCCESS);
   }
 
   /* Make sure the parameter file was specified */

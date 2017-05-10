@@ -181,8 +181,13 @@ class Ledaps():
     def runLedaps(self, xmlfile=None, process_sr="True"):
         # If no parameters were passed then get the info from the command line
         if xmlfile is None:
+
+            # Get version number
+            cmdstr = ('lndsr --version')
+            (status, self.version) = commands.getstatusoutput(cmdstr)
+
             # Get the command line argument for the XML file
-            parser = OptionParser()
+            parser = OptionParser(version = self.version)
             parser.add_option("-f", "--xml",
                               type="string", dest="xmlfile",
                               help="name of Landsat XML file",

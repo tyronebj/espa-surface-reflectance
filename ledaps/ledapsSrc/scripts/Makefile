@@ -19,11 +19,11 @@ install:
 	install -d $(link_path)
 	install -d $(ledaps_bin_install_path)
 	@for script in $(SCRIPTS); do \
-            cmd="install -m 755 $$script $(ledaps_bin_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
-            echo "$$cmd"; $$cmd; \
-        done;
+		cmd="install -m 755 $$script $(ledaps_bin_install_path)"; \
+		echo "$$cmd"; $$cmd || exit 1; \
+		cmd="ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
+		echo "$$cmd"; $$cmd; \
+	done;
 
 clean:
 

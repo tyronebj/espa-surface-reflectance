@@ -375,7 +375,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     else
     {
         sprintf (temp, "invalid satellite; value = %s", gmeta->satellite);
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     if (!strcmp (gmeta->instrument, "TM"))
@@ -385,7 +385,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     else
     {
         sprintf (temp, "invalid instrument; value = %s", gmeta->instrument);
-        RETURN_ERROR (temp, "GetXMLInput", true);
+        RETURN_ERROR (temp, "GetXMLInput", false);
     }
 
     strcpy (acq_date, gmeta->acquisition_date);
@@ -402,7 +402,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     if (this->meta.sun_zen < -90.0 || this->meta.sun_zen > 90.0)
     {
         error_string = "solar zenith angle out of range";
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
     this->meta.sun_zen *= RAD;   /* convert to radians */
 
@@ -410,7 +410,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     if (this->meta.sun_az < -360.0 || this->meta.sun_az > 360.0)
     {
         error_string = "solar azimuth angle out of range";
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
     this->meta.sun_az *= RAD;    /* convert to radians */
 
@@ -421,7 +421,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
         default:
             sprintf (temp, "invalid WRS system; value = %d",
                 gmeta->wrs_system);
-            RETURN_ERROR (temp, "GetXMLInput", true);
+            RETURN_ERROR (temp, "GetXMLInput", false);
     }
     this->meta.ipath = gmeta->wrs_path;
     this->meta.irow = gmeta->wrs_row;
@@ -512,7 +512,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
     if (indx == -1)
     {
         error_string = "not able to find the reflectance/thermal index band";
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
 
     /* Pull the reflectance info from band1 in the XML file */
@@ -539,7 +539,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
 
     if (error_string != NULL)
     {
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
 
     /* Check satellite/instrument combination */
@@ -568,7 +568,7 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata, bool thermal)
 
     if (error_string != NULL)
     {
-        RETURN_ERROR (error_string, "GetXMLInput", true);
+        RETURN_ERROR (error_string, "GetXMLInput", false);
     }
 
     /* Convert the acquisition date/time values */

@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Makefile
 #
-# For building lndcal.
+# For building lndsrbm.
 #-----------------------------------------------------------------------------
 .PHONY: all install clean
 
@@ -91,17 +91,17 @@ install:
 	install -d $(link_path)
 	install -d $(ledaps_bin_install_path)
 	@for executable in $(ALL_EXE); do \
-            cmd="install -m 755 $$executable $(ledaps_bin_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(ledaps_link_source_path)/$$executable $(link_path)/$$executable"; \
-            echo "$$cmd"; $$cmd; \
-        done
+		cmd="install -m 755 $$executable $(ledaps_bin_install_path)"; \
+		echo "$$cmd"; $$cmd || exit 1; \
+		cmd="ln -sf $(ledaps_link_source_path)/$$executable $(link_path)/$$executable"; \
+		echo "$$cmd"; $$cmd; \
+	done
 	@for script in $(SCRIPTS); do \
-            cmd="install -m 755 $$script $(ledaps_bin_install_path)"; \
-            echo "$$cmd"; $$cmd; \
-            cmd="ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
-            echo "$$cmd"; $$cmd; \
-        done
+		cmd="install -m 755 $$script $(ledaps_bin_install_path)"; \
+		echo "$$cmd"; $$cmd || exit 1; \
+		cmd="ln -sf $(ledaps_link_source_path)/$$script $(link_path)/$$script"; \
+		echo "$$cmd"; $$cmd; \
+	done
 
 #-----------------------------------------------------------------------------
 clean:
