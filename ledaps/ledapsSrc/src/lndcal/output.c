@@ -146,9 +146,8 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
   this->size.l = input->size.l;
   this->size.s = input->size.s;
   for (ib = 0; ib < nband_tot; ib++) {
-    strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name,
-      3);
-    bmeta[ib].short_name[3] = '\0';
+    strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 4);
+    bmeta[ib].short_name[4] = '\0';
     if (!thermal)
     {
       strcpy (bmeta[ib].product, "toa_refl");
@@ -232,8 +231,8 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
       bmeta[ib].valid_range[0] = 0.0;
       bmeta[ib].valid_range[1] = 255.0;
 
-      strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 3);
-      bmeta[ib].short_name[3] = '\0';
+      strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 4);
+      bmeta[ib].short_name[4] = '\0';
       strcat (bmeta[ib].short_name, "RADSAT");
     }
 

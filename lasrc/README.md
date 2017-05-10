@@ -1,5 +1,5 @@
-## LaSRC Version 1.1.0 Release Notes
-Release Date: May 2017
+## LaSRC Version 1.2.0 Release Notes
+Release Date: June 2017
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.1.0]
+See git tag [lasrc-version_1.2.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,18 +80,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Fixed broken links in the LAADS auxiliary Makefile.
-2. Fixed a compiler warning in the combine LAADS C code.
-3. Modified the LAADS update scripts to use the MODIS public http server -
-   https://ladsweb.modaps.eosdis.nasa.gov instead of the ftp server
-   ftp://ladssci.nascom.nasa.gov.
-   This LAADS data has been moved to the public http site and allows all users
-   of the update LAADS scripts to access the data without a username/password.
-4. Updated the application version number.
-5. Added --version command-line options for applications and scripts.
-6. Updated the LAADS scripts to allow Aqua-only CMG/CMA and/or Terra-only
-   CMG/CMA for the situations when Terra or Aqua is not available.
-7. Removed the unused SDSs from the LAADS hdf_fused auxiliary products.  Only
-   the water vapor and ozone are used by LaSRC.
-8. Updated Makefiles to catch build errors in the for loops.
+1. Updated the XML short_name to use a 4-digit instrument identifier
 

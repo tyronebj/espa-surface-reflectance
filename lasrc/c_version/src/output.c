@@ -142,8 +142,8 @@ Output_t *open_output
  
     for (ib = 0; ib < nband; ib++)
     {
-        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 3);
-        bmeta[ib].short_name[3] = '\0';
+        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 4);
+        bmeta[ib].short_name[4] = '\0';
         if (output_type == OUTPUT_TOA)
         {
             strcat (bmeta[ib].short_name, "TOA");
@@ -213,8 +213,8 @@ Output_t *open_output
             strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
 
             strncpy (bmeta[ib].short_name,
-                in_meta->band[refl_indx].short_name, 3);
-            bmeta[ib].short_name[3] = '\0';
+                in_meta->band[refl_indx].short_name, 4);
+            bmeta[ib].short_name[4] = '\0';
             strcat (bmeta[ib].short_name, "AERO");
         }
         else if (output_type == OUTPUT_RADSAT)

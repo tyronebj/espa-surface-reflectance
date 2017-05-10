@@ -150,8 +150,8 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
   this->size.l = input->size.l;
   this->size.s = input->size.s;
   for (ib = 0; ib < nband_out; ib++) {
-    strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 3);
-    bmeta[ib].short_name[3] = '\0';
+    strncpy (bmeta[ib].short_name, in_meta->band[rep_indx].short_name, 4);
+    bmeta[ib].short_name[4] = '\0';
     strcpy (bmeta[ib].product, "sr_refl");
     strcpy (bmeta[ib].source, "toa_refl");
     strcat (bmeta[ib].short_name, "SR");
