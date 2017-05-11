@@ -143,11 +143,16 @@ Output_t *open_output
         bmeta[ib].short_name[4] = '\0';
         if (toa)
         {
-            strcat (bmeta[ib].short_name, "TOA");
             if ((ib == SR_BAND10) || (ib == SR_BAND11))
+            {
+                strcat (bmeta[ib].short_name, "BT");
                 strcpy (bmeta[ib].product, "toa_bt");
+            }
             else
+            {
+                strcat (bmeta[ib].short_name, "TOA");
                 strcpy (bmeta[ib].product, "toa_refl");
+            }
         }
         else
         {
