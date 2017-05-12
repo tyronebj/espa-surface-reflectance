@@ -81,4 +81,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 
 ## Release Notes
 1. Updated the XML short_name to use a 4-digit instrument identifier
+2. Merged the changes from LaSRC FORTRAN version 3.5.5.  The main change is a
+   the if-check on the band1 and band2 ratios used for computing the slope and
+   intercept used for the aerosol inversions.
 

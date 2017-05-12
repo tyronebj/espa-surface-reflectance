@@ -14,7 +14,7 @@ static char QAMAP_1KM[2600] =
                   "\t7      internal test; \n"
                   "\t       1 -- yes\n"
                   "\t       0 -- no\n"
-                  "\t6      unused; \n"
+                  "\t6      snow; \n"
                   "\t       1 -- yes\n"
                   "\t       0 -- no\n"
                  "\t4-5     aerosol;\n"

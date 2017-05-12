@@ -76,6 +76,7 @@
 	character(200) filename(12),fname,filenameanc,filenamehdf
 	
 	character(2) suffix(12)
+	character padding
 	character*8 padding1
 	character padding2(552)
 	integer*2 pad1,pad2
@@ -514,7 +515,9 @@ c read the input files
 	if (ihdf.eq.3) then
 	read(5,*) frln,lrln,frcl,lrcl
 	read(5,*) c1i,c1j,c2i,c2j,c3i,c3j,c4i,c4j
+	read(5,*) offsettiff
 	else
+	offsettiff=8
 	read(5,*,end=19) frln,lrln,frcl,lrcl
 	endif
  19     continue
@@ -730,13 +733,13 @@ c read band 12 first
 	 write(6,*) "reading ",filename(ib)(1:ii)
 c compute the offset	 
           if (ihdf.eq.3) then
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+552)
-	  read(1,rec=1) padding2,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
 	  write(6,*) "QA BAND  150,150",band(150,150)
 	  else
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+8)
-	  read(1,rec=1) padding1,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
 	 endif
 	 endif
@@ -747,8 +750,8 @@ c look for the 4 corners of the image
        
 c read band 5 to determine image rotation
           ib=5
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+8)
-	  read(1,rec=1) padding1,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
        
        flag=0
@@ -820,8 +823,8 @@ c read band 5 to determine image rotation
        enddo
 c restore band12        
           ib=12
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+8)
-	  read(1,rec=1) padding1,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
        
   561  continue
@@ -921,12 +924,12 @@ c
  	  ii=index(filename(ib)," ")-1
 	  write(6,*) "reading ",filename(ib)(1:ii)
 	  if (ihdf.eq.3) then
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+552)
-	  read(1,rec=1) padding2,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
 	  else
-	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+8)
-	  read(1,rec=1) padding1,((band(i,j),i=1,nci),j=1,nri)
+	  open(1,file=filename(ib)(1:ii),form='UNFORMATTED',action='READ',access='DIRECT',recl=2*nci*nri+offsettiff)
+	  read(1,rec=1) (padding,i=1,offsettiff),((band(i,j),i=1,nci),j=1,nri)
 	  close(1)
           endif
 c calibrate band 1 to 9 except 8
@@ -1007,7 +1010,7 @@ c call the atmospheric correction
 	           bttatmg(ib)=ttatmg
      	           bsatm(ib)=satm
 	       else
-	           sband(ib,i,j)=-9999
+	           sband(ib,i,j)=-1000
 	       endif
 	       enddo
 	       enddo
@@ -1192,7 +1195,7 @@ c inverting aerosol
 	enddo
 	rb1=ratiob1(jcmg,icmg)/1000.
 	rb2=ratiob2(jcmg,icmg)/1000.
-	if ((rb2.gt.0.6).or.(rb1.gt.0.55).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
+	if ((rb2.gt.1.0).or.(rb1.gt.1.0).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
 	slpratiob1(jcmg,icmg)=0
 	slpratiob2(jcmg,icmg)=0
 	slpratiob7(jcmg,icmg)=0
@@ -1212,7 +1215,7 @@ c inverting aerosol
 	
 	rb1=ratiob1(jcmg+1,icmg)/1000.
 	rb2=ratiob2(jcmg+1,icmg)/1000.
-	if ((rb2.gt.0.6).or.(rb1.gt.0.55).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
+	if ((rb2.gt.1.0).or.(rb1.gt.1.0).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
 	slpratiob1(jcmg+1,icmg)=0
 	slpratiob2(jcmg+1,icmg)=0
 	slpratiob7(jcmg+1,icmg)=0
@@ -1232,7 +1235,7 @@ c inverting aerosol
 	
 	rb1=ratiob1(jcmg,icmg+1)/1000.
 	rb2=ratiob2(jcmg,icmg+1)/1000.
-	if ((rb2.gt.0.6).or.(rb1.gt.0.55).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
+	if ((rb2.gt.1.0).or.(rb1.gt.1.0).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
 	slpratiob1(jcmg,icmg+1)=0
 	slpratiob2(jcmg,icmg+1)=0
 	slpratiob7(jcmg,icmg+1)=0
@@ -1253,7 +1256,7 @@ c inverting aerosol
 	rb1=ratiob1(jcmg+1,icmg+1)/1000.
 	rb2=ratiob2(jcmg+1,icmg+1)/1000.
 
-	if ((rb2.gt.0.6).or.(rb1.gt.0.55).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
+	if ((rb2.gt.1.0).or.(rb1.gt.1.0).or.(rb2.lt.0.1).or.(rb1.lt.0.1)) then
 	slpratiob1(jcmg+1,icmg+1)=0
 	slpratiob2(jcmg+1,icmg+1)=0
 	slpratiob7(jcmg+1,icmg+1)=0
@@ -1985,6 +1988,11 @@ c refine cloud mask
        if (btest(cloud(i,j),cld)) then
        if (((sband(10,i,j)/10.).ge.(tclears(i,j)-0.5)).or.((sband(6,i,j)+sband(7,i,j)).lt.1000)) then
        cloud(i,j)=cloud(i,j)-2
+c test for snow
+       xndsi=(sband(3,i,j)-sband(6,i,j))*1.0/(sband(3,i,j)+sband(6,i,j))
+       if (xndsi.gt.0.) then
+       cloud(i,j)=cloud(i,j)+64
+       endif   
        endif
        endif
        enddo

@@ -1,7 +1,7 @@
 #!/bin/ksh
 #build the input file for processing ldcm data
 rootdir=$1
-ver=$2
+ver=LaSRCL8-v3.5.5
 for case in `ls  $rootdir | awk -F / '{print $NF}'`
 do
 mtlfile=`ls $rootdir$case/*.txt`

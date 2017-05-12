@@ -849,7 +849,7 @@ int compute_sr_refl
 
             rb1 = ratiob1[ratio_pix11] * 0.001;  /* vs. / 1000. */
             rb2 = ratiob2[ratio_pix11] * 0.001;  /* vs. / 1000. */
-            if (rb2 > 0.6 || rb1 > 0.55 || rb2 < 0.1 || rb1 < 0.1)
+            if (rb2 > 1.0 || rb1 > 1.0 || rb2 < 0.1 || rb1 < 0.1)
             {
                 slpratiob1[ratio_pix11] = 0;
                 slpratiob2[ratio_pix11] = 0;
@@ -870,7 +870,7 @@ int compute_sr_refl
 
             rb1 = ratiob1[ratio_pix12] * 0.001;  /* vs. / 1000. */
             rb2 = ratiob2[ratio_pix12] * 0.001;  /* vs. / 1000. */
-            if (rb2 > 0.6 || rb1 > 0.55 || rb2 < 0.1 || rb1 < 0.1)
+            if (rb2 > 1.0 || rb1 > 1.0 || rb2 < 0.1 || rb1 < 0.1)
             {
                 slpratiob1[ratio_pix12] = 0;
                 slpratiob2[ratio_pix12] = 0;
@@ -891,7 +891,7 @@ int compute_sr_refl
 
             rb1 = ratiob1[ratio_pix21] * 0.001;  /* vs. / 1000. */
             rb2 = ratiob2[ratio_pix21] * 0.001;  /* vs. / 1000. */
-            if (rb2 > 0.6 || rb1 > 0.55 || rb2 < 0.1 || rb1 < 0.1)
+            if (rb2 > 1.0 || rb1 > 1.0 || rb2 < 0.1 || rb1 < 0.1)
             {
                 slpratiob1[ratio_pix21] = 0;
                 slpratiob2[ratio_pix21] = 0;
@@ -912,7 +912,7 @@ int compute_sr_refl
 
             rb1 = ratiob1[ratio_pix22] * 0.001;  /* vs. / 1000. */
             rb2 = ratiob2[ratio_pix22] * 0.001;  /* vs. / 1000. */
-            if (rb2 > 0.6 || rb1 > 0.55 || rb2 < 0.1 || rb1 < 0.1)
+            if (rb2 > 1.0 || rb1 > 1.0 || rb2 < 0.1 || rb1 < 0.1)
             {
                 slpratiob1[ratio_pix22] = 0;
                 slpratiob2[ratio_pix22] = 0;
