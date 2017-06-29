@@ -2174,7 +2174,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *wv = calloc (CMG_NBLAT * CMG_NBLON, sizeof (int16*));
+    *wv = calloc (CMG_NBLAT * CMG_NBLON, sizeof (int16));
     if (*wv == NULL)
     {
         sprintf (errmsg, "Error allocating memory for the wv");
@@ -2182,7 +2182,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *oz = calloc (CMG_NBLAT * CMG_NBLON, sizeof (uint8*));
+    *oz = calloc (CMG_NBLAT * CMG_NBLON, sizeof (uint8));
     if (*oz == NULL)
     {
         sprintf (errmsg, "Error allocating memory for the oz");
