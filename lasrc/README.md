@@ -83,5 +83,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 1. Bug fix that was likely the cause of intermittent segfaults.  The wv and oz
    variables were allocated as uint8* and int16* values instead of uint8 and
    uint16.  This generated less memory than what was trying to be used by the
-   uint16 array.
+   uint16 array.  This fix is only applied to the 'src' directory and not to
+   the pre-collection directory, which is basically obsolete at the current
+   time and will be deleted soon.
 
