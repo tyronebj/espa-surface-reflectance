@@ -13,10 +13,10 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "1.2.0"
+#define SR_VERSION "1.3.0"
 
 /* How many lines of data should be processed at one time */
-#define PROC_NLINES 1000
+#define PROC_NLINES 10
 
 /* For angle conversions -
    degrees to radians = PI/180
@@ -65,6 +65,14 @@ typedef char byte;
 /* Ozone and water vapor information */
 #define CMG_NBLAT 3600
 #define CMG_NBLON 7200
+
+/* Lookup table index value */
+#define NPRES_VALS 7
+#define NAOT_VALS 22
+#define NSOLAR_VALS 8000
+#define NSUNANGLE_VALS 22
+#define NVIEW_ZEN_VALS 20
+#define NSOLAR_ZEN_VALS 22
 
 /* Define the input products to be processed.  NOTE: DN_TTL should be the same
    as NBAND_TTL_MAX. */

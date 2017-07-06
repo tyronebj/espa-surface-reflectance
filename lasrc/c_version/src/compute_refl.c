@@ -62,6 +62,9 @@ int compute_toa_refl
     uint16 *uband = NULL;  /* array for input image data for a single band,
                               nlines x nsamps */
 
+time_t mytime;
+mytime = time(NULL);
+printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
     /* Allocate memory for band data */
     uband = calloc (nlines*nsamps, sizeof (uint16));
     if (uband == NULL)
@@ -265,6 +268,9 @@ int compute_toa_refl
     /* The input data has been read and calibrated. The memory can be freed. */
     free (uband);
 
+mytime = time(NULL);
+printf ("DEBUG: End compute_toa_refl: %s\n", ctime(&mytime));
+
     /* Successful completion */
     return (SUCCESS);
 }
@@ -378,12 +384,20 @@ int compute_sr_refl
     int lcmg, scmg;       /* line/sample index for the CMG */
     int lcmg1, scmg1;     /* line+1/sample+1 index for the CMG */
     float u, v;           /* line/sample index for the CMG */
-    float th1, th2;       /* values for NDWI calculations */
+    float one_minus_u;    /* 1.0 - u */
+    float one_minus_v;    /* 1.0 - v */
+    float one_minus_u_x_one_minus_v;  /* (1.0 - u) * (1.0 - v) */
+    float one_minus_u_x_v;  /* (1.0 - u) * v */
+    float u_x_one_minus_v;  /* u * (1.0 - v) */
+    float u_x_v;          /* u * v */
+    float ndwi_th1, ndwi_th2; /* values for NDWI calculations */
     float xcmg, ycmg;     /* x/y location for CMG */
     float xndwi;          /* calculated NDWI value */
     int uoz11, uoz21, uoz12, uoz22;  /* ozone at line,samp; line, samp+1;
                                         line+1, samp; and line+1, samp+1 */
     float pres11, pres12, pres21, pres22;  /* pressure at line,samp;
+                             line, samp+1; line+1, samp; and line+1, samp+1 */
+    float wv11, wv12, wv21, wv22;  /* water vapor at line,samp;
                              line, samp+1; line+1, samp; and line+1, samp+1 */
     uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
@@ -422,23 +436,28 @@ int compute_sr_refl
     float xtsmin;        /* minimum solar zenith value */
     float xtvstep;       /* observation step value */
     float xtvmin;        /* minimum observation value */
-    float ****rolutt = NULL;    /* intrinsic reflectance table
-                                   [NSR_BANDS][7][22][8000] */
-    float ****transt = NULL;    /* transmission table
-                                   [NSR_BANDS][7][22][22] */
-    float ***sphalbt = NULL;    /* spherical albedo table [NSR_BANDS][7][22] */
-    float ***normext = NULL;    /* aerosol extinction coefficient at the
-                                   current wavelength (normalized at 550nm)
-                                   [NSR_BANDS][7][22] */
-    float **tsmax = NULL;       /* maximum scattering angle table [20][22] */
-    float **tsmin = NULL;       /* minimum scattering angle table [20][22] */
-    float **nbfi = NULL;        /* number of azimuth angles [20][22] */
-    float **nbfic = NULL;       /* communitive number of azimuth angles
-                                   [20][22] */
-    float **ttv = NULL;         /* view angle table [20][22] */
-    float tts[22];              /* sun angle table */
-    int32 indts[22];            /* index for sun angle table */
-    int iaots;                  /* index for AOTs */
+    float *rolutt = NULL;  /* intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt = NULL;  /* transmission table
+                       [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float *sphalbt = NULL; /* spherical albedo table 
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext = NULL; /* aerosol extinction coefficient at the current
+                              wavelength (normalized at 550nm)
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *tsmax = NULL;   /* maximum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin = NULL;   /* minimum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi = NULL;    /* number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfic = NULL;   /* communitive number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *ttv = NULL;     /* view angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[22];         /* sun angle table */
+    int32 indts[22];       /* index for sun angle table */
+    int iaots;             /* index for AOTs */
 
     /* Auxiliary file variables */
     int16 *dem = NULL;        /* CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
@@ -511,10 +530,10 @@ int compute_sr_refl
     char *cptr = NULL;           /* pointer to the file extension */
 
     /* Table constants */
-    float aot550nm[22] =  /* AOT look-up table */
+    float aot550nm[NAOT_VALS] =  /* AOT look-up table */
         {0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.60, 0.80, 1.00, 1.20,
          1.40, 1.60, 1.80, 2.00, 2.30, 2.60, 3.00, 3.50, 4.00, 4.50, 5.00};
-    float tpres[7] =      /* surface pressure table */
+    float tpres[NPRES_VALS] =      /* surface pressure table */
         {1050.0, 1013.0, 900.0, 800.0, 700.0, 600.0, 500.0};
 
     /* Atmospheric correction variables */
@@ -541,6 +560,10 @@ int compute_sr_refl
     double ogtransb1[NSR_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
+
+time_t mytime;
+mytime = time(NULL);
+printf ("DEBUG: Start compute_sr_refl: %s\n", ctime(&mytime));
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
@@ -592,6 +615,8 @@ int compute_sr_refl
 
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
+mytime = time(NULL);
+printf ("DEBUG: Start atm corrections: %s\n", ctime(&mytime));
     printf ("Performing atmospheric corrections for each reflectance "
         "band ...");
     for (ib = 0; ib <= SR_BAND7; ib++)
@@ -667,11 +692,14 @@ int compute_sr_refl
     }  /* for ib */
     printf ("\n");
 
-    /* Interpolate the auxiliary data for each pixel location */
-    printf ("Interpolating the auxiliary data ...\n");
+    /* Interpolate the auxiliary data for each pixel location and handle the
+       aerosol inversion */
+mytime = time(NULL);
+printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
+    printf ("Aerosol Inversion - Interpolating the auxiliary data ...\n");
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, th1, th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, wv11, wv12, wv21, wv22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i++)
     {
@@ -721,6 +749,8 @@ int compute_sr_refl
             lat = geo.lat * RAD2DEG;
             lon = geo.lon * RAD2DEG;
 
+            /*** Handle all the variables related to the current pixel in the
+                 auxiliary products ***/
             /* Use that lat/long to determine the line/sample in the
                CMG-related lookup tables, using the center of the UL
                pixel. Note, we are basically making sure the line/sample
@@ -766,25 +796,22 @@ int compute_sr_refl
             else
                 lcmg1 = lcmg + 1;
 
-            /* Determine the fractional difference between the integer location
-               and floating point pixel location */
-            u = (ycmg - lcmg);
-            v = (xcmg - scmg);
+            /* Determine the four CMG pixels to be used for the current
+               Landsat pixel */
             cmg_pix11 = lcmg * CMG_NBLON + scmg;
             cmg_pix12 = lcmg * CMG_NBLON + scmg1;
             cmg_pix21 = lcmg1 * CMG_NBLON + scmg;
             cmg_pix22 = lcmg1 * CMG_NBLON + scmg1;
 
-            /* Interpolate water vapor.  If the water vapor value is fill (=0),
-               then use it as-is. */
-            twvi[curr_pix] = wv[cmg_pix11] * (1.0 - u) * (1.0 - v) +
-                             wv[cmg_pix12] * (1.0 - u) * v +
-                             wv[cmg_pix21] * u * (1.0 - v) +
-                             wv[cmg_pix22] * u * v;
-            twvi[curr_pix] = twvi[curr_pix] * 0.01;   /* vs / 100 */
+            /* Get the water vapor pixels. If the water vapor value is
+               fill (=0), then use it as-is. */
+            wv11 = wv[cmg_pix11];
+            wv12 = wv[cmg_pix12];
+            wv21 = wv[cmg_pix21];
+            wv22 = wv[cmg_pix22];
 
-            /* Interpolate ozone.  If the ozone value is fill (=0), then use a
-               default value of 120. */
+            /* Get the ozone pixels. If the ozone value is fill (=0), then use
+               a default value of 120. */
             uoz11 = oz[cmg_pix11];
             if (uoz11 == 0)
                 uoz11 = 120;
@@ -801,24 +828,14 @@ int compute_sr_refl
             if (uoz22 == 0)
                 uoz22 = 120;
 
-            tozi[curr_pix] = uoz11 * (1.0 - u) * (1.0 - v) +
-                             uoz12 * (1.0 - u) * v +
-                             uoz21 * u * (1.0 - v) +
-                             uoz22 * u * v;
-            tozi[curr_pix] = tozi[curr_pix] * 0.0025;   /* vs / 400 */
-
             /* Get the surface pressure from the global DEM.  Set to 1013.0
-               (sea level) if the DEM is fill (= -9999), which is likely
-               ocean. Also flag the deep water pixels.  The dimensions on the
-               DEM array is the same as that of the CMG arrays. Use the current
-               pixel locations already calculated. */
+               (sea level) if the DEM is fill (= -9999), which is likely ocean.
+               The dimensions on the DEM array is the same as that of the CMG
+               arrays. Use the current pixel locations already calculated. */
             if (dem[cmg_pix11] != -9999)
                 pres11 = 1013.0 * exp (-dem[cmg_pix11] * ONE_DIV_8500);
             else
-            {
-                /* Fill pixels in the DEM are ocean and deep water pixels */
                 pres11 = 1013.0;
-            }
 
             if (dem[cmg_pix12] != -9999)
                 pres12 = 1013.0 * exp (-dem[cmg_pix12] * ONE_DIV_8500);
@@ -835,13 +852,7 @@ int compute_sr_refl
             else
                 pres22 = 1013.0;
 
-            tp[curr_pix] = pres11 * (1.0 - u) * (1.0 - v) +
-                           pres12 * (1.0 - u) * v +
-                           pres21 * u * (1.0 - v) +
-                           pres22 * u * v;
-
-            /* Inverting aerosols for all pixels */
-            /* Determine the band ratios */
+            /* Determine the band ratios and slope/intercept */
             ratio_pix11 = lcmg * RATIO_NBLON + scmg;
             ratio_pix12 = ratio_pix11 + 1;
             ratio_pix21 = lcmg1 * RATIO_NBLON + scmg;
@@ -931,6 +942,46 @@ int compute_sr_refl
                 intratiob7[ratio_pix22] = ratiob7[ratio_pix22];
             }
 
+            /* Compute the NDWI variables */
+            ndwi_th1 = (andwi[ratio_pix11] + 2.0 * sndwi[ratio_pix11]) * 0.001;
+            ndwi_th2 = (andwi[ratio_pix11] - 2.0 * sndwi[ratio_pix11]) * 0.001;
+
+            /*** Handle all the variables related to the current pixel in the
+                 Landsat scene, which means interpolating the global-level
+                 variables ***/
+            /* Determine the fractional difference between the integer location
+               and floating point pixel location to be used for interpolation */
+            u = (ycmg - lcmg);
+            v = (xcmg - scmg);
+            one_minus_u = 1.0 - u;
+            one_minus_v = 1.0 - v;
+            one_minus_u_x_one_minus_v = one_minus_u * one_minus_v;
+            one_minus_u_x_v = one_minus_u * v;
+            u_x_one_minus_v = u * one_minus_v;
+            u_x_v = u * v;
+
+            /* Interpolate water vapor, and unscale */
+            twvi[curr_pix] = wv11 * one_minus_u_x_one_minus_v +
+                             wv12 * one_minus_u_x_v +
+                             wv21 * u_x_one_minus_v +
+                             wv22 * u_x_v;
+            twvi[curr_pix] = twvi[curr_pix] * 0.01;   /* vs / 100 */
+
+            /* Interpolate ozone, and unscale */
+            tozi[curr_pix] = uoz11 * one_minus_u_x_one_minus_v +
+                             uoz12 * one_minus_u_x_v +
+                             uoz21 * u_x_one_minus_v +
+                             uoz22 * u_x_v;
+            tozi[curr_pix] = tozi[curr_pix] * 0.0025;   /* vs / 400 */
+
+
+            /* Interpolate surface pressure */
+            tp[curr_pix] = pres11 * one_minus_u_x_one_minus_v +
+                           pres12 * one_minus_u_x_v +
+                           pres21 * u_x_one_minus_v +
+                           pres22 * u_x_v;
+
+            /* Interpolate the slope/intercept for each band, and unscale */
             slpr11 = slpratiob1[ratio_pix11] * 0.001;  /* vs / 1000 */
             intr11 = intratiob1[ratio_pix11] * 0.001;  /* vs / 1000 */
             slpr12 = slpratiob1[ratio_pix12] * 0.001;  /* vs / 1000 */
@@ -939,14 +990,14 @@ int compute_sr_refl
             intr21 = intratiob1[ratio_pix21] * 0.001;  /* vs / 1000 */
             slpr22 = slpratiob1[ratio_pix22] * 0.001;  /* vs / 1000 */
             intr22 = intratiob1[ratio_pix22] * 0.001;  /* vs / 1000 */
-            slprb1 = slpr11 * (1.0 - u) * (1.0 - v) +
-                     slpr12 * (1.0 - u) * v +
-                     slpr21 * u * (1.0 - v) +
-                     slpr22 * u * v;
-            intrb1 = intr11 * (1.0 - u) * (1.0 - v) +
-                     intr12 * (1.0 - u) * v +
-                     intr21 * u * (1.0 - v) +
-                     intr22 * u * v;
+            slprb1 = slpr11 * one_minus_u_x_one_minus_v +
+                     slpr12 * one_minus_u_x_v +
+                     slpr21 * u_x_one_minus_v +
+                     slpr22 * u_x_v;
+            intrb1 = intr11 * one_minus_u_x_one_minus_v +
+                     intr12 * one_minus_u_x_v +
+                     intr21 * u_x_one_minus_v +
+                     intr22 * u_x_v;
 
             slpr11 = slpratiob2[ratio_pix11] * 0.001;  /* vs / 1000 */
             intr11 = intratiob2[ratio_pix11] * 0.001;  /* vs / 1000 */
@@ -956,14 +1007,14 @@ int compute_sr_refl
             intr21 = intratiob2[ratio_pix21] * 0.001;  /* vs / 1000 */
             slpr22 = slpratiob2[ratio_pix22] * 0.001;  /* vs / 1000 */
             intr22 = intratiob2[ratio_pix22] * 0.001;  /* vs / 1000 */
-            slprb2 = slpr11 * (1.0 - u) * (1.0 - v) +
-                     slpr12 * (1.0 - u) * v +
-                     slpr21 * u * (1.0 - v) +
-                     slpr22 * u * v;
-            intrb2 = intr11 * (1.0 - u) * (1.0 - v) +
-                     intr12 * (1.0 - u) * v +
-                     intr21 * u * (1.0 - v) +
-                     intr22 * u * v;
+            slprb2 = slpr11 * one_minus_u_x_one_minus_v +
+                     slpr12 * one_minus_u_x_v +
+                     slpr21 * u_x_one_minus_v +
+                     slpr22 * u_x_v;
+            intrb2 = intr11 * one_minus_u_x_one_minus_v +
+                     intr12 * one_minus_u_x_v +
+                     intr21 * u_x_one_minus_v +
+                     intr22 * u_x_v;
 
             slpr11 = slpratiob7[ratio_pix11] * 0.001;  /* vs / 1000 */
             intr11 = intratiob7[ratio_pix11] * 0.001;  /* vs / 1000 */
@@ -973,28 +1024,27 @@ int compute_sr_refl
             intr21 = intratiob7[ratio_pix21] * 0.001;  /* vs / 1000 */
             slpr22 = slpratiob7[ratio_pix22] * 0.001;  /* vs / 1000 */
             intr22 = intratiob7[ratio_pix22] * 0.001;  /* vs / 1000 */
-            slprb7 = slpr11 * (1.0 - u) * (1.0 - v) +
-                     slpr12 * (1.0 - u) * v +
-                     slpr21 * u * (1.0 - v) +
-                     slpr22 * u * v;
-            intrb7 = intr11 * (1.0 - u) * (1.0 - v) +
-                     intr12 * (1.0 - u) * v +
-                     intr21 * u * (1.0 - v) +
-                     intr22 * u * v;
+            slprb7 = slpr11 * one_minus_u_x_one_minus_v +
+                     slpr12 * one_minus_u_x_v +
+                     slpr21 * u_x_one_minus_v +
+                     slpr22 * u_x_v;
+            intrb7 = intr11 * one_minus_u_x_one_minus_v +
+                     intr12 * one_minus_u_x_v +
+                     intr21 * u_x_one_minus_v +
+                     intr22 * u_x_v;
 
-            /* Use a version of NDWI to calculate the band ratio */
+            /* Calculate NDWI variables for the band ratios */
             xndwi = ((double) sband[SR_BAND5][curr_pix] -
                      (double) (sband[SR_BAND7][curr_pix] * 0.5)) /
                     ((double) sband[SR_BAND5][curr_pix] +
                      (double) (sband[SR_BAND7][curr_pix] * 0.5));
 
-            th1 = (andwi[ratio_pix11] + 2.0 * sndwi[ratio_pix11]) * 0.001;
-            th2 = (andwi[ratio_pix11] - 2.0 * sndwi[ratio_pix11]) * 0.001;
-            if (xndwi > th1)
-                xndwi = th1;
-            if (xndwi < th2)
-                xndwi = th2;
+            if (xndwi > ndwi_th1)
+                xndwi = ndwi_th1;
+            if (xndwi < ndwi_th2)
+                xndwi = ndwi_th2;
 
+            /* Compute the band ratio */
             erelc[DN_BAND1] = (xndwi * slprb1 + intrb1);
             erelc[DN_BAND2] = (xndwi * slprb2 + intrb2);
             erelc[DN_BAND4] = 1.0;
@@ -1309,6 +1359,8 @@ int compute_sr_refl
 
     /* Before the aerosol interpolation increase the interpolation to the
        neighboring pixels (5x5) */
+mytime = time(NULL);
+printf ("DEBUG: Setting the neighboring interpolation pixels: %s\n", ctime(&mytime));
     printf ("Setting the neighboring interpolation pixels ...\n"); 
     for (i = 0; i < nlines; i++)
     {
@@ -1424,6 +1476,8 @@ int compute_sr_refl
     /* Handle the case where none of the pixels were able to be averaged by
        setting default values.  Otherwise take a second pass through the
        pixels. */
+mytime = time(NULL);
+printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&mytime));
     printf ("Second pass for aerosol interpolation ...\n");
     if (nbpixnf == nbpixtot)
     {
@@ -1531,6 +1585,8 @@ int compute_sr_refl
     free (tepss);  tepss = NULL;
 
     /* Perform the second level of atmospheric correction using the aerosols */
+mytime = time(NULL);
+printf ("DEBUG: Starting second second level of atmospheric correction using aerosols: %s\n", ctime(&mytime));
     printf ("Performing atmospheric correction ...\n");
     /* 0 .. DN_BAND7 is the same as 0 .. SR_BAND7 here, since the pan band
        isn't spanned */
@@ -1627,6 +1683,8 @@ int compute_sr_refl
     free (teps);
  
     /* Write the data to the output file */
+mytime = time(NULL);
+printf ("DEBUG: Writing SR results to output files: %s\n", ctime(&mytime));
     printf ("Writing surface reflectance corrected data to the output "
         "files ...\n");
 
@@ -1733,40 +1791,10 @@ int compute_sr_refl
     free (space);
 
     /* Free the data arrays */
-    for (i = 0; i < NSR_BANDS; i++)
-    {
-        for (j = 0; j < 7; j++)
-        {
-            for (k = 0; k < 22; k++)
-            {
-                free (rolutt[i][j][k]);
-                free (transt[i][j][k]);
-            }
-            free (rolutt[i][j]);
-            free (transt[i][j]);
-            free (sphalbt[i][j]);
-            free (normext[i][j]);
-        }
-        free (rolutt[i]);
-        free (transt[i]);
-        free (sphalbt[i]);
-        free (normext[i]);
-    }
     free (rolutt);
     free (transt);
     free (sphalbt);
     free (normext);
-
-    /* tsmax[20][22] and float tsmin[20][22] and float nbfic[20][22] and
-       nbfi[20][22] and float ttv[20][22] */
-    for (i = 0; i < 20; i++)
-    {
-        free (tsmax[i]);
-        free (tsmin[i]);
-        free (nbfic[i]);
-        free (nbfi[i]);
-        free (ttv[i]);
-    }
     free (tsmax);
     free (tsmin);
     free (nbfic);
@@ -1774,6 +1802,8 @@ int compute_sr_refl
     free (ttv);
 
     /* Successful completion */
+mytime = time(NULL);
+printf ("DEBUG: All DONE: %s\n", ctime(&mytime));
     return (SUCCESS);
 }
 
@@ -1828,20 +1858,27 @@ int init_sr_refl
     float *xtsmin,      /* O: minimum solar zenith value */
     float *xtvstep,     /* O: observation step value */
     float *xtvmin,      /* O: minimum observation value */
-    float **tsmax,      /* O: maximum scattering angle table [20][22] */
-    float **tsmin,      /* O: minimum scattering angle table [20][22] */
+    float *tsmax,       /* O: maximum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,       /* O: minimum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float tts[22],      /* O: sun angle table */
-    float **ttv,        /* O: view angle table [20][22] */
+    float *ttv,         /* O: view angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     int32 indts[22],    /* O: index for the sun angle table */
-    float ****rolutt,   /* O: intrinsic reflectance table
-                              [NSR_BANDS][7][22][8000] */
-    float ****transt,   /* O: transmission table [NSR_BANDS][7][22][22] */
-    float ***sphalbt,   /* O: spherical albedo table [NSR_BANDS][7][22] */
-    float ***normext,   /* O: aerosol extinction coefficient at the current
+    float *rolutt,      /* O: intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,      /* O: transmission table 
+                      [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUN_ANGLE_VALS] */
+    float *sphalbt,     /* O: spherical albedo table 
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,     /* O: aerosol extinction coefficient at the current
                               wavelength (normalized at 550nm)
-                              [NSR_BANDS][7][22] */
-    float **nbfic,      /* O: communitive number of azimuth angles [20][22] */
-    float **nbfi,       /* O: number of azimuth angles [20][22] */
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *nbfic,       /* O: communitive number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,        /* O: number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     int16 *dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 *andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
     int16 *sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */

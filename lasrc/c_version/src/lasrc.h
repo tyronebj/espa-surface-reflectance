@@ -114,20 +114,27 @@ int init_sr_refl
     float *xtsmin,      /* O: minimum solar zenith value */
     float *xtvstep,     /* O: observation step value */
     float *xtvmin,      /* O: minimum observation value */
-    float **tsmax,      /* O: maximum scattering angle table [20][22] */
-    float **tsmin,      /* O: minimum scattering angle table [20][22] */
+    float *tsmax,       /* O: maximum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,       /* O: minimum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float tts[22],      /* O: sun angle table */
-    float **ttv,        /* O: view angle table [20][22] */
+    float *ttv,         /* O: view angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     int32 indts[22],    /* O: index for the sun angle table */
-    float ****rolutt,   /* O: intrinsic reflectance table
-                              [NSR_BANDS][7][22][8000] */
-    float ****transt,   /* O: transmission table [NSR_BANDS][7][22][22] */
-    float ***sphalbt,   /* O: spherical albedo table [NSR_BANDS][7][22] */
-    float ***normext,   /* O: aerosol extinction coefficient at the current
+    float *rolutt,      /* O: intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,      /* O: transmission table
+                      [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUN_ANGLE_VALS] */
+    float *sphalbt,     /* O: spherical albedo table
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,     /* O: aerosol extinction coefficient at the current
                               wavelength (normalized at 550nm)
-                              [NSR_BANDS][7][22] */
-    float **nbfic,      /* O: communitive number of azimuth angles [20][22] */
-    float **nbfi,       /* O: number of azimuth angles [20][22] */
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *nbfic,       /* O: communitive number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,        /* O: number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     int16 *dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 *andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
     int16 *sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */

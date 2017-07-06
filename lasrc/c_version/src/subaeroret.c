@@ -29,58 +29,61 @@ NOTES:
 ******************************************************************************/
 int subaeroret
 (
-    int iband1,                      /* I: band 1 index (0-based) */
-    int iband3,                      /* I: band 3 index (0-based) */
-    float xts,                       /* I: solar zenith angle (deg) */
-    float xtv,                       /* I: observation zenith angle (deg) */
-    float xmus,                      /* I: cosine of solar zenith angle */
-    float xmuv,                      /* I: cosine of observation zenith angle */
-    float xfi,                       /* I: azimuthal difference between sun and
-                                           observation (deg) */
-    float cosxfi,                    /* I: cosine of azimuthal difference */
-    float pres,                      /* I: surface pressure */
-    float uoz,                       /* I: total column ozone */
-    float uwv,                       /* I: total column water vapor (precipital
-                                           water vapor) */
-    float erelc[NSR_BANDS],          /* I: band ratio variable */
-    float troatm[NSR_BANDS],         /* I: atmospheric reflectance table */
-    float tpres[7],                  /* I: surface pressure table */
-    float aot550nm[22],              /* I: AOT look-up table */
-    float ****rolutt,                /* I: intrinsic reflectance table
-                                           [NSR_BANDS][7][22][8000] */
-    float ****transt,                /* I: transmission table
-                                           [NSR_BANDS][7][22][22] */
-    float xtsstep,                   /* I: solar zenith step value */
-    float xtsmin,                    /* I: minimum solar zenith value */
-    float xtvstep,                   /* I: observation step value */
-    float xtvmin,                    /* I: minimum observation value */
-    float ***sphalbt,                /* I: spherical albedo table
-                                           [NSR_BANDS][7][22] */
-    float ***normext,                /* I: ????
-                                           [NSR_BANDS][7][22] */
-    float **tsmax,                   /* I: maximum scattering angle table
-                                           [20][22] */
-    float **tsmin,                   /* I: minimum scattering angle table
-                                           [20][22] */
-    float **nbfic,                   /* I: communitive number of azimuth angles
-                                           [20][22] */
-    float **nbfi,                    /* I: number of azimuth anglesi [20][22] */
-    float tts[22],                   /* I: sun angle table */
-    int32 indts[22],
-    float **ttv,                     /* I: view angle table [20][22] */
-    float tauray[NSR_BANDS],         /* I: molecular optical thickness coeff */
-    double ogtransa1[NSR_BANDS],     /* I: other gases transmission coeff */
-    double ogtransb0[NSR_BANDS],     /* I: other gases transmission coeff */
-    double ogtransb1[NSR_BANDS],     /* I: other gases transmission coeff */
-    double wvtransa[NSR_BANDS],      /* I: water vapor transmission coeff */
-    double wvtransb[NSR_BANDS],      /* I: water vapor transmission coeff */
-    double oztransa[NSR_BANDS],      /* I: ozone transmission coeff */
-    float *raot,                     /* O: AOT reflectance */
-    float *residual,                 /* O: model residual */
-    int *iaots,                      /* I/O: AOT index that is passed in and
-                                             out for multiple calls (0-based) */
-    float eps                        /* I: angstroem coefficient; spectral
-                                           dependency of the AOT */
+    int iband1,                  /* I: band 1 index (0-based) */
+    int iband3,                  /* I: band 3 index (0-based) */
+    float xts,                   /* I: solar zenith angle (deg) */
+    float xtv,                   /* I: observation zenith angle (deg) */
+    float xmus,                  /* I: cosine of solar zenith angle */
+    float xmuv,                  /* I: cosine of observation zenith angle */
+    float xfi,                   /* I: azimuthal difference between sun and
+                                       observation (deg) */
+    float cosxfi,                /* I: cosine of azimuthal difference */
+    float pres,                  /* I: surface pressure */
+    float uoz,                   /* I: total column ozone */
+    float uwv,                   /* I: total column water vapor (precipital
+                                       water vapor) */
+    float erelc[NSR_BANDS],      /* I: band ratio variable */
+    float troatm[NSR_BANDS],     /* I: atmospheric reflectance table */
+    float tpres[NPRES_VALS],     /* I: surface pressure table */
+    float aot550nm[NAOT_VALS],   /* I: AOT look-up table */
+    float *rolutt,               /* I: intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,               /* I: transmission table
+                       [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float xtsstep,               /* I: solar zenith step value */
+    float xtsmin,                /* I: minimum solar zenith value */
+    float xtvstep,               /* I: observation step value */
+    float xtvmin,                /* I: minimum observation value */
+    float *sphalbt,              /* I: spherical albedo table
+                                       [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,              /* I: aerosol extinction coefficient at the
+                                       current wavelength (normalized at 550nm)
+                                       [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *tsmax,                /* I: maximum scattering angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,                /* I: minimum scattering angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfic,                /* I: communitive number of azimuth angles
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,                 /* I: number of azimuth angles
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[NSOLAR_ZEN_VALS],  /* I: sun angle table */
+    int32 indts[NSUNANGLE_VALS], /* I: index for the sun angle table */
+    float *ttv,                  /* I: view angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tauray[NSR_BANDS],     /* I: molecular optical thickness coeff */
+    double ogtransa1[NSR_BANDS], /* I: other gases transmission coeff */
+    double ogtransb0[NSR_BANDS], /* I: other gases transmission coeff */
+    double ogtransb1[NSR_BANDS], /* I: other gases transmission coeff */
+    double wvtransa[NSR_BANDS],  /* I: water vapor transmission coeff */
+    double wvtransb[NSR_BANDS],  /* I: water vapor transmission coeff */
+    double oztransa[NSR_BANDS],  /* I: ozone transmission coeff */
+    float *raot,                 /* O: AOT reflectance */
+    float *residual,             /* O: model residual */
+    int *iaots,                  /* I/O: AOT index that is passed in and out
+                                         for multiple calls (0-based) */
+    float eps                    /* I: angstroem coefficient; spectral
+                                       dependency of the AOT */
 )
 {
     char FUNC_NAME[] = "subaeroret";   /* function name */
@@ -375,58 +378,61 @@ NOTES:
 ******************************************************************************/
 int subaeroretwat
 (
-    int iband1,                      /* I: band 1 index (0-based) */
-    int iband3,                      /* I: band 3 index (0-based) */
-    float xts,                       /* I: solar zenith angle (deg) */
-    float xtv,                       /* I: observation zenith angle (deg) */
-    float xmus,                      /* I: cosine of solar zenith angle */
-    float xmuv,                      /* I: cosine of observation zenith angle */
-    float xfi,                       /* I: azimuthal difference between sun and
-                                           observation (deg) */
-    float cosxfi,                    /* I: cosine of azimuthal difference */
-    float pres,                      /* I: surface pressure */
-    float uoz,                       /* I: total column ozone */
-    float uwv,                       /* I: total column water vapor (precipital
-                                           water vapor) */
-    float erelc[NSR_BANDS],          /* I: band ratio variable */
-    float troatm[NSR_BANDS],         /* I: atmospheric reflectance table */
-    float tpres[7],                  /* I: surface pressure table */
-    float aot550nm[22],              /* I: AOT look-up table */
-    float ****rolutt,                /* I: intrinsic reflectance table
-                                           [NSR_BANDS][7][22][8000] */
-    float ****transt,                /* I: transmission table
-                                           [NSR_BANDS][7][22][22] */
-    float xtsstep,                   /* I: solar zenith step value */
-    float xtsmin,                    /* I: minimum solar zenith value */
-    float xtvstep,                   /* I: observation step value */
-    float xtvmin,                    /* I: minimum observation value */
-    float ***sphalbt,                /* I: spherical albedo table
-                                           [NSR_BANDS][7][22] */
-    float ***normext,                /* I: ????
-                                           [NSR_BANDS][7][22] */
-    float **tsmax,                   /* I: maximum scattering angle table
-                                           [20][22] */
-    float **tsmin,                   /* I: minimum scattering angle table
-                                           [20][22] */
-    float **nbfic,                   /* I: communitive number of azimuth angles
-                                           [20][22] */
-    float **nbfi,                    /* I: number of azimuth anglesi [20][22] */
-    float tts[22],                   /* I: sun angle table */
-    int32 indts[22],
-    float **ttv,                     /* I: view angle table [20][22] */
-    float tauray[NSR_BANDS],         /* I: molecular optical thickness coeff */
-    double ogtransa1[NSR_BANDS],     /* I: other gases transmission coeff */
-    double ogtransb0[NSR_BANDS],     /* I: other gases transmission coeff */
-    double ogtransb1[NSR_BANDS],     /* I: other gases transmission coeff */
-    double wvtransa[NSR_BANDS],      /* I: water vapor transmission coeff */
-    double wvtransb[NSR_BANDS],      /* I: water vapor transmission coeff */
-    double oztransa[NSR_BANDS],      /* I: ozone transmission coeff */
-    float *raot,                     /* O: AOT reflectance */
-    float *residual,                 /* O: model residual */
-    int *iaots,                      /* I/O: AOT index that is passed in and
-                                             out for multiple calls (0-based) */
-    float eps                        /* I: angstroem coefficient; spectral
-                                           dependency of the AOT */
+    int iband1,                  /* I: band 1 index (0-based) */
+    int iband3,                  /* I: band 3 index (0-based) */
+    float xts,                   /* I: solar zenith angle (deg) */
+    float xtv,                   /* I: observation zenith angle (deg) */
+    float xmus,                  /* I: cosine of solar zenith angle */
+    float xmuv,                  /* I: cosine of observation zenith angle */
+    float xfi,                   /* I: azimuthal difference between sun and
+                                       observation (deg) */
+    float cosxfi,                /* I: cosine of azimuthal difference */
+    float pres,                  /* I: surface pressure */
+    float uoz,                   /* I: total column ozone */
+    float uwv,                   /* I: total column water vapor (precipital
+                                       water vapor) */
+    float erelc[NSR_BANDS],      /* I: band ratio variable */
+    float troatm[NSR_BANDS],     /* I: atmospheric reflectance table */
+    float tpres[NPRES_VALS],     /* I: surface pressure table */
+    float aot550nm[NAOT_VALS],   /* I: AOT look-up table */
+    float *rolutt,               /* I: intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,               /* I: transmission table
+                       [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float xtsstep,               /* I: solar zenith step value */
+    float xtsmin,                /* I: minimum solar zenith value */
+    float xtvstep,               /* I: observation step value */
+    float xtvmin,                /* I: minimum observation value */
+    float *sphalbt,              /* I: spherical albedo table
+                                       [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,              /* I: aerosol extinction coefficient at the
+                                       current wavelength (normalized at 550nm)
+                                       [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *tsmax,                /* I: maximum scattering angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,                /* I: minimum scattering angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfic,                /* I: communitive number of azimuth angles
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,                 /* I: number of azimuth angles
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[NSOLAR_ZEN_VALS],  /* I: sun angle table */
+    int32 indts[NSUNANGLE_VALS], /* I: index for the sun angle table */
+    float *ttv,                  /* I: view angle table
+                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tauray[NSR_BANDS],     /* I: molecular optical thickness coeff */
+    double ogtransa1[NSR_BANDS], /* I: other gases transmission coeff */
+    double ogtransb0[NSR_BANDS], /* I: other gases transmission coeff */
+    double ogtransb1[NSR_BANDS], /* I: other gases transmission coeff */
+    double wvtransa[NSR_BANDS],  /* I: water vapor transmission coeff */
+    double wvtransb[NSR_BANDS],  /* I: water vapor transmission coeff */
+    double oztransa[NSR_BANDS],  /* I: ozone transmission coeff */
+    float *raot,                 /* O: AOT reflectance */
+    float *residual,             /* O: model residual */
+    int *iaots,                  /* I/O: AOT index that is passed in and out
+                                         for multiple calls (0-based) */
+    float eps                    /* I: angstroem coefficient; spectral
+                                       dependency of the AOT */
 )
 {
     char FUNC_NAME[] = "subaeroretwat";   /* function name */

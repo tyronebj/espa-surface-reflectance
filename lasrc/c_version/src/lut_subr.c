@@ -42,31 +42,34 @@ int atmcorlamb2
     float raot550nm,                 /* I: nearest value of AOT */
     int iband,                       /* I: band index (0-based) */
     float pres,                      /* I: surface pressure */
-    float tpres[7],                  /* I: surface pressure table */
-    float aot550nm[22],              /* I: AOT look-up table */
-    float ****rolutt,                /* I: intrinsic reflectance table
-                                           [NSR_BANDS][7][22][8000] */
-    float ****transt,                /* I: transmission table
-                                           [NSR_BANDS][7][22][22] */
+    float tpres[NPRES_VALS],         /* I: surface pressure table */
+    float aot550nm[NAOT_VALS],       /* I: AOT look-up table */
+    float *rolutt,                   /* I: intrinsic reflectance table
+                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,                   /* I: transmission table
+                       [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
     float xtsstep,                   /* I: solar zenith step value */
     float xtsmin,                    /* I: minimum solar zenith value */
     float xtvstep,                   /* I: observation step value */
     float xtvmin,                    /* I: minimum observation value */
-    float ***sphalbt,                /* I: spherical albedo table
-                                           [NSR_BANDS][7][22] */
-    float ***normext,                /* I: aerosol extinction coefficient at
+    float *sphalbt,                  /* I: spherical albedo table
+                                        [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,                  /* I: aerosol extinction coefficient at
                                            the current wavelength (normalized
-                                           at 550nm) [NSR_BANDS][7][22] */
-    float **tsmax,                   /* I: maximum scattering angle table
-                                           [20][22] */
-    float **tsmin,                   /* I: minimum scattering angle table
-                                           [20][22] */
-    float **nbfic,                   /* I: communitive number of azimuth angles
-                                           [20][22] */
-    float **nbfi,                    /* I: number of azimuth angles [20][22] */
-    float tts[22],                   /* I: sun angle table */
-    int32 indts[22],                 /* I: index for the sun angle table */
-    float **ttv,                     /* I: view angle table [20][22] */
+                                           at 550nm) 
+                                        [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *tsmax,                    /* I: maximum scattering angle table
+                                           [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,                    /* I: minimum scattering angle table
+                                           [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfic,                    /* I: communitive number of azimuth angles
+                                           [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,                     /* I: number of azimuth angles
+                                           [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[NSOLAR_ZEN_VALS],      /* I: sun angle table */
+    int32 indts[NSUNANGLE_VALS], /* I: index for the sun angle table */
+    float *ttv,                      /* I: view angle table
+                                           [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float uoz,                       /* I: total column ozone */
     float uwv,                       /* I: total column water vapor (precipital
                                            water vapor) */
@@ -111,6 +114,7 @@ int atmcorlamb2
                            arrays */
     int its;            /* index for the sun angle table */
     int itv;            /* index for the view angle table */
+    int indx;           /* index for normext array */
     float lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2, 4.0, 4.0,
                       4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
 
@@ -121,8 +125,11 @@ int atmcorlamb2
     else
     {
         if (iband <= DN_BAND7)
-            mraot550nm = (raot550nm / normext[iband][0][3]) *
+        {
+            indx = iband * NPRES_VALS * NAOT_VALS + 3;
+            mraot550nm = (raot550nm / normext[indx]) *
                 (pow ((lambda[iband] / 0.55), -eps));
+        }
         else
             mraot550nm = raot550nm;
     }
@@ -133,7 +140,7 @@ int atmcorlamb2
        Stop at the second to last item in the table, so that we have the last
        two elements to use as ip1 and ip2, if needed. */
     ip1 = 0;
-    for (ip = 0; ip < 6; ip++)  /* 7 elements in the array, stop one short */
+    for (ip = 0; ip < NPRES_VALS-1; ip++)
     {
         if (pres < tpres[ip])
             ip1 = ip;
@@ -409,12 +416,13 @@ void compsalb
     float raot550nm,    /* I: nearest value of AOT */
     int iband,          /* I: band index (0-based) */
     float pres,         /* I: surface pressure */
-    float tpres[7],     /* I: surface pressure table */
-    float aot550nm[22], /* I: AOT look-up table */
-    float ***sphalbt,   /* I: spherical albedo table [NSR_BANDS][7][22] */
-    float ***normext,   /* I: aerosol extinction coefficient at the current
-                              wavelength (normalized at 550nm)
-                              [NSR_BANDS][7][22] */
+    float tpres[NPRES_VALS],   /* I: surface pressure table */
+    float aot550nm[NAOT_VALS], /* I: AOT look-up table */
+    float *sphalbt,     /* I: spherical albedo table
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,     /* I: aerosol extinction coefficient at the current
+                              wavelength (normalized at 550nm) 
+                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float *satm,        /* O: spherical albedo */
     float *next         /* O: */
 )
@@ -424,33 +432,48 @@ void compsalb
     float next1, next2;
     float dpres;                    /* pressure ratio */
     float deltaaot;                 /* AOT ratio */
+    int iband_indx;  /* index of the current iband */
+    int ip1_indx;    /* index of the current ip1 (without the band) */
+    int ip2_indx;    /* index of the current ip2 (without the band) */
+    int iband_ip1_iaot1_indx;  /* index for current band, ip1, iaot1 */
+    int iband_ip1_iaot2_indx;  /* index for current band, ip1, iaot2 */
+    int iband_ip2_iaot1_indx;  /* index for current band, ip2, iaot1 */
+    int iband_ip2_iaot2_indx;  /* index for current band, ip2, iaot2 */
 
     /* Compute the delta AOT */
     deltaaot = raot550nm - aot550nm[iaot1];
     deltaaot /= aot550nm[iaot2] - aot550nm[iaot1];
 
+    /* Compute the ipX and iaotX indices for transt */
+    iband_indx = iband * NPRES_VALS * NAOT_VALS;
+    ip1_indx = ip1 * NAOT_VALS;
+    ip2_indx = ip2 * NAOT_VALS;
+    iband_ip1_iaot1_indx = iband_indx + ip1_indx + iaot1;
+    iband_ip1_iaot2_indx = iband_indx + ip1_indx + iaot2;
+    iband_ip2_iaot1_indx = iband_indx + ip2_indx + iaot1;
+    iband_ip2_iaot2_indx = iband_indx + ip2_indx + iaot2;
+
     /* Compute the spherical albedo */
-    xtiaot1 = sphalbt[iband][ip1][iaot1];
-    xtiaot2 = sphalbt[iband][ip1][iaot2];
+    xtiaot1 = sphalbt[iband_ip1_iaot1_indx];
+    xtiaot2 = sphalbt[iband_ip1_iaot2_indx];
     satm1 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
-    xtiaot1 = sphalbt[iband][ip2][iaot1];
-    xtiaot2 = sphalbt[iband][ip2][iaot2];
+    xtiaot1 = sphalbt[iband_ip2_iaot1_indx];
+    xtiaot2 = sphalbt[iband_ip2_iaot2_indx];
     satm2 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
     dpres = (pres - tpres[ip1]) / (tpres[ip2] - tpres[ip1]);
     *satm = satm1 + (satm2 - satm1) * dpres;
 
-    /* Compute the normalized?? spherical albedo */
-    xtiaot1 = normext[iband][ip1][iaot1];
-    xtiaot2 = normext[iband][ip1][iaot2];
+    /* Compute the normalized spherical albedo */
+    xtiaot1 = normext[iband_ip1_iaot1_indx];
+    xtiaot2 = normext[iband_ip1_iaot2_indx];
     next1 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
-    xtiaot1 = normext[iband][ip2][iaot1];
-    xtiaot2 = normext[iband][ip2][iaot2];
+    xtiaot1 = normext[iband_ip2_iaot1_indx];
+    xtiaot2 = normext[iband_ip2_iaot2_indx];
     next2 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
-    dpres = (pres - tpres[ip1]) / (tpres[ip2] - tpres[ip1]);
     *next = next1 + (next2 - next1) * dpres;
 }
 
@@ -485,13 +508,13 @@ void comptrans
     float raot550nm,    /* I: nearest value of AOT */
     int iband,          /* I: band index (0-based) */
     float pres,         /* I: surface pressure */
-    float tpres[7],     /* I: surface pressure table */
-    float aot550nm[22], /* I: AOT look-up table */
-    float ****transt,   /* I: transmission table
-                              [NSR_BANDS][7][22][22] */
+    float tpres[NPRES_VALS],   /* I: surface pressure table */
+    float aot550nm[NAOT_VALS], /* I: AOT look-up table */
+    float *transt,      /* I: transmission table
+                       [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
     float xtsstep,      /* I: zenith angle step value */
     float xtsmin,       /* I: minimum zenith angle value */
-    float tts[22],      /* I: sun angle table */
+    float tts[NSOLAR_ZEN_VALS], /* I: sun angle table */
     float *xtts         /* O: downward transmittance */
 )
 {
@@ -503,6 +526,15 @@ void comptrans
     float dpres;                    /* pressure ratio */
     float deltaaot;                 /* AOT ratio */
     int its;                        /* index for the sun angle table */
+    int iband_indx;  /* index of the current iband */
+    int ip1_indx;    /* index of the current ip1 (without the band) */
+    int ip2_indx;    /* index of the current ip2 (without the band) */
+    int iaot1_indx;  /* index of the current iaot1 (without the band & ip */
+    int iaot2_indx;  /* index of the current iaot1 (without the band & ip */
+    int iband_ip1_iaot1_indx;  /* index for current band, ip1, iaot1 */
+    int iband_ip1_iaot2_indx;  /* index for current band, ip1, iaot2 */
+    int iband_ip2_iaot1_indx;  /* index for current band, ip2, iaot1 */
+    int iband_ip2_iaot2_indx;  /* index for current band, ip2, iaot2 */
 
     /* Determine the index in the sun angle table */
     if (xts <= xtsmin) 
@@ -516,22 +548,41 @@ void comptrans
         return;
     }
 
-    xmts = (xts - tts[its]) * 0.25;
-    xtranst = transt[iband][ip1][iaot1][its];
-    xtiaot1 = xtranst + (transt[iband][ip1][iaot1][its+1] - xtranst) * xmts;
+    /* Compute the ipX and iaotX indices for transt */
+    iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
+    ip1_indx = ip1 * NAOT_VALS * NSUNANGLE_VALS;
+    ip2_indx = ip2 * NAOT_VALS * NSUNANGLE_VALS;
+    iaot1_indx = iaot1 * NSUNANGLE_VALS;
+    iaot2_indx = iaot2 * NSUNANGLE_VALS;
+    iband_ip1_iaot1_indx = iband_indx + ip1_indx + iaot1_indx;
+    iband_ip1_iaot2_indx = iband_indx + ip1_indx + iaot2_indx;
+    iband_ip2_iaot1_indx = iband_indx + ip2_indx + iaot1_indx;
+    iband_ip2_iaot2_indx = iband_indx + ip2_indx + iaot2_indx;
 
-    xtranst = transt[iband][ip1][iaot2][its];
-    xtiaot2 = xtranst + (transt[iband][ip1][iaot2][its+1] - xtranst) * xmts;
+    /* Compute for ip1, iaot1 */
+    xmts = (xts - tts[its]) * 0.25;
+    xtranst = transt[iband_ip1_iaot1_indx + its];
+    xtiaot1 = xtranst + (transt[iband_ip1_iaot1_indx + its + 1] - xtranst) *
+        xmts;
+
+    /* Compute for ip1, iaot2 */
+    xtranst = transt[iband_ip1_iaot2_indx + its];
+    xtiaot2 = xtranst + (transt[iband_ip1_iaot2_indx + its + 1] - xtranst) *
+        xmts;
 
     deltaaot = raot550nm - aot550nm[iaot1];
     deltaaot /= aot550nm[iaot2] - aot550nm[iaot1];
     xtts1 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
-    xtranst = transt[iband][ip2][iaot1][its];
-    xtiaot1 = xtranst + (transt[iband][ip2][iaot1][its+1] - xtranst) * xmts;
+    /* Compute for ip2, iaot1 */
+    xtranst = transt[iband_ip2_iaot1_indx + its];
+    xtiaot1 = xtranst + (transt[iband_ip2_iaot1_indx + its + 1] - xtranst) *
+        xmts;
 
-    xtranst = transt[iband][ip2][iaot2][its];
-    xtiaot2 = xtranst + (transt[iband][ip2][iaot2][its+1] - xtranst) * xmts;
+    /* Compute for ip2, iaot2 */
+    xtranst = transt[iband_ip2_iaot2_indx + its];
+    xtiaot2 = xtranst + (transt[iband_ip2_iaot2_indx + its + 1] - xtranst) *
+        xmts;
     xtts2 = xtiaot1 + (xtiaot2 - xtiaot1) * deltaaot;
 
     dpres = (pres - tpres[ip1]) / (tpres[ip2] - tpres[ip1]);
@@ -570,17 +621,22 @@ void comproatm
     float raot550nm,    /* I: nearest value of AOT */
     int iband,          /* I: band index (0-based) */
     float pres,         /* I: surface pressure */
-    float tpres[7],     /* I: surface pressure table */
-    float aot550nm[22], /* I: AOT look-up table */
-    float ****rolutt,   /* I: intrinsic reflectance table
-                              [NSR_BANDS][7][22][8000] */
-    float **tsmax,      /* I: maximum scattering angle table [20][22] */
-    float **tsmin,      /* I: minimum scattering angle table [20][22] */
-    float **nbfic,      /* I: communitive number of azimuth angles [20][22] */
-    float **nbfi,       /* I: number of azimuth angles [20][22] */
-    float tts[22],      /* I: sun angle table */
-    int32 indts[22],    /* I: index for the sun angle table */
-    float **ttv,        /* I: view angle table [20][22] */
+    float tpres[NPRES_VALS],   /* I: surface pressure table */
+    float aot550nm[NAOT_VALS], /* I: AOT look-up table */
+    float *rolutt,      /* I: intrinsic reflectance table
+                           [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *tsmax,       /* I: maximum scattering angle table 
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,       /* I: minimum scattering angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfic,       /* I: communitive number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,        /* I: number of azimuth angles
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[NSOLAR_ZEN_VALS],  /* I: sun angle table */
+    int32 indts[NSUNANGLE_VALS], /* I: index for the sun angle table */
+    float *ttv,         /* I: view angle table
+                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float xtsstep,      /* I: solar zenith step value */
     float xtsmin,       /* I: minimum solar zenith value */
     float xtvstep,      /* I: observation step value */
@@ -596,6 +652,14 @@ void comproatm
     float nbfi1, nbfi2, nbfi3, nbfi4;
     float ro, rop1, rop2;           /* reflectance at p1 and p2 */
     float xtsmax;
+    float xtsmax00;                 /* tsmax[itv][its] */
+    float xtsmax01;                 /* tsmax[itv][its+1] */
+    float xtsmax10;                 /* tsmax[itv+1][its] */
+    float xtsmax11;                 /* tsmax[itv+1][its+1] */
+    float xtsmin00;                 /* tsmin[itv][its] */
+    float xtsmin01;                 /* tsmin[itv][its+1] */
+    float xtsmin10;                 /* tsmin[itv+1][its] */
+    float xtsmin11;                 /* tsmin[itv+1][its+1] */
     float cscaa;
     float scaa;                     /* scattering angle */
     float sca1;
@@ -616,23 +680,54 @@ void comproatm
           0.832909123, 0.955511445, 1.098612289,
           1.252762969, 1.386294361, 1.504077397,
           1.609437912};
+    double one_minus_u;           /* 1.0 - u */
+    double one_minus_t;           /* 1.0 - t */
+    double u_x_one_minus_t;       /* u * (1.0 - t) */
+    double one_minus_u_x_one_minus_t;  /* (1.0 - u) * (1.0 - t) */
+    double one_minus_u_x_t;       /* (1.0 - u) * t */
+    int iband_indx;  /* index of the current iband */
+    int ip1_indx;    /* index of the current ip1 (without the band) */
+    int ip2_indx;    /* index of the current ip2 (without the band) */
+    int iaot1_indx;  /* index of the current iaot1 (without the band & ip */
+    int iaot2_indx;  /* index of the current iaot1 (without the band & ip */
+    int iband_ip1_iaot1_indx;  /* index for current band, ip1, iaot1 */
+    int iband_ip1_iaot2_indx;  /* index for current band, ip1, iaot2 */
+    int iband_ip2_iaot1_indx;  /* index for current band, ip2, iaot1 */
+    int iband_ip2_iaot2_indx;  /* index for current band, ip2, iaot2 */
+    int itv_indx;              /* index for current itv */
+    int itv1_indx;             /* index for current itv+1 */
+    int itv_its_indx;          /* index for [itv][its] */
+    int itv1_its_indx;         /* index for [itv+1][its] */
 
+    /* Initialize some variables */
     cscaa = -xmus * xmuv - cosxfi * sqrt(1.0 - xmus * xmus) *
         sqrt(1.0 - xmuv * xmuv);
     scaa = acos(cscaa) * RAD2DEG;    /* vs / DEG2RAD */
 
-    nbfic1 = nbfic[itv][its];
-    nbfi1 = nbfi[itv][its];
-    nbfic2 = nbfic[itv][its+1];
-    nbfi2 = nbfi[itv][its+1];
-    nbfic3 = nbfic[itv+1][its];
-    nbfi3 = nbfi[itv+1][its];
-    nbfic4 = nbfic[itv+1][its+1];
-    nbfi4 = nbfi[itv+1][its+1];
+    itv_indx = itv * NSOLAR_ZEN_VALS;
+    itv1_indx = (itv+1) * NSOLAR_ZEN_VALS;
+    itv_its_indx = itv_indx + its;
+    itv1_its_indx = itv1_indx + its;
+
+    nbfic1 = nbfic[itv_its_indx];
+    nbfi1 = nbfi[itv_its_indx];
+    nbfic2 = nbfic[itv_its_indx + 1];
+    nbfi2 = nbfi[itv_its_indx + 1];
+    nbfic3 = nbfic[itv1_its_indx];
+    nbfi3 = nbfi[itv1_its_indx];
+    nbfic4 = nbfic[itv1_its_indx + 1];
+    nbfi4 = nbfi[itv1_its_indx + 1];
 
     /* Compute for ip1, iaot1 */
-    /* Interpolate point 1 (its,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its];
+    iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
+    ip1_indx = ip1 * NAOT_VALS * NSOLAR_VALS;
+    iaot1_indx = iaot1 * NSOLAR_VALS;
+    iband_ip1_iaot1_indx = iband_indx + ip1_indx + iaot1_indx;
+
+    /* Interpolate point 1 (itv,its) vs scattering angle */
+    xtsmax = tsmax[itv_its_indx];
+    xtsmax00 = xtsmax;
+    xtsmin00 = tsmin[itv_its_indx];
     if ((its != 0) && (itv != 0))
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -647,12 +742,12 @@ void comproatm
         {
             isca = nbfi1 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its];
+            sca2 = xtsmin00;
         }
 
         iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
-        rosup = rolutt[iband][ip1][iaot1][iindex+1];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
         ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -660,13 +755,15 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
         rosup = roinf;
         ro1 = roinf;
     }
 
-    /* Interpolate point 2 (its+1,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its+1];
+    /* Interpolate point 2 (itv, its+1) vs scattering angle */
+    xtsmax = tsmax[itv_its_indx + 1];
+    xtsmax01 = xtsmax;
+    xtsmin01 = tsmin[itv_its_indx + 1];
     if (itv != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -681,12 +778,12 @@ void comproatm
         {
             isca = nbfi2 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its+1];
+            sca2 = xtsmin01;
         }
 
         iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
-        rosup = rolutt[iband][ip1][iaot1][iindex+1];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
         ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -694,13 +791,15 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
         rosup = roinf;
         ro2 = roinf;
     }
 
-    /* Interpolate point 3 (its,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its];
+    /* Interpolate point 3 (itv+1, its) vs scattering angle */
+    xtsmax = tsmax[itv1_its_indx];
+    xtsmax10 = xtsmax;
+    xtsmin10 = tsmin[itv1_its_indx];
     if (its != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -715,12 +814,12 @@ void comproatm
         {
             isca = nbfi3 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv+1][its];
+            sca2 = xtsmin10;
         }
 
         iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
-        rosup = rolutt[iband][ip1][iaot1][iindex+1];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
         ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -728,13 +827,15 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband][ip1][iaot1][iindex];
+        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
         rosup = roinf;
         ro3 = roinf;
     }
 
-    /* Interpolate point 4 (its+1,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its+1];
+    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
+    xtsmax = tsmax[itv1_its_indx + 1];
+    xtsmax11 = xtsmax;
+    xtsmin11 = tsmin[itv1_its_indx + 1];
     isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
     if (isca <= 0)
         isca = 1;
@@ -747,23 +848,32 @@ void comproatm
     {
         isca = nbfi4 - 1;
         sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = tsmin[itv+1][its+1];
+        sca2 = xtsmin11;
     }
 
     iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband][ip1][iaot1][iindex];
-    rosup = rolutt[iband][ip1][iaot1][iindex+1];
+    roinf = rolutt[iband_ip1_iaot1_indx + iindex];
+    rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
     ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
 
     /* Note: t and u are used elsewhere through this function */
     t = (tts[its+1] - xts) / (tts[its+1] - tts[its]);
-    u = (ttv[itv+1][its] - xtv) / (ttv[itv+1][its] - ttv[itv][its]);
-    roiaot1 = ro1 * t * u + ro2 * u * (1.0 - t) + ro3 * (1.0 - u) * t +
-        ro4 * (1.0 - u) * (1.0 - t);
+    u = (ttv[itv1_its_indx] - xtv) / (ttv[itv1_its_indx] - ttv[itv_its_indx]);
+    one_minus_u = 1.0 - u;
+    one_minus_t = 1.0 - t;
+    u_x_one_minus_t = u * one_minus_t;
+    one_minus_u_x_one_minus_t = one_minus_u * one_minus_t;
+    one_minus_u_x_t = one_minus_u * t;
+
+    roiaot1 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
+        ro4 * one_minus_u_x_one_minus_t;
 
     /* Compute for ip1, iaot2 */
-    /* Interpolate point 1 (its,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its];
+    iaot2_indx = iaot2 * NSOLAR_VALS;
+    iband_ip1_iaot2_indx = iband_indx + ip1_indx + iaot2_indx;
+
+    /* Interpolate point 1 (itv,its) vs scattering angle */
+    xtsmax = xtsmax00;
     if ((its != 0) && (itv != 0))
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -778,12 +888,12 @@ void comproatm
         {
             isca = nbfi1 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its];
+            sca2 = xtsmin00;
         }
 
         iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
-        rosup = rolutt[iband][ip1][iaot2][iindex+1];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
         ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -791,13 +901,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
         rosup = roinf;
         ro1 = roinf;
     }
 
-    /* Interpolate point 2 (its+1,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its+1];
+    /* Interpolate point 2 (itv, its+1) vs scattering angle */
+    xtsmax = xtsmax01;
     if (itv != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -812,12 +922,12 @@ void comproatm
         {
             isca = nbfi2 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its+1];
+            sca2 = xtsmin01;
         }
 
         iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
-        rosup = rolutt[iband][ip1][iaot2][iindex+1];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
         ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -825,13 +935,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
         rosup = roinf;
         ro2 = roinf;
     }
 
-    /* Interpolate point 3 (its,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its];
+    /* Interpolate point 3 (itv+1, its) vs scattering angle */
+    xtsmax = xtsmax10;
     if (its != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -846,12 +956,12 @@ void comproatm
         {
             isca = nbfi3 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv+1][its];
+            sca2 = xtsmin10;
         }
 
         iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
-        rosup = rolutt[iband][ip1][iaot2][iindex+1];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
         ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -859,13 +969,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband][ip1][iaot2][iindex];
+        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
         rosup = roinf;
         ro3 = roinf;
     }
 
-    /* Interpolate point 4 (its+1,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its+1];
+    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
+    xtsmax = xtsmax11;
     isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
     if (isca <= 0)
         isca = 1;
@@ -878,16 +988,16 @@ void comproatm
     {
         isca = nbfi4 - 1;
         sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = tsmin[itv+1][its+1];
+        sca2 = xtsmin11;
     }
 
     iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband][ip1][iaot2][iindex];
-    rosup = rolutt[iband][ip1][iaot2][iindex+1];
+    roinf = rolutt[iband_ip1_iaot2_indx + iindex];
+    rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
     ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
 
-    roiaot2 = ro1 * t * u + ro2 * u * (1.0 - t) + ro3 * (1.0 - u) * t +
-        ro4 * (1.0 - u) * (1.0 - t);
+    roiaot2 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
+        ro4 * one_minus_u_x_one_minus_t;
 
     /* Interpolation as log of tau */
     /* Note: delaaot is calculated here and used later in this function */
@@ -897,8 +1007,11 @@ void comproatm
     rop1 = ro;
 
     /* Compute for ip2, iaot1 */
-    /* Interpolate point 1 (its,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its];
+    ip2_indx = ip2 * NAOT_VALS * NSOLAR_VALS;
+    iband_ip2_iaot1_indx = iband_indx + ip2_indx + iaot1_indx;
+
+    /* Interpolate point 1 (itv,its) vs scattering angle */
+    xtsmax = xtsmax00;
     if ((its != 0) && (itv != 0))
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -913,12 +1026,12 @@ void comproatm
         {
             isca = nbfi1 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its];
+            sca2 = xtsmin00;
         }
 
         iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
-        rosup = rolutt[iband][ip2][iaot1][iindex+1];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
         ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -926,13 +1039,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
         rosup = roinf;
         ro1 = roinf;
     }
 
-    /* Interpolate point 2 (its+1,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its+1];
+    /* Interpolate point 2 (itv, its+1) vs scattering angle */
+    xtsmax = xtsmax01;
     if (itv != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -947,12 +1060,12 @@ void comproatm
         {
             isca = nbfi2 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its+1];
+            sca2 = xtsmin01;
         }
 
         iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
-        rosup = rolutt[iband][ip2][iaot1][iindex+1];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
         ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -960,13 +1073,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
         rosup = roinf;
         ro2 = roinf;
     }
 
-    /* Interpolate point 3 (its,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its];
+    /* Interpolate point 3 (itv+1, its) vs scattering angle */
+    xtsmax = xtsmax10;
     if (its != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -981,12 +1094,12 @@ void comproatm
         {
             isca = nbfi3 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv+1][its];
+            sca2 = xtsmin10;
         }
 
         iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
-        rosup = rolutt[iband][ip2][iaot1][iindex+1];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
         ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -994,13 +1107,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband][ip2][iaot1][iindex];
+        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
         rosup = roinf;
         ro3 = roinf;
     }
 
-    /* Interpolate point 4 (its+1,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its+1];
+    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
+    xtsmax = xtsmax11;
     isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
     if (isca <= 0)
         isca = 1;
@@ -1013,20 +1126,23 @@ void comproatm
     {
         isca = nbfi4 - 1;
         sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = tsmin[itv+1][its+1];
+        sca2 = xtsmin11;
     }
 
     iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband][ip2][iaot1][iindex];
-    rosup = rolutt[iband][ip2][iaot1][iindex+1];
+    roinf = rolutt[iband_ip2_iaot1_indx + iindex];
+    rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
     ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
 
-    roiaot1 = ro1 * t * u + ro2 * u * (1.0 - t) + ro3 * (1.0 - u) * t +
-        ro4 * (1.0 - u) * (1.0 - t);
+    roiaot1 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
+        ro4 * one_minus_u_x_one_minus_t;
 
     /* Compute for ip2, iaot2 */
-    /* Interpolate point 1 (its,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its];
+    iaot2_indx = iaot2 * NSOLAR_VALS;
+    iband_ip2_iaot2_indx = iband_indx + ip2_indx + iaot2_indx;
+
+    /* Interpolate point 1 (itv,its) vs scattering angle */
+    xtsmax = xtsmax00;
     if ((its != 0) && (itv != 0))
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -1041,12 +1157,12 @@ void comproatm
         {
             isca = nbfi1 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its];
+            sca2 = xtsmin00;
         }
 
         iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
-        rosup = rolutt[iband][ip2][iaot2][iindex+1];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
         ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -1054,13 +1170,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
         rosup = roinf;
         ro1 = roinf;
     }
 
-    /* Interpolate point 2 (its+1,itv) vs scattering angle */
-    xtsmax = tsmax[itv][its+1];
+    /* Interpolate point 2 (itv, its+1) vs scattering angle */
+    xtsmax = xtsmax01;
     if (itv != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -1075,12 +1191,12 @@ void comproatm
         {
             isca = nbfi2 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv][its+1];
+            sca2 = xtsmin01;
         }
 
         iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
-        rosup = rolutt[iband][ip2][iaot2][iindex+1];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
         ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -1088,13 +1204,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
         rosup = roinf;
         ro2 = roinf;
     }
 
-    /* Interpolate point 3 (its,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its];
+    /* Interpolate point 3 (itv+1, its) vs scattering angle */
+    xtsmax = xtsmax10;
     if (its != 0)
     {
         isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
@@ -1109,12 +1225,12 @@ void comproatm
         {
             isca = nbfi3 - 1;
             sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = tsmin[itv+1][its];
+            sca2 = xtsmin10;
         }
 
         iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
-        rosup = rolutt[iband][ip2][iaot2][iindex+1];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
+        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
         ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
     }
     else
@@ -1122,13 +1238,13 @@ void comproatm
         sca1 = xtsmax;
         sca2 = xtsmax;
         iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband][ip2][iaot2][iindex];
+        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
         rosup = roinf;
         ro3 = roinf;
     }
 
-    /* Interpolate point 4 (its+1,itv+1) vs scattering angle */
-    xtsmax = tsmax[itv+1][its+1];
+    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
+    xtsmax = tsmax[itv1_its_indx + 1];
     isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
     if (isca <= 0)
         isca = 1;
@@ -1141,16 +1257,16 @@ void comproatm
     {
         isca = nbfi4 - 1;
         sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = tsmin[itv+1][its+1];
+        sca2 = xtsmin11;
     }
 
     iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband][ip2][iaot2][iindex];
-    rosup = rolutt[iband][ip2][iaot2][iindex+1];
+    roinf = rolutt[iband_ip2_iaot2_indx + iindex];
+    rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
     ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
 
-    roiaot2 = ro1 * t * u + ro2 * u * (1.0 - t) + ro3 * (1.0 - u) * t +
-        ro4 * (1.0 - u) * (1.0 - t);
+    roiaot2 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
+        ro4 * one_minus_u_x_one_minus_t;
 
     /* Interpolation as log of tau */
     ro = roiaot1 + (roiaot2 - roiaot1) * deltaaot;
@@ -1177,23 +1293,27 @@ NOTES:
 ******************************************************************************/
 int readluts
 (
-    float **tsmax,              /* O: maximum scattering angle table [20][22] */
-    float **tsmin,              /* O: minimum scattering angle table [20][22] */
-    float **ttv,                /* O: view angle table [20][22] */
-    float tts[22],              /* O: sun angle table */
-    float **nbfic,              /* O: communitive number of azimuth angles
-                                      [20][22] */
-    float **nbfi,               /* O: number of azimuth angles [20][22] */
-    int32 indts[22],            /* O: index for the sun angle table */
-    float ****rolutt,           /* O: intrinsic reflectance table
-                                      [NSR_BANDS][7][22][8000] */
-    float ****transt,           /* O: transmission table
-                                      [NSR_BANDS][7][22][22] */
-    float ***sphalbt,           /* O: spherical albedo table
-                                      [NSR_BANDS][7][22] */
-    float ***normext,           /* O: aerosol extinction coefficient at the
-                                      current wavelength (normalized at 550nm)
-                                      [NSR_BANDS][7][22] */
+    float *tsmax,               /* O: maximum scattering angle table
+                                      [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *tsmin,               /* O: minimum scattering angle table
+                                      [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *ttv,                 /* O: view angle table
+                                      [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float tts[NSOLAR_ZEN_VALS], /* O: sun angle table */
+    float *nbfic,               /* O: communitive number of azimuth angles
+                                      [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float *nbfi,                /* O: number of azimuth angles
+                                      [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    int32 indts[NSUNANGLE_VALS],/* O: index for the sun angle table */
+    float *rolutt,              /* O: intrinsic reflectance table
+                           [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float *transt,              /* O: transmission table
+                        [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float *sphalbt,             /* O: spherical albedo table
+                                      [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float *normext,             /* O: aerosol extinction coefficient at the
+                                      current wavelength (normalized at 550nm) 
+                                      [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float xtsstep,              /* I: solar zenith step value */
     float xtsmin,               /* I: minimum solar zenith value */
     char anglehdf[STR_SIZE],    /* I: angle HDF filename */
@@ -1216,23 +1336,24 @@ int readluts
     int edges[3];           /* number of values to read in SDS data */
     char fname[STR_SIZE];   /* filename to be read */
     float *rolut = NULL;    /* intrinsic reflectance read from HDF file
-                               [8000*22*7] */
+                               [NSOLAR_VALS * NAOT_VALS * NPRES_VALS] */
     float ttsr[22];
     float xx;               /* temporary float values, not used */
     int sd_id;              /* file ID for the HDF file */
     int sds_id;             /* ID for the current SDS */
     int sds_index;          /* index for the current SDS */
+    int iband_indx;         /* index of the current iband */
+    int ipres_indx;         /* index of current pressure (without the band) */
+    int itau_indx;          /* index of current itau (without the band & ip */
+    int curr_indx;          /* index of current pixel */
     FILE *fp = NULL;        /* file pointer for reading ascii files */
 
     /* Initialize some variables */
-    for (i = 0; i < 20; i++)
-    {
-        for (j = 0; j < 22; j++)
-        {
-            nbfic[i][j] = 0.0;
-            tts[j] = xtsmin + xtsstep * j;
-        }
-    }
+    
+    for (i = 0; i < NVIEW_ZEN_VALS * NSOLAR_ZEN_VALS; i++)
+        nbfic[i] = 0.0;
+    for (j = 0; j < NSUNANGLE_VALS; j++)
+        tts[j] = xtsmin + xtsstep * j;
 
     /* Open as HDF file for reading */
     sd_id = SDstart (anglehdf, DFACC_RDONLY);
@@ -1246,8 +1367,8 @@ int readluts
     /* Read the 2D bands from the angle HDF file */
     start[0] = 0;   /* lines */
     start[1] = 0;   /* samples */
-    edges[0] = 20;  /* number of lines */
-    edges[1] = 22;  /* number of samples */
+    edges[0] = NVIEW_ZEN_VALS;   /* number of lines */
+    edges[1] = NSOLAR_ZEN_VALS;  /* number of samples */
 
     /* Find the TSMAX SDS */
     sds_index = SDnametoindex (sd_id, "TSMAX");
@@ -1267,11 +1388,13 @@ int readluts
         return (ERROR);
     }
 
+/* GAIL TODO -- can this be read all at one time?? Same with tsmin. */
     edges[0] = 1;   /* number of lines */
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
         start[0] = i;   /* lines */
-        status = SDreaddata (sds_id, start, NULL, edges, tsmax[i]);
+        status = SDreaddata (sds_id, start, NULL, edges,
+            &tsmax[i*NSOLAR_ZEN_VALS]);
         if (status == -1)
         {
             sprintf (errmsg, "Reading data from the TSMAX SDS");
@@ -1308,10 +1431,11 @@ int readluts
     }
 
     edges[0] = 1;   /* number of lines */
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
         start[0] = i;   /* lines */
-        status = SDreaddata (sds_id, start, NULL, edges, tsmin[i]);
+        status = SDreaddata (sds_id, start, NULL, edges,
+            &tsmin[i*NSOLAR_ZEN_VALS]);
         if (status == -1)
         {
             sprintf (errmsg, "Reading data from the TSMIN SDS");
@@ -1348,10 +1472,11 @@ int readluts
     }
 
     edges[0] = 1;   /* number of lines */
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
         start[0] = i;   /* lines */
-        status = SDreaddata (sds_id, start, NULL, edges, ttv[i]);
+        status = SDreaddata (sds_id, start, NULL, edges,
+            &ttv[i*NSOLAR_ZEN_VALS]);
         if (status == -1)
         {
             sprintf (errmsg, "Reading data from the TTV SDS");
@@ -1388,10 +1513,11 @@ int readluts
     }
 
     edges[0] = 1;   /* number of lines */
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
         start[0] = i;   /* lines */
-        status = SDreaddata (sds_id, start, NULL, edges, nbfi[i]);
+        status = SDreaddata (sds_id, start, NULL, edges,
+            &nbfi[i*NSOLAR_ZEN_VALS]);
         if (status == -1)
         {
             sprintf (errmsg, "Reading data from the NBFI SDS");
@@ -1428,10 +1554,11 @@ int readluts
     }
 
     edges[0] = 1;   /* number of lines */
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
         start[0] = i;   /* lines */
-        status = SDreaddata (sds_id, start, NULL, edges, nbfic[i]);
+        status = SDreaddata (sds_id, start, NULL, edges,
+            &nbfic[i*NSOLAR_ZEN_VALS]);
         if (status == -1)
         {
             sprintf (errmsg, "Reading data from the NBFIC SDS");
@@ -1467,6 +1594,7 @@ int readluts
         return (ERROR);
     }
 
+    /* GAIL TODO */
     start[0] = 0;   /* lines */
     start[1] = 0;   /* samples */
     edges[0] = 20;  /* number of lines */
@@ -1536,8 +1664,8 @@ int readluts
         return (ERROR);
     }
 
-    /* rolutt[8000][22][7] */
-    rolut = calloc (8000*22*7, sizeof (float));
+    /* Allocate space for rolut [NSOLAR_VALS * NAOT_VALS * NPRES_VALS] */
+    rolut = calloc (NSOLAR_VALS * NAOT_VALS * NPRES_VALS, sizeof (float));
     if (rolut == NULL)
     {
         sprintf (errmsg, "Error allocating memory for rolut");
@@ -1558,9 +1686,9 @@ int readluts
     start[0] = 0;  /* left-most dimension */
     start[1] = 0;
     start[2] = 0;  /* right-most dimension */
-    edges[0] = 8000;
-    edges[1] = 22;
-    edges[2] = 7;
+    edges[0] = NSOLAR_VALS;
+    edges[1] = NAOT_VALS;
+    edges[2] = NPRES_VALS;
     for (iband = 0; iband < NSR_BANDS; iband++)
     {
         /* Get the sds name */
@@ -1608,11 +1736,21 @@ int readluts
            slowest-changing dimension.  This allows the access for the data
            in the application to be most efficient.  rolut is read from the
            HDF file (per band) as 8000 x 22 x 7. */
-        for (ipres = 0; ipres < 7; ipres++)
-            for (itau = 0; itau < 22; itau++)
-                for (ival = 0; ival < 8000; ival++)
-                    rolutt[iband][ipres][itau][ival] =
-                        rolut[ival*22*7 + itau*7 + ipres];
+        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
+        for (ipres = 0; ipres < NPRES_VALS; ipres++)
+        {
+            ipres_indx = ipres * NAOT_VALS * NSOLAR_VALS;
+            for (itau = 0; itau < NAOT_VALS; itau++)
+            {
+                itau_indx = itau * NSOLAR_VALS;
+                curr_indx = iband_indx + ipres_indx + itau_indx;
+                for (ival = 0; ival < NSOLAR_VALS; ival++, curr_indx++)
+                {
+                    rolutt[curr_indx] = rolut[ival*NAOT_VALS*NPRES_VALS +
+                                              itau*NPRES_VALS + ipres];
+                }
+            }
+        }
     }  /* for iband */
 
     /* Free the temporary rolut array */
@@ -1650,7 +1788,8 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        for (ipres = 0; ipres < 7; ipres++)
+        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
+        for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
                the data; ignore for now */
@@ -1662,8 +1801,9 @@ int readluts
                 return (ERROR);
             }
 
-            /* 21 lines per pressure level */
-            for (i = 0; i < 21; i++)   /* TODO - array is size 22 vs. 21 */
+            /* 21 lines of sun angles per pressure level */
+            ipres_indx = ipres * NAOT_VALS * NSUNANGLE_VALS;
+            for (i = 0; i < NSUNANGLE_VALS-1; i++)  /* TODO -- why one short? */
             {
                 /* Grab the first value in the line.  Basically this is a
                    repeat of the previous pressure level and band, as all the
@@ -1687,9 +1827,11 @@ int readluts
                 /* Grab the remaining 22 values in the line.  Store the iaot
                    in the more efficient order for processing, not necessarily
                    for reading. */
-                for (iaot = 0; iaot < 22; iaot++)
+                for (iaot = 0; iaot < NAOT_VALS; iaot++)
                 {
-                    if (fscanf (fp, "%f", &transt[iband][ipres][iaot][i]) != 1)
+                    curr_indx = iband_indx + ipres_indx + iaot*NSUNANGLE_VALS
+                        + i;
+                    if (fscanf (fp, "%f", &transt[curr_indx]) != 1)
                     {
                         sprintf (errmsg, "Reading transmission values from "
                             "transmission coefficient file: %s", transmnm);
@@ -1737,7 +1879,8 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        for (ipres = 0; ipres < 7; ipres++)
+        iband_indx = iband * NPRES_VALS * NAOT_VALS;
+        for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
                the data; ignore for now */
@@ -1750,10 +1893,12 @@ int readluts
             }
 
             /* 22 lines of spherical albedo information */
-            for (iaot = 0; iaot < 22; iaot++)
+            ipres_indx = ipres * NAOT_VALS;
+            curr_indx = iband_indx + ipres_indx;
+            for (iaot = 0; iaot < NAOT_VALS; iaot++, curr_indx++)
             {
-                if (fscanf (fp, "%f %f %f\n", &xx, &sphalbt[iband][ipres][iaot],
-                    &normext[iband][ipres][iaot]) != 3)
+                if (fscanf (fp, "%f %f %f\n", &xx, &sphalbt[curr_indx],
+                    &normext[curr_indx]) != 3)
                 {
                     sprintf (errmsg, "Reading spherical albedo values from "
                         "spherical albedo coefficient file: %s", spheranm);
@@ -1946,24 +2091,29 @@ int memory_allocation_sr
     int16 **slpratiob7,  /* O: slope band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
     uint16 **wv,         /* O: water vapor values [CMG_NBLAT x CMG_NBLON] */
     uint8 **oz,          /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
-    float *****rolutt,   /* O: intrinsic reflectance table
-                               [NSR_BANDS][7][22][8000] */
-    float *****transt,   /* O: transmission table
-                               [NSR_BANDS][7][22][22] */
-    float ****sphalbt,   /* O: spherical albedo table [NSR_BANDS][7][22] */
-    float ****normext,   /* O: aerosol extinction coefficient at the current
-                               wavelength (normalized at 550nm)
-                               [NSR_BANDS][7][22] */
-    float ***tsmax,      /* O: maximum scattering angle table [20][22] */
-    float ***tsmin,      /* O: minimum scattering angle table [20][22] */
-    float ***nbfic,      /* O: communitive number of azimuth angles [20][22] */
-    float ***nbfi,       /* O: number of azimuth angles [20][22] */
-    float ***ttv         /* O: view angle table [20][22] */
+    float **rolutt,      /* O: intrinsic reflectance table
+                         [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float **transt,      /* O: transmission table
+                        [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float **sphalbt,     /* O: spherical albedo table
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float **normext,     /* O: aerosol extinction coefficient at the current
+                               wavelength (normalized at 550nm) 
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float **tsmax,       /* O: maximum scattering angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **tsmin,       /* O: minimum scattering angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **nbfic,       /* O: communitive number of azimuth angles
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **nbfi,        /* O: number of azimuth angles
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **ttv          /* O: view angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
     char FUNC_NAME[] = "memory_allocation_sr"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
-    int i, j, k;             /* looping variables */
 
     *aerob1 = calloc (nlines*nsamps, sizeof (int16));
     if (*aerob1 == NULL)
@@ -2174,7 +2324,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *wv = calloc (CMG_NBLAT * CMG_NBLON, sizeof (int16*));
+    *wv = calloc (CMG_NBLAT * CMG_NBLON, sizeof (int16));
     if (*wv == NULL)
     {
         sprintf (errmsg, "Error allocating memory for the wv");
@@ -2182,7 +2332,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *oz = calloc (CMG_NBLAT * CMG_NBLON, sizeof (uint8*));
+    *oz = calloc (CMG_NBLAT * CMG_NBLON, sizeof (uint8));
     if (*oz == NULL)
     {
         sprintf (errmsg, "Error allocating memory for the oz");
@@ -2190,9 +2340,9 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    /* rolutt[NSR_BANDS][7][22][8000] and transt[NSR_BANDS][7][22][22] and
-       sphalbt[NSR_BANDS][7][22] and normext[NSR_BANDS][7][22] */
-    *rolutt = calloc (NSR_BANDS, sizeof (float***));
+    /* rolutt, transt, sphalbt, and normext */
+    *rolutt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS*NSOLAR_VALS,
+        sizeof (float));
     if (*rolutt == NULL)
     {
         sprintf (errmsg, "Error allocating memory for rolutt");
@@ -2200,7 +2350,8 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *transt = calloc (NSR_BANDS, sizeof (float***));
+    *transt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS*NSUNANGLE_VALS,
+        sizeof (float));
     if (*transt == NULL)
     {
         sprintf (errmsg, "Error allocating memory for transt");
@@ -2208,7 +2359,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *sphalbt = calloc (NSR_BANDS, sizeof (float**));
+    *sphalbt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS, sizeof (float));
     if (*sphalbt == NULL)
     {
         sprintf (errmsg, "Error allocating memory for sphalbt");
@@ -2216,7 +2367,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *normext = calloc (NSR_BANDS, sizeof (float**));
+    *normext = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS, sizeof (float));
     if (*normext == NULL)
     {
         sprintf (errmsg, "Error allocating memory for normext");
@@ -2224,98 +2375,8 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    for (i = 0; i < NSR_BANDS; i++)
-    {
-        (*rolutt)[i] = calloc (7, sizeof (float**));
-        if ((*rolutt)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for rolutt");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*transt)[i] = calloc (7, sizeof (float**));
-        if ((*transt)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for transt");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*sphalbt)[i] = calloc (7, sizeof (float*));
-        if ((*sphalbt)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for sphalbt");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*normext)[i] = calloc (7, sizeof (float*));
-        if ((*normext)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for normext");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        for (j = 0; j < 7; j++)
-        {
-            (*rolutt)[i][j] = calloc (22, sizeof (float*));
-            if ((*rolutt)[i][j] == NULL)
-            {
-                sprintf (errmsg, "Error allocating memory for rolutt");
-                error_handler (true, FUNC_NAME, errmsg);
-                return (ERROR);
-            }
-
-            (*transt)[i][j] = calloc (22, sizeof (float*));
-            if ((*transt)[i][j] == NULL)
-            {
-                sprintf (errmsg, "Error allocating memory for transt");
-                error_handler (true, FUNC_NAME, errmsg);
-                return (ERROR);
-            }
-
-            (*sphalbt)[i][j] = calloc (22, sizeof (float));
-            if ((*sphalbt)[i][j] == NULL)
-            {
-                sprintf (errmsg, "Error allocating memory for sphalbt");
-                error_handler (true, FUNC_NAME, errmsg);
-                return (ERROR);
-            }
-
-            (*normext)[i][j] = calloc (22, sizeof (float));
-            if ((*normext)[i][j] == NULL)
-            {
-                sprintf (errmsg, "Error allocating memory for normext");
-                error_handler (true, FUNC_NAME, errmsg);
-                return (ERROR);
-            }
-
-            for (k = 0; k < 22; k++)
-            {
-                (*rolutt)[i][j][k] = calloc (8000, sizeof (float));
-                if ((*rolutt)[i][j][k] == NULL)
-                {
-                    sprintf (errmsg, "Error allocating memory for rolutt");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    return (ERROR);
-                }
-
-                (*transt)[i][j][k] = calloc (22, sizeof (float));
-                if ((*transt)[i][j][k] == NULL)
-                {
-                    sprintf (errmsg, "Error allocating memory for transt");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    return (ERROR);
-                }
-            }  /* for k */
-        }  /* for j */
-    }  /* for i */
-
-    /* tsmax[20][22] and float tsmin[20][22] and float nbfic[20][22] and
-       nbfi[20][22] and float ttv[20][22] */
-    *tsmax = calloc (20, sizeof (float*));
+    /* float tsmax, tsmin, nbfic, nbfi, and ttv */
+    *tsmax = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
     if (*tsmax == NULL)
     {
         sprintf (errmsg, "Error allocating memory for tsmax");
@@ -2323,7 +2384,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *tsmin = calloc (20, sizeof (float*));
+    *tsmin = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
     if (*tsmin == NULL)
     {
         sprintf (errmsg, "Error allocating memory for tsmin");
@@ -2331,7 +2392,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *nbfic = calloc (20, sizeof (float*));
+    *nbfic = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
     if (*nbfic == NULL)
     {
         sprintf (errmsg, "Error allocating memory for nbfic");
@@ -2339,7 +2400,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *nbfi = calloc (20, sizeof (float*));
+    *nbfi = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
     if (*nbfi == NULL)
     {
         sprintf (errmsg, "Error allocating memory for nbfi");
@@ -2347,55 +2408,12 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *ttv = calloc (20, sizeof (float*));
+    *ttv = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
     if (*ttv == NULL)
     {
         sprintf (errmsg, "Error allocating memory for ttv");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
-    }
-
-    for (i = 0; i < 20; i++)
-    {
-        (*tsmax)[i] = calloc (22, sizeof (float));
-        if ((*tsmax)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for tsmax");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*tsmin)[i] = calloc (22, sizeof (float));
-        if ((*tsmin)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for tsmin");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*nbfic)[i] = calloc (22, sizeof (float));
-        if ((*nbfic)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for nbfic");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*nbfi)[i] = calloc (22, sizeof (float));
-        if ((*nbfi)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for nbfi");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        (*ttv)[i] = calloc (22, sizeof (float));
-        if ((*ttv)[i] == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for ttv");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
     }
 
     /* Successful completion */

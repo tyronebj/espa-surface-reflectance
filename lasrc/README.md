@@ -1,4 +1,4 @@
-## LaSRC Version 1.2.0 Release Notes
+## LaSRC Version 1.3.0 Release Notes
 Release Date: June 2017
 
 ### Downloads
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.2.0]
+See git tag [lasrc-version_1.3.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,8 +80,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Updated the XML short_name to use a 4-digit instrument identifier
-2. Merged the changes from LaSRC FORTRAN version 3.5.5.  The main change is
-   the if-check on the band1 and band2 ratios used for computing the slope and
-   intercept used for the aerosol inversions.
+1. LaSRC optimizations.
 
