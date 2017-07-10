@@ -563,6 +563,8 @@ int compute_sr_refl
     bool *smflag = NULL;  /* flag for whether or not the window average was
                              computed and is valid for this pixel */
     int nbpixnf;          /* number of non-filled aerosol pixels */
+    int prev_nbpixnf;     /* number of non-filled aerosol pixels in previous
+                             loop */
     int nbpixtot;         /* total number of pixels in the window */
     float taeroavg;       /* average of the taero values in the window */
     float tepsavg;        /* average of the teps values in the window */
@@ -1557,8 +1559,34 @@ int compute_sr_refl
     else
     {
         /* Second pass */
+        prev_nbpixnf = 0;
         while (nbpixnf != 0)
         {
+            /* If nothing was gained in the last loop then just use default
+               values for the remaining pixels */
+            if (nbpixnf == prev_nbpixnf)
+            {
+                for (i = 0; i < nlines; i++)
+                {
+                    curr_pix = i * nsamps;
+                    for (j = 0; j < nsamps; j++, curr_pix++)
+                    {
+                        /* If this is not a fill pixel and the aerosol average
+                           was not computed for this pixel */
+                        if (qaband[curr_pix] != 1 && !smflag[curr_pix])
+                        {
+                            taeros[i] = 0.05;
+                            tepss[i] = 1.5;
+                            smflag[i] = true;
+                        }  /* if qaband and smflag */
+                    }  /* for j */
+                }  /* for i */
+
+                /* Break out of the while loop */
+                break;
+            }  /* if nbpixnf == prev_nbpixnf */
+
+            prev_nbpixnf = nbpixnf;
             nbpixnf = 0;
             for (i = 0; i < nlines; i++)
             {
@@ -2194,7 +2222,6 @@ int scene_center_and_image_rotation
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    printf ("DEBUG: first corner line, samp - %d, %d\n", c1l, c1s);
 
     /* Look for the second corner pixel that is not fill. This starts at the UR
        of the image and scans down the pixels of the scene, from top to bottom
@@ -2225,7 +2252,6 @@ int scene_center_and_image_rotation
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    printf ("DEBUG: second corner line, samp - %d, %d\n", c2l, c2s);
 
     /* Look for the third corner pixel that is not fill. This starts at the LL
        of the image and scans across the lines of the scene, from left to
@@ -2256,7 +2282,6 @@ int scene_center_and_image_rotation
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    printf ("DEBUG: third corner line, samp - %d, %d\n", c3l, c3s);
 
     /* Look for the fourth corner pixel that is not fill. This starts at the LL
        of the image and scans across the lines of the scene, from left to right
@@ -2287,35 +2312,15 @@ int scene_center_and_image_rotation
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    printf ("DEBUG: fourth corner line, samp - %d, %d\n", c4l, c4s);
-
-/* TODO GAIL remove these after debugging */
-/* LC80470272013287LGN00
-c1l = 11-1; c1s = 1701-1;
-c2l = 1645-1; c2s = 7851-1;
-c3l = 7983-1; c3s = 6150-1;
-c4l = 6317-1; c4s = 10-1; */
-
-/* LC81440402015045LGN00
-c1l = 12-1; c1s = 1467-1;
-c2l = 1391-1; c2s = 7631-1;
-c3l = 7804-1; c3s = 6194-1;
-c4l = 6395-1; c4s = 18-1; */
-
-/* LC81680812016120LGN00
-c1l = 12-1; c1s = 1331-1;
-c2l = 1300-1; c2s = 7610-1;
-c3l = 7701-1; c3s = 6310-1;
-c4l = 6421-1; c4s = 19-1; */
 
     /* Determine the scene center of the non-fill imagery */
     *center_samp = (c1s + c2s + c3s + c4s) / 4.0;
     *center_line = (c1l + c2l + c3l + c4l) / 4.0;
-    printf ("DEBUG: scene center line, samp - %d, %d\n", *center_line, *center_samp);
+    printf ("Scene center line, samp - %d, %d\n", *center_line, *center_samp);
 
     /* Determine the image rotation angle in degrees */
     *rotate_angle = atan ((float) (c2l - c1l) / (float) (c2s - c1s)) * RAD2DEG;
-    printf ("DEBUG: scene rotation angle - %lf\n", *rotate_angle);
+    printf ("Scene rotation angle - %lf\n", *rotate_angle);
 
     /* Successful processing */
     return (SUCCESS);
