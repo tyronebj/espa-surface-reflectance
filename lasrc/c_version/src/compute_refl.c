@@ -121,7 +121,7 @@ printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
                 for (samp = 0; samp < nsamps; samp++, i++)
                 {
                     /* If this pixel is not fill */
-                    if (qaband[i] != 1)
+                    if (!level1_qa_is_fill (qaband[i]))
                     {
                         /* Compute the TOA reflectance based on the per-pixel
                            sun angle (need to unscale). Scale the TOA value for
@@ -178,7 +178,7 @@ printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
             for (i = 0; i < nlines*nsamps; i++)
             {
                 /* If this pixel is not fill */
-                if (qaband[i] != 1)
+                if (!level1_qa_is_fill (qaband[i]))
                 {
                     /* Compute the TOA spectral radiance */
                     tmpf = xcals * uband[i] + xcalo;
@@ -232,7 +232,7 @@ printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
             for (i = 0; i < nlines*nsamps; i++)
             {
                 /* If this pixel is not fill */
-                if (qaband[i] != 1)
+                if (!level1_qa_is_fill (qaband[i]))
                 {
                     /* Compute the TOA spectral radiance */
                     tmpf = xcals * uband[i] + xcalo;
@@ -352,7 +352,7 @@ int compute_sr_refl
     float tgo;           /* other gaseous transmittance (tgog * tgoz) */
     float roatm;         /* atmospheric intrinsic reflectance */
     float ttatmg;        /* total atmospheric transmission */
-    float satm;          /* atmosphere sphereical albedo */
+    float satm;          /* atmosphere spherical albedo */
     float xrorayp;       /* reflectance of the atmosphere due to molecular
                             (Rayleigh) scattering */
     float next;
@@ -561,6 +561,11 @@ int compute_sr_refl
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
+#define WRITE_TAERO 1
+#ifdef WRITE_TAERO
+    FILE *aero_fptr=NULL;
+#endif
+
 time_t mytime;
 mytime = time(NULL);
 printf ("DEBUG: Start compute_sr_refl: %s\n", ctime(&mytime));
@@ -661,7 +666,7 @@ printf ("DEBUG: Start atm corrections: %s\n", ctime(&mytime));
             {
                 /* If this pixel is not fill.  Otherwise fill pixels have
                    already been marked in the TOA calculations. */
-                if (qaband[curr_pix] != 1)
+                if (!level1_qa_is_fill (qaband[curr_pix]))
                 {
                     /* Store the TOA scaled TOA reflectance values for later
                        use before completing atmospheric corrections */
@@ -693,15 +698,18 @@ printf ("DEBUG: Start atm corrections: %s\n", ctime(&mytime));
     printf ("\n");
 
     /* Interpolate the auxiliary data for each pixel location and handle the
-       aerosol inversion */
+       aerosol inversion.  Process the center pixel of each NxN aerosol window
+       then propagate those values through the rest of the window.  Special
+       handling will be required for fill, clouds, and water pixels that are
+       in the center of the window. */
 mytime = time(NULL);
-printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
+printf ("DEBUG: Start Aerosol Inversion - Interpolating the auxiliary data: %s\n", ctime(&mytime));
     printf ("Aerosol Inversion - Interpolating the auxiliary data ...\n");
     tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, wv11, wv12, wv21, wv22, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
 #endif
-    for (i = 0; i < nlines; i++)
+    for (i = HALF_AERO_WINDOW; i < nlines; i += AERO_WINDOW)
     {
 #ifndef _OPENMP
         /* update status, but not if multi-threaded */
@@ -717,11 +725,13 @@ printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
         }
 #endif
 
-        curr_pix = i * nsamps;
-        for (j = 0; j < nsamps; j++, curr_pix++)
+        curr_pix = i * nsamps + HALF_AERO_WINDOW;
+        for (j = HALF_AERO_WINDOW; j < nsamps;
+             j += AERO_WINDOW, curr_pix += AERO_WINDOW)
         {
+/** GAIL HERE */
             /* If this pixel is fill, then don't process */
-            if (qaband[curr_pix] == 1)
+            if (level1_qa_is_fill (qaband[curr_pix]))
             {
                 ipflag[curr_pix] |= (1 << IPFLAG_FILL);
                 continue;
@@ -1357,6 +1367,13 @@ printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
     free (wv);  wv = NULL;
     free (oz);  oz = NULL;
 
+#ifdef WRITE_TAERO
+    /* Write the aerosol values for comparison with other algorithms */
+    aero_fptr = fopen ("aerosols.img", "w");
+    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fclose (aero_fptr);
+#endif
+
     /* Before the aerosol interpolation increase the interpolation to the
        neighboring pixels (5x5) */
 mytime = time(NULL);
@@ -1419,7 +1436,7 @@ printf ("DEBUG: Setting the neighboring interpolation pixels: %s\n", ctime(&myti
         {
             /* Process non-fill pixels */
             smflag[curr_pix] = false;
-            if (qaband[curr_pix] != 1)
+            if (!level1_qa_is_fill (qaband[curr_pix]))
             {
                 /* Initialize the variables */
                 nbpixtot++;
@@ -1485,7 +1502,7 @@ printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&my
         for (i = 0; i < nlines*nsamps; i++)
         {
             /* If this is not a fill pixel then set default values */
-            if (qaband[i] != 1)
+            if (!level1_qa_is_fill (qaband[i]))
             {
                 taeros[i] = 0.05;
                 tepss[i] = 1.5;
@@ -1506,7 +1523,8 @@ printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&my
                 {
                     /* If this is not a fill pixel and the aerosol average was
                        not computed for this pixel */
-                    if (qaband[curr_pix] != 1 && !smflag[curr_pix])
+                    if (!level1_qa_is_fill (qaband[curr_pix]) &&
+                        !smflag[curr_pix])
                     {
                         nbaeroavg = 0;
                         tepsavg = 0.0;
@@ -1602,7 +1620,7 @@ printf ("DEBUG: Starting second second level of atmospheric correction using aer
             for (j = 0; j < nsamps; j++, curr_pix++)
             {
                 /* If this pixel is fill, then don't process */
-                if (qaband[curr_pix] == 1)
+                if (level1_qa_is_fill (qaband[curr_pix]))
                     continue;
 
                 /* Determine the solar and view angles for the current pixel */
