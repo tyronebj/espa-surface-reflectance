@@ -618,7 +618,7 @@ on existing values (spatial interpolation).
 
 !END****************************************************************************
 */
-   int i,j,k,l,count,last_value,More_Gaps,nbfills;
+   int i,j,k,l,count,last_value=-99,More_Gaps,nbfills;
    float dist,sum_value,sum_dist;
    char **missing_flag,*missing_flag_array;
    int min_nb_values,n,max_distance;

@@ -152,6 +152,67 @@ int init_sr_refl
     uint8 *oz           /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
 );
 
+bool is_cloud
+(
+    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
+);
+
+bool find_closest_non_fill
+(
+    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int nlines,        /* I: number of lines in QA band */
+    int nsamps,        /* I: number of samps in QA band */
+    int center_line,   /* I: line for the center of the aerosol window */
+    int center_samp,   /* I: sample for the center of the aerosol window */
+    int *nearest_line, /* O: line for nearest non-fill pix in aerosol window */
+    int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
+);
+
+bool find_closest_non_cloud
+(
+    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int nlines,        /* I: number of lines in QA band */
+    int nsamps,        /* I: number of samps in QA band */
+    int center_line,   /* I: line for the center of the aerosol window */
+    int center_samp,   /* I: sample for the center of the aerosol window */
+    int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
+    int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
+);
+
+bool find_closest_non_water
+(
+    bool *quick_qa,    /* I: quick QA for the current aerosol window,
+                             AERO_WINDOW x AERO_WINDOW
+                             (true=not clear, false=clear) */
+    int *qa_line,      /* O: line for nearest non-water pix in aerosol window
+                             (range of -HALF_AERO_WINDOW, HALF_AERO_WINDOW) */
+    int *qa_samp       /* O: samp for nearest non-water pix in aerosol window
+                             (range of -HALF_AERO_WINDOW, HALF_AERO_WINDOW) */
+);
+
+void mask_aero_window
+(
+    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int nlines,        /* I: number of lines in QA band */
+    int nsamps,        /* I: number of samps in QA band */
+    int center_line,   /* I: line for the center of the aerosol window */
+    int center_samp,   /* I: sample for the center of the aerosol window */
+    bool *quick_qa     /* O: quick QA for the current aerosol window,
+                             AERO_WINDOW x AERO_WINDOW
+                             (true=not clear, false=clear) */
+);
+
+void populate_aerosol_window
+(
+    float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps */
+    float *teps,       /* I/O: angstrom coeff for each pixel, nlines x nsamps */
+    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps */
+    int nlines,        /* I: number of lines in QA band */
+    int nsamps,        /* I: number of samps in QA band */
+    int center_line,   /* I: line for the center of the aerosol window */
+    int center_samp    /* I: sample for the center of the aerosol window */
+);
 
 /* Defines for the Level-1 BQA band */
 /* Define the constants used for shifting bits and ANDing with the bits to
