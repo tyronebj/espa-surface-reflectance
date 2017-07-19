@@ -21,10 +21,10 @@ typedef char byte;
    to fill the rest of the window.  Aerosols are fairly homogenious over a
    reasonable area.  Note: if processing aersol inversion for every pixel,
    then set AERO_WINDOW to 1 and HALF_AERO_WINDOW to 0. */
-#define AERO_WINDOW 9
-#define HALF_AERO_WINDOW 4
-//#define AERO_WINDOW 5
-//#define HALF_AERO_WINDOW 2
+//#define AERO_WINDOW 9
+//#define HALF_AERO_WINDOW 4
+#define AERO_WINDOW 5
+#define HALF_AERO_WINDOW 2
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10

@@ -157,6 +157,12 @@ bool is_cloud
     uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
 );
 
+bool is_water
+(
+    int16 band4_pix,     /* I: Band 4 reflectance for current pixel */
+    int16 band5_pix      /* I: Band 5 reflectance for current pixel */
+);
+
 bool find_closest_non_fill
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
@@ -181,18 +187,20 @@ bool find_closest_non_cloud
 
 bool find_closest_non_water
 (
-    bool *quick_qa,    /* I: quick QA for the current aerosol window,
-                             AERO_WINDOW x AERO_WINDOW
-                             (true=not clear, false=clear) */
-    int *qa_line,      /* O: line for nearest non-water pix in aerosol window
-                             (range of -HALF_AERO_WINDOW, HALF_AERO_WINDOW) */
-    int *qa_samp       /* O: samp for nearest non-water pix in aerosol window
-                             (range of -HALF_AERO_WINDOW, HALF_AERO_WINDOW) */
+    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int16 **sband,     /* I: input surface reflectance */
+    int nlines,        /* I: number of lines in QA band */
+    int nsamps,        /* I: number of samps in QA band */
+    int center_line,   /* I: line for the center of the aerosol window */
+    int center_samp,   /* I: sample for the center of the aerosol window */
+    int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
+    int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
 );
 
 void mask_aero_window
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int16 **sband,     /* I: input surface reflectance */
     int nlines,        /* I: number of lines in QA band */
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
