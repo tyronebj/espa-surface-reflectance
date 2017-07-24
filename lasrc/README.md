@@ -85,4 +85,8 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
    variable.  One use of roatm was not updated to use the tmp_roatm and
    reassign to the tmp_roatm.  This bug will affect the scenes which have a
    high water vapor content.
+2. The second pass of the aerosol interpolation within compute_refl.c has the
+   potential for an infinite loop if the number of pixels available for
+   interpolation is not sufficient.  The code has been updated to prevent this
+   infinite loop.
 

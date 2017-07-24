@@ -488,6 +488,8 @@ int compute_sr_refl
     bool *smflag = NULL;  /* flag for whether or not the window average was
                              computed and is valid for this pixel */
     int nbpixnf;          /* number of non-filled aerosol pixels */
+    int prev_nbpixnf;     /* number of non-filled aerosol pixels in previous
+                             loop */
     int nbpixtot;         /* total number of pixels in the window */
     float taeroavg;       /* average of the taero values in the window */
     float tepsavg;        /* average of the teps values in the window */
@@ -1442,8 +1444,34 @@ int compute_sr_refl
     else
     {
         /* Second pass */
+        prev_nbpixnf = 0;
         while (nbpixnf != 0)
         {
+            /* If nothing was gained in the last loop then just use default
+               values for the remaining pixels */
+            if (nbpixnf == prev_nbpixnf)
+            {
+                for (i = 0; i < nlines; i++)
+                {
+                    curr_pix = i * nsamps;
+                    for (j = 0; j < nsamps; j++, curr_pix++)
+                    {
+                        /* If this is not a fill pixel and the aerosol average
+                           was not computed for this pixel */
+                        if (qaband[curr_pix] != 1 && !smflag[curr_pix])
+                        {
+                            taeros[i] = 0.05;
+                            tepss[i] = 1.5;
+                            smflag[i] = true;
+                        }  /* if qaband and smflag */
+                    }  /* for j */
+                }  /* for i */
+
+                /* Break out of the while loop */
+                break;
+            }  /* if nbpixnf == prev_nbpixnf */
+
+            prev_nbpixnf = nbpixnf;
             nbpixnf = 0;
             for (i = 0; i < nlines; i++)
             {
@@ -1464,14 +1492,14 @@ int compute_sr_refl
                             /* Make sure the line is valid */
                             if (k < 0 || k >= nlines)
                                 continue;
-    
+
                             win_pix = k * nsamps + j-5;
                             for (l = j-5; l <= j+5; l++, win_pix++)
                             {
                                 /* Make sure the sample is valid */
                                 if (l < 0 || l >= nsamps)
                                     continue;
-    
+
                                 /* If the pixel has valid averages, then use
                                    them in this second pass */
                                 if (smflag[win_pix])
