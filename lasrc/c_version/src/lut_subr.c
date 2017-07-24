@@ -209,7 +209,7 @@ int atmcorlamb2
     tmp_roslamb = tmp_roslamb / (1.0 + (*satm) * tmp_roslamb);
 
     *tgo = tgog * tgoz;
-    *roatm = ((*roatm) - (*xrorayp)) * tgwvhalf + (*xrorayp);
+    tmp_roatm = (tmp_roatm - (*xrorayp)) * tgwvhalf + (*xrorayp);
     *ttatmg = ttatm * tgwv;
 
     *roatm = tmp_roatm;

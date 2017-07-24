@@ -1,5 +1,5 @@
-## LaSRC Version 1.2.1 Release Notes
-Release Date: July 2017 (hot release)
+## LaSRC Version 1.2.2 Release Notes
+Release Date: August 2017 (hot release)
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.2.1]
+See git tag [lasrc-version_1.2.2]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,10 +80,9 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Bug fix that was likely the cause of intermittent segfaults.  The wv and oz
-   variables were allocated as uint8* and int16* values instead of uint8 and
-   uint16.  This generated less memory than what was trying to be used by the
-   uint16 array.  This fix is only applied to the 'src' directory and not to
-   the pre-collection directory, which is basically obsolete at the current
-   time and will be deleted soon.
+1. Bug fix in atmcorlamb2 within the lut_subr.c file where the temporary
+   roatm was being used in place of dereferencing the pointer to the roatm
+   variable.  One use of roatm was not updated to use the tmp_roatm and
+   reassign to the tmp_roatm.  This bug will affect the scenes which have a
+   high water vapor content.
 
