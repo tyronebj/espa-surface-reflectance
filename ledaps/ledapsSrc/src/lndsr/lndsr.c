@@ -266,7 +266,7 @@ int main (int argc, char *argv[]) {
             "reflectance processing.  Corrections must be limited to top of "
             "atmosphere and at-sensor brightness temperature corrections. "
             "Use the --process_sr=False command-line argument when running "
-            "do_ledaps.py (solar zenith angle out of range)", "main");
+            "do_ledaps.py.", "main");
     }
 
     /* Open prwv input file */
