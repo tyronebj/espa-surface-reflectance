@@ -1460,9 +1460,9 @@ int compute_sr_refl
                            was not computed for this pixel */
                         if (qaband[curr_pix] != 1 && !smflag[curr_pix])
                         {
-                            taeros[i] = 0.05;
-                            tepss[i] = 1.5;
-                            smflag[i] = true;
+                            taeros[curr_pix] = 0.05;
+                            tepss[curr_pix] = 1.5;
+                            smflag[curr_pix] = true;
                         }  /* if qaband and smflag */
                     }  /* for j */
                 }  /* for i */
