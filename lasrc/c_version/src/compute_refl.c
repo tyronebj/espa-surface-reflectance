@@ -1,5 +1,6 @@
 #include "lasrc.h"
 #include "time.h"
+#include "aero_interp.h"
 
 /******************************************************************************
 MODULE:  compute_toa_refl
@@ -512,6 +513,9 @@ int compute_sr_refl
     int cmg_pix22;    /* pixel location for CMG/DEM products [lcmg+1][scmg+1] */
 
     /* Variables for the aerosol interpolation */
+// TODO GAIL smflag, taeros, and tepss are not used unless the aerosol
+// interpolation is being done after the fact.  And, if the NxN window is in
+// place this won't be needed.
     bool *smflag = NULL;  /* flag for whether or not the window average was
                              computed and is valid for this pixel */
     int nbpixnf;          /* number of non-filled aerosol pixels */
@@ -1569,6 +1573,50 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
     free (wv);  wv = NULL;
     free (oz);  oz = NULL;
 
+#ifdef WRITE_TAERO
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("ipflag.img", "w");
+    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fclose (aero_fptr);
+
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("aerosols.img", "w");
+    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fclose (aero_fptr);
+#endif
+
+    /* Interpolate the aerosol pixels which could not be inverted */
+mytime = time(NULL);
+printf ("DEBUG: Starting aerosol window interpolation: %s\n", ctime(&mytime));
+    if (aerosol_window_interp (qaband, ipflag, taero, teps, nlines, nsamps) !=
+        SUCCESS)
+    {
+        sprintf (errmsg, "Performing interpolation of the NxN window aerosol "
+            "values.");
+        error_handler (true, FUNC_NAME, errmsg);
+        exit (ERROR);
+    }
+
+#ifdef WRITE_TAERO
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("ipflag2.img", "w");
+    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fclose (aero_fptr);
+
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("aerosols2.img", "w");
+    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fclose (aero_fptr);
+#endif
+
+    /* Use the center of the aerosol windows to interpolate the remaining
+       pixels in the window */
+mytime = time(NULL);
+printf ("DEBUG: Starting aerosol interpolation: %s\n", ctime(&mytime));
+    printf ("Starting aerosol interpolation ...\n");
+    aerosol_interp (xml_metadata, qaband, taero, nlines, nsamps);
+
+#ifdef GAIL
     /* Fill in the aerosol windows with the value computed for the center of
        the window */
 mytime = time(NULL);
@@ -1592,7 +1640,9 @@ printf ("DEBUG: Start fill aerosol windows: %s\n", ctime(&mytime));
             }
         }  /* end for j */
     }  /* end for i */
+#endif
 
+#ifdef GAIL
     /* Before the aerosol interpolation increase the interpolation to the
        neighboring pixels (5x5) */
 mytime = time(NULL);
@@ -1841,12 +1891,19 @@ printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&my
             ipflag[i] &= ~(1 << IPFLAG_RETRIEVAL_FAIL);
         }
     }
+#endif
 
 #ifdef WRITE_TAERO
     /* Write the aerosol values for comparison with other algorithms */
-    aero_fptr = fopen ("aerosols.img", "w");
+    aero_fptr = fopen ("aerosols3.img", "w");
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
+
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("ipflag3.img", "w");
+    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fclose (aero_fptr);
+
 #endif
 
     /* Free the smflag, taeros, and tepss as temporary arrays */

@@ -14,10 +14,11 @@ RM    = rm
 EXTRA = -Wall $(EXTRA_OPTIONS)
 
 # Define the include files
-INC = common.h date.h input.h output.h lut_subr.h lasrc.h
+INC = aero_interp.h common.h date.h input.h output.h lut_subr.h lasrc.h
 
 # Define the source code and object files
-SRC = compute_refl.c      \
+SRC = aero_interp.c       \
+      compute_refl.c      \
       date.c              \
       get_args.c          \
       input.c             \
