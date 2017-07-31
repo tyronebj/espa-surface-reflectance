@@ -371,15 +371,8 @@ int memory_allocation_sr
     float **tozi,        /* O: interpolated ozone value, nlines x nsamps */
     float **tp,          /* O: interpolated pressure value, nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
-    float **taeros,      /* O: average aerosol values for the window surrounding
-                               each pixel, nlines x nsamps */
     float **teps,        /* O: eps (angstrom coefficient) for each pixel,
                                nlines x nsamps*/
-    float **tepss,       /* O: average eps for the window surrounding each
-                               pixel, nlines x nsamps */
-    bool **smflag,       /* O: flag to indicate if at least one pixel was
-                               clear in the surrounding window,
-                               nlines x nsamps */
     int16 **dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 **andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
     int16 **sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */

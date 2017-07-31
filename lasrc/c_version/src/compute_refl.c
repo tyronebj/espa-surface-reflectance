@@ -342,13 +342,12 @@ int compute_sr_refl
     char errmsg[STR_SIZE];                   /* error message */
     char FUNC_NAME[] = "compute_sr_refl";   /* function name */
     int retval;          /* return status */
-    int i, j, k, l;      /* looping variable for pixels */
+    int i, j;            /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
     int iband;           /* current band */
     int curr_pix;        /* current pixel in 1D arrays of nlines * nsamps */
     int center_pix;      /* current pixel in 1D arrays of nlines * nsamps for
                             the center of the aerosol window */
-    int win_pix;         /* current pixel in the line,sample window */
     int center_line;     /* line for the center of the aerosol window */
     int center_samp;     /* sample for the center of the aerosol window */
     int nearest_line;    /* line for nearest non-fill/cloud pixel in the
@@ -512,25 +511,6 @@ int compute_sr_refl
     int cmg_pix21;    /* pixel location for CMG/DEM products [lcmg+1][scmg] */
     int cmg_pix22;    /* pixel location for CMG/DEM products [lcmg+1][scmg+1] */
 
-    /* Variables for the aerosol interpolation */
-// TODO GAIL smflag, taeros, and tepss are not used unless the aerosol
-// interpolation is being done after the fact.  And, if the NxN window is in
-// place this won't be needed.
-    bool *smflag = NULL;  /* flag for whether or not the window average was
-                             computed and is valid for this pixel */
-    int nbpixnf;          /* number of non-filled aerosol pixels */
-    int prev_nbpixnf;     /* number of non-filled aerosol pixels in previous
-                             loop */
-    int nbpixtot;         /* total number of pixels in the window */
-    float taeroavg;       /* average of the taero values in the window */
-    float tepsavg;        /* average of the teps values in the window */
-    int nbaeroavg;        /* number of pixels in the window used for computing
-                             the taeroavg and tepsavg */
-    float *taeros = NULL; /* array of the average taero values in the local
-                             window, nlines x nsamps */
-    float *tepss = NULL;  /* array of the average teps values in the local
-                             window, nlines x nsamps */
-
     /* Variables for finding the eps that minimizes the residual */
     double xa, xb, xc, xd, xe, xf;  /* coefficients */
     double coefa, coefb;            /* coefficients */
@@ -587,11 +567,10 @@ printf ("DEBUG: Start compute_sr_refl: %s\n", ctime(&mytime));
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
     retval = memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2, &aerob4,
-        &aerob5, &aerob7, &ipflag, &twvi, &tozi, &tp, &taero, &taeros, &teps,
-        &tepss, &smflag, &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7,
-        &intratiob1, &intratiob2, &intratiob7, &slpratiob1, &slpratiob2,
-        &slpratiob7, &wv, &oz, &rolutt, &transt, &sphalbt, &normext, &tsmax,
-        &tsmin, &nbfic, &nbfi, &ttv);
+        &aerob5, &aerob7, &ipflag, &twvi, &tozi, &tp, &taero, &teps, &dem,
+        &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2,
+        &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt,
+        &transt, &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
@@ -1616,283 +1595,6 @@ printf ("DEBUG: Starting aerosol interpolation: %s\n", ctime(&mytime));
     printf ("Starting aerosol interpolation ...\n");
     aerosol_interp (xml_metadata, qaband, taero, nlines, nsamps);
 
-#ifdef GAIL
-    /* Fill in the aerosol windows with the value computed for the center of
-       the window */
-mytime = time(NULL);
-printf ("DEBUG: Start fill aerosol windows: %s\n", ctime(&mytime));
-    printf ("Fill in each aerosol window ...\n");
-    for (i = HALF_AERO_WINDOW; i < nlines; i += AERO_WINDOW)
-    {
-        curr_pix = i * nsamps + HALF_AERO_WINDOW;
-        for (j = HALF_AERO_WINDOW; j < nsamps;
-             j += AERO_WINDOW, curr_pix += AERO_WINDOW)
-        {
-            /* If this pixel is fill, then the whole window is fill. Nothing
-               to do so move on. Otherwise populate the aerosol window using
-               the aerosol value from the center of the window. */
-            if (btest (ipflag[curr_pix], IPFLAG_FILL))
-                continue;
-            else
-            {
-                populate_aerosol_window (taero, teps, ipflag, nlines, nsamps,
-                    i, j);
-            }
-        }  /* end for j */
-    }  /* end for i */
-#endif
-
-#ifdef GAIL
-    /* Before the aerosol interpolation increase the interpolation to the
-       neighboring pixels (5x5) */
-mytime = time(NULL);
-printf ("DEBUG: Setting the neighboring interpolation pixels: %s\n", ctime(&mytime));
-    printf ("Setting the neighboring interpolation pixels ...\n"); 
-    for (i = 0; i < nlines; i++)
-    {
-        curr_pix = i * nsamps;
-        for (j = 0; j < nsamps; j++, curr_pix++)
-        {
-            /* If this pixel needs interpolated then look at the pixels in the
-               surrounding window */
-            if (btest (ipflag[curr_pix], IPFLAG_RETRIEVAL_FAIL))
-            {
-                /* Check the 5x5 window around the current pixel */
-                for (k = i-2; k <= i+2; k++)
-                {
-                    /* Make sure the line is valid */
-                    if (k < 0 || k >= nlines)
-                        continue;
-
-                    win_pix = k * nsamps + j-2;
-                    for (l = j-2; l <= j+2; l++, win_pix++)
-                    {
-                        /* Make sure the sample is valid */
-                        if (l < 0 || l >= nsamps)
-                            continue;
-
-                        /* If this is a clear ipflag then set it to be
-                           interpolated. Unset the clear bit. */
-                        if (btest (ipflag[win_pix], IPFLAG_CLEAR))
-                        {
-                            ipflag[win_pix] &= ~(1 << IPFLAG_CLEAR);
-                            ipflag[win_pix] |= (1 << IPFLAG_TMP_NEIGHBOR);
-                        }
-                    }  /* for l */
-                }  /* for k */
-            }  /* if ipflag == retrieval failed */
-        }  /* for j */
-    }  /* for i */
-
-    /* Reset any pixels flagged as neighbors to interpolation failed */
-    for (i = 0; i < nlines*nsamps; i++)
-    {
-        if (btest (ipflag[i], IPFLAG_TMP_NEIGHBOR))
-        {
-            /* Set the retrieval failed, but unset the temp neighbor */
-            ipflag[i] &= ~(1 << IPFLAG_TMP_NEIGHBOR);
-            ipflag[i] |= (1 << IPFLAG_RETRIEVAL_FAIL);
-        }
-    }
-
-    /* Compute the average of the 11x11 window of aersols for each pixel */
-    nbpixnf = 0;
-    nbpixtot = 0;
-    for (i = 0; i < nlines; i++)
-    {
-        curr_pix = i * nsamps;
-        for (j = 0; j < nsamps; j++, curr_pix++)
-        {
-            /* Process non-fill pixels */
-            smflag[curr_pix] = false;
-            if (!level1_qa_is_fill (qaband[curr_pix]))
-            {
-                /* Initialize the variables */
-                nbpixtot++;
-                nbaeroavg = 0;
-                taeroavg = 0.0;
-                tepsavg = 0.0;
-
-                /* Check the 11x11 window around the current pixel */
-                for (k = i-5; k <= i+5; k++)
-                {
-                    /* Make sure the line is valid */
-                    if (k < 0 || k >= nlines)
-                        continue;
-
-                    win_pix = k * nsamps + j-5;
-                    for (l = j-5; l <= j+5; l++, win_pix++)
-                    {
-                        /* Make sure the sample is valid */
-                        if (l < 0 || l >= nsamps)
-                            continue;
-
-                        /* If the pixel has clear retrieval of aerosols or
-                           valid water aerosols then add it to the total sum */
-                        if (btest (ipflag[win_pix], IPFLAG_CLEAR) ||
-                            btest (ipflag[win_pix], IPFLAG_WATER))
-                        {
-                            nbaeroavg++;
-                            taeroavg += taero[win_pix];
-                            tepsavg += teps[win_pix];
-                        }
-                    }  /* for l */
-                }  /* for k */
-
-                /* If the number of clear/aerosol pixels in the window is high
-                   enough, then compute the average for the window */
-                if (nbaeroavg > 20)
-                {
-                    taeroavg = taeroavg / nbaeroavg;
-                    tepsavg = tepsavg / nbaeroavg;
-                    taeros[curr_pix] = taeroavg;
-                    tepss[curr_pix] = tepsavg;
-                    smflag[curr_pix] = true;
-                }
-                else
-                {
-                    /* Keep track of the number of pixels where the count
-                       was not high enough */
-                    nbpixnf++;
-                }
-            }  /* if not fill */
-        }  /* for j */
-    }  /* for i */
-
-    /* Handle the case where none of the pixels were able to be averaged by
-       setting default values.  Otherwise take a second pass through the
-       pixels. */
-mytime = time(NULL);
-printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&mytime));
-    printf ("Second pass for aerosol interpolation ...\n");
-    if (nbpixnf == nbpixtot)
-    {
-        /* Set defaults */
-        for (i = 0; i < nlines*nsamps; i++)
-        {
-            /* If this is not a fill pixel then set default values */
-            if (!level1_qa_is_fill (qaband[i]))
-            {
-                taeros[i] = 0.05;
-                tepss[i] = 1.5;
-                smflag[i] = true;
-            }
-        }  /* for i */
-    }
-    else
-    {
-        /* Second pass */
-        prev_nbpixnf = 0;
-        while (nbpixnf != 0)
-        {
-            /* If nothing was gained in the last loop then just use default
-               values for the remaining pixels */
-            if (nbpixnf == prev_nbpixnf)
-            {
-                for (i = 0; i < nlines; i++)
-                {
-                    curr_pix = i * nsamps;
-                    for (j = 0; j < nsamps; j++, curr_pix++)
-                    {
-                        /* If this is not a fill pixel and the aerosol average
-                           was not computed for this pixel */
-                        if (qaband[curr_pix] != 1 && !smflag[curr_pix])
-                        {
-                            taeros[i] = 0.05;
-                            tepss[i] = 1.5;
-                            smflag[i] = true;
-                        }  /* if qaband and smflag */
-                    }  /* for j */
-                }  /* for i */
-
-                /* Break out of the while loop */
-                break;
-            }  /* if nbpixnf == prev_nbpixnf */
-
-            prev_nbpixnf = nbpixnf;
-            nbpixnf = 0;
-            for (i = 0; i < nlines; i++)
-            {
-                curr_pix = i * nsamps;
-                for (j = 0; j < nsamps; j++, curr_pix++)
-                {
-                    /* If this is not a fill pixel and the aerosol average was
-                       not computed for this pixel */
-                    if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                        !smflag[curr_pix])
-                    {
-                        nbaeroavg = 0;
-                        tepsavg = 0.0;
-                        taeroavg = 0.0;
-
-                        /* Check the 11x11 window around the current pixel */
-                        for (k = i-5; k <= i+5; k++)
-                        {
-                            /* Make sure the line is valid */
-                            if (k < 0 || k >= nlines)
-                                continue;
-    
-                            win_pix = k * nsamps + j-5;
-                            for (l = j-5; l <= j+5; l++, win_pix++)
-                            {
-                                /* Make sure the sample is valid */
-                                if (l < 0 || l >= nsamps)
-                                    continue;
-    
-                                /* If the pixel has valid averages, then use
-                                   them in this second pass */
-                                if (smflag[win_pix])
-                                {
-                                    nbaeroavg++;
-                                    taeroavg += taeros[win_pix];
-                                    tepsavg += tepss[win_pix];
-                                }
-                            }  /* for l */
-                        }  /* for k */
-
-                        /* If at least one pixel in the window had valid
-                           averages, then compute the average for the window
-                           using the previously-computed window averages */
-                        if (nbaeroavg > 0)
-                        {
-                            taeroavg = taeroavg / nbaeroavg;
-                            tepsavg = tepsavg / nbaeroavg;
-                            taeros[curr_pix] = taeroavg;
-                            tepss[curr_pix] = tepsavg;
-                            smflag[curr_pix] = true;
-                        }
-                        else
-                        {
-                            /* Keep track of the number of pixels where the
-                               averages were not computed */
-                            nbpixnf++;
-                        }
-                    }  /* if qaband and smflag */
-                }  /* for j */
-            }  /* for i */
-        }  /* while nbpixnf != 0 */
-    }  /* else */
-
-    /* Fill in the pixels where the aerosol retrieval failed */
-    for (i = 0; i < nlines*nsamps; i++)
-    {
-        /* Note the FORTRAN code also checks the cloud QA as to whether
-           this is a cirrus or cloud pixel, however the cloud QA array has not
-           yet been set for cirrus clouds or regular clouds.  Furthermore that
-           code has been removed altogether.  Therefore the cloud checks have
-           been removed from this if statement. */
-        if (btest (ipflag[i], IPFLAG_RETRIEVAL_FAIL))
-        {
-            taero[i] = taeros[i];
-            teps[i] = tepss[i];
-
-            /* Set the aerosol interpolated, but unset the retrieval failed */
-            ipflag[i] |= (1 << IPFLAG_INTERP);
-            ipflag[i] &= ~(1 << IPFLAG_RETRIEVAL_FAIL);
-        }
-    }
-#endif
-
 #ifdef WRITE_TAERO
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols3.img", "w");
@@ -1905,11 +1607,6 @@ printf ("DEBUG: Starting second pass for aerosol interpolation: %s\n", ctime(&my
     fclose (aero_fptr);
 
 #endif
-
-    /* Free the smflag, taeros, and tepss as temporary arrays */
-    free (smflag);  smflag = NULL;
-    free (taeros);  taeros = NULL;
-    free (tepss);  tepss = NULL;
 
     /* Perform the second level of atmospheric correction using the aerosols */
 mytime = time(NULL);
@@ -1929,6 +1626,7 @@ printf ("DEBUG: Starting second second level of atmospheric correction using aer
             for (j = 0; j < nsamps; j++, curr_pix++)
             {
                 /* If this pixel is fill, then don't process */
+/* TODO GAIL - If this pixel is cloud then don't mess with it */
                 if (level1_qa_is_fill (qaband[curr_pix]))
                     continue;
 
