@@ -62,10 +62,12 @@ int compute_toa_refl
     float xmus;          /* cosine of solar zenith angle (per-pixel) */
     uint16 *uband = NULL;  /* array for input image data for a single band,
                               nlines x nsamps */
+    time_t mytime;       /* time variable */
 
-time_t mytime;
-mytime = time(NULL);
-printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
+    /* Start the processing */
+    mytime = time(NULL);
+    printf ("Start TOA reflectance corrections: %s\n", ctime(&mytime));
+
     /* Allocate memory for band data */
     uband = calloc (nlines*nsamps, sizeof (uint16));
     if (uband == NULL)
@@ -269,10 +271,9 @@ printf ("DEBUG: Start compute_toa_refl: %s\n", ctime(&mytime));
     /* The input data has been read and calibrated. The memory can be freed. */
     free (uband);
 
-mytime = time(NULL);
-printf ("DEBUG: End compute_toa_refl: %s\n", ctime(&mytime));
-
     /* Successful completion */
+    mytime = time(NULL);
+    printf ("End of TOA reflectance computations: %s\n", ctime(&mytime));
     return (SUCCESS);
 }
 
@@ -514,9 +515,10 @@ int compute_sr_refl
     /* Variables for finding the eps that minimizes the residual */
     double xa, xb, xc, xd, xe, xf;  /* coefficients */
     double coefa, coefb;            /* coefficients */
-    float epsmin;                  /* eps which minimizes the residual */
+    float epsmin;                   /* eps which minimizes the residual */
 
     /* Output file info */
+    time_t mytime;               /* timing variable */
     Output_t *sr_output = NULL;  /* output structure and metadata for the SR
                                     product */
     Envi_header_t envi_hdr;      /* output ENVI header information */
@@ -527,7 +529,7 @@ int compute_sr_refl
     float aot550nm[NAOT_VALS] =  /* AOT look-up table */
         {0.01, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.60, 0.80, 1.00, 1.20,
          1.40, 1.60, 1.80, 2.00, 2.30, 2.60, 3.00, 3.50, 4.00, 4.50, 5.00};
-    float tpres[NPRES_VALS] =      /* surface pressure table */
+    float tpres[NPRES_VALS] =    /* surface pressure table */
         {1050.0, 1013.0, 900.0, 800.0, 700.0, 600.0, 500.0};
 
     /* Atmospheric correction variables */
@@ -555,14 +557,14 @@ int compute_sr_refl
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
-#define WRITE_TAERO 1
+//#define WRITE_TAERO 1
 #ifdef WRITE_TAERO
-    FILE *aero_fptr=NULL;
+    FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
 #endif
 
-time_t mytime;
-mytime = time(NULL);
-printf ("DEBUG: Start compute_sr_refl: %s\n", ctime(&mytime));
+    /* Start processing */
+    mytime = time(NULL);
+    printf ("Start surface reflectance corrections: %s\n", ctime(&mytime));
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
@@ -613,10 +615,9 @@ printf ("DEBUG: Start compute_sr_refl: %s\n", ctime(&mytime));
 
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
-mytime = time(NULL);
-printf ("DEBUG: Start atm corrections: %s\n", ctime(&mytime));
+    mytime = time(NULL);
     printf ("Performing atmospheric corrections for each reflectance "
-        "band ...");
+        "band ... %s", ctime(&mytime));
     for (ib = 0; ib <= SR_BAND7; ib++)
     {
         printf (" %d ...", ib+1);
@@ -691,9 +692,8 @@ printf ("DEBUG: Start atm corrections: %s\n", ctime(&mytime));
     printf ("\n");
 
     /* Interpolate the auxiliary data for each pixel location */
-mytime = time(NULL);
-printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
-    printf ("Interpolating the auxiliary data ...\n");
+    mytime = time(NULL);
+    printf ("Interpolating the auxiliary data ... %s\n", ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, wv11, wv12, wv21, wv22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22)
@@ -886,10 +886,9 @@ printf ("DEBUG: Start interpolating the auxiliary data: %s\n", ctime(&mytime));
 #endif
 
     /* Start the aerosol inversion */
-mytime = time(NULL);
-printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
-    printf ("Aerosol Inversion using %d x %d aerosol window ...\n", AERO_WINDOW,
-        AERO_WINDOW);
+    mytime = time(NULL);
+    printf ("Aerosol Inversion using %d x %d aerosol window ... %s\n",
+        AERO_WINDOW, AERO_WINDOW, ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, ros1, erelc, troatm)
@@ -919,12 +918,10 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
             center_line = i;
             center_samp = j;
             center_pix = curr_pix;
-//printf ("DEBUG: Processing aerosol window line, sample: %d, %d\n", center_line, center_samp);
 
             /* If this pixel is fill */
             if (level1_qa_is_fill (qaband[curr_pix]))
             {
-//printf ("DEBUG:    Found fill pixel at line, sample: %d, %d\n", i, j);
                 /* Look for other non-fill pixels in the window */
                 if (find_closest_non_fill (qaband, nlines, nsamps, center_line,
                     center_samp, &nearest_line, &nearest_samp))
@@ -936,7 +933,6 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
-//printf ("DEBUG:    Closest non-fill pixel at line, sample: %d, %d\n", i, j);
                 }
                 else
                 {
@@ -946,46 +942,64 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
                 }
             }
 
-            /* If this non-fill pixel is cloud, then look for a pixel which
-               is not cloudy or fill.  If none are found, then just use this
-               pixel. */
-            if (is_cloud (qaband[curr_pix]))
+            /* If this non-fill pixel is water, then look for a pixel which is
+               not water.  If none are found, then just use this pixel. */
+            if (is_water (sband[SR_BAND4][curr_pix],
+                          sband[SR_BAND5][curr_pix]))
             {
-//printf ("DEBUG:    Found cloud pixel at line, sample: %d, %d\n", i, j);
-                /* Look for other non-fill/non-cloud pixels in the window.
+                /* Look for other non-fill/non-water pixels in the window.
                    Start with the center of the window and search outward. */
-                if (find_closest_non_cloud (qaband, nlines, nsamps,
+                if (find_closest_non_water (qaband, sband, nlines, nsamps,
                     center_line, center_samp, &nearest_line, &nearest_samp))
+                {
+                    /* Use the line/sample location of the non-fill/non-water
+                       pixel for further processing */
+                    i = nearest_line;
+                    j = nearest_samp;
+                    curr_pix = i * nsamps + j;
+                }
+            }
+
+            /* If this non-fill/non-water pixel is cloud or shadow, then look
+               for a pixel which is not cloudy, shadow, water, or fill.  If
+               none are found, then just use this pixel. */
+            if (is_cloud_or_shadow (qaband[curr_pix]))
+            {
+                /* Look for other non-fill/non-water/non-cloud/non-shadow
+                   pixels in the window.  Start with the center of the window
+                   and search outward. */
+                if (find_closest_non_cloud_shadow_water (qaband, sband, nlines,
+                    nsamps, center_line, center_samp, &nearest_line,
+                    &nearest_samp))
                 {
                     /* Use the line/sample location of the non-fill/non-cloud
                        pixel for further processing */
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
-//printf ("DEBUG:    Closest non-cloud pixel at line, sample: %d, %d\n", i, j);
                 }
             }
 
-            /* If this non-fill/non-cloud pixel is water, then look for a pixel
-               which is not cloudy, not fill, and not water.  If none are
-               found, then just use this pixel. */
-            if (is_water (sband[SR_BAND4][curr_pix],
-                          sband[SR_BAND5][curr_pix]))
+            /* If the pixel selected is a cloud (but not shadow), then don't
+               mess with aerosol interpolation.  Just assign generic aerosol
+               values. */
+            if (is_cloud (qaband[curr_pix]))
             {
-//printf ("DEBUG:    Found water pixel at line, sample: %d, %d\n", i, j);
-                /* Look for other non-fill/non-cloud/non-water pixels in the
-                   window.  Start with the center of the window and search
-                   outward. */
-                if (find_closest_non_water (qaband, sband, nlines, nsamps,
-                    center_line, center_samp, &nearest_line, &nearest_samp))
-                {
-                    /* Use the line/sample location of the non-fill/non-cloud/
-                       non-water pixel for further processing */
-                    i = nearest_line;
-                    j = nearest_samp;
-                    curr_pix = i * nsamps + j;
-//printf ("DEBUG:    Closest non-water pixel at line, sample: %d, %d\n", i, j);
-                }
+                /* Assign generic values for the cloud pixel */
+                ipflag[center_pix] = (1 << IPFLAG_CLOUD);
+                taero[center_pix] = 0.05;
+                teps[center_pix] = 1.5;
+
+                /* Reset the looping variables to the center of the aerosol
+                   window versus the actual non-fill/non-cloud pixel that was
+                   processed so that we get the correct center for the next
+                   aerosol window */
+                i = center_line;
+                j = center_samp;
+                curr_pix = center_pix;
+
+                /* Next window */
+                continue;
             }
 
             /* Get the lat/long for the current pixel (which may not be the
@@ -1433,7 +1447,6 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
                flagged as clear. */
             if (btest (ipflag[center_pix], IPFLAG_WATER))
             {
-//printf ("DEBUG:    IPFLAG_WATER pixel at line, sample: %d, %d\n", i, j);
                 /* Reset variables */
                 erelc[DN_BAND1] = 1.0;
                 erelc[DN_BAND2] = -1.0;
@@ -1502,10 +1515,10 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
                     /* Set the retrieval failed bit, and unset the water bit */
                     ipflag[center_pix] &= ~(1 << IPFLAG_WATER);
                     ipflag[center_pix] |= (1 << IPFLAG_RETRIEVAL_FAIL);
-//printf ("DEBUG:    IPFLAG_RETRIEVAL_FAIL pixel at line, sample: %d, %d\n", i, j);
                 }
                 else
                 {
+                    /* Successful retrieval over water */
                     teps[center_pix] = eps;
                     taero[center_pix] = raot;
                     corf = raot / xmus;
@@ -1558,15 +1571,16 @@ printf ("DEBUG: Start Aerosol Inversion: %s\n", ctime(&mytime));
     fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
-    /* Write the ipflag values for comparison with other algorithms */
+    /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols.img", "w");
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
     /* Interpolate the aerosol pixels which could not be inverted */
-mytime = time(NULL);
-printf ("DEBUG: Starting aerosol window interpolation: %s\n", ctime(&mytime));
+    mytime = time(NULL);
+    printf ("Interpolating the NxN window aerosol values ... %s\n",
+        ctime(&mytime));
     if (aerosol_window_interp (qaband, ipflag, taero, teps, nlines, nsamps) !=
         SUCCESS)
     {
@@ -1582,7 +1596,7 @@ printf ("DEBUG: Starting aerosol window interpolation: %s\n", ctime(&mytime));
     fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
-    /* Write the ipflag values for comparison with other algorithms */
+    /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols2.img", "w");
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
@@ -1590,28 +1604,27 @@ printf ("DEBUG: Starting aerosol window interpolation: %s\n", ctime(&mytime));
 
     /* Use the center of the aerosol windows to interpolate the remaining
        pixels in the window */
-mytime = time(NULL);
-printf ("DEBUG: Starting aerosol interpolation: %s\n", ctime(&mytime));
-    printf ("Starting aerosol interpolation ...\n");
-    aerosol_interp (xml_metadata, qaband, taero, nlines, nsamps);
+    mytime = time(NULL);
+    printf ("Interpolating the aerosol values in the NxN windows %s\n",
+        ctime(&mytime));
+    aerosol_interp (xml_metadata, qaband, ipflag, taero, nlines, nsamps);
 
 #ifdef WRITE_TAERO
-    /* Write the aerosol values for comparison with other algorithms */
-    aero_fptr = fopen ("aerosols3.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
-    fclose (aero_fptr);
-
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag3.img", "w");
     fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
+    /* Write the aerosol values for comparison with other algorithms */
+    aero_fptr = fopen ("aerosols3.img", "w");
+    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fclose (aero_fptr);
 #endif
 
     /* Perform the second level of atmospheric correction using the aerosols */
-mytime = time(NULL);
-printf ("DEBUG: Starting second second level of atmospheric correction using aerosols: %s\n", ctime(&mytime));
-    printf ("Performing atmospheric correction ...\n");
+    mytime = time(NULL);
+    printf ("Performing atmospheric correction ... %s\n", ctime(&mytime));
+
     /* 0 .. DN_BAND7 is the same as 0 .. SR_BAND7 here, since the pan band
        isn't spanned */
     for (ib = 0; ib <= DN_BAND7; ib++)
@@ -1626,8 +1639,12 @@ printf ("DEBUG: Starting second second level of atmospheric correction using aer
             for (j = 0; j < nsamps; j++, curr_pix++)
             {
                 /* If this pixel is fill, then don't process */
-/* TODO GAIL - If this pixel is cloud then don't mess with it */
                 if (level1_qa_is_fill (qaband[curr_pix]))
+                    continue;
+
+                /* If this pixel is cloud, then don't process. taero values
+                   are generic values anyhow. */
+                if (is_cloud (qaband[curr_pix]))
                     continue;
 
                 /* Determine the solar and view angles for the current pixel */
@@ -1708,10 +1725,9 @@ printf ("DEBUG: Starting second second level of atmospheric correction using aer
     free (teps);
  
     /* Write the data to the output file */
-mytime = time(NULL);
-printf ("DEBUG: Writing SR results to output files: %s\n", ctime(&mytime));
+    mytime = time(NULL);
     printf ("Writing surface reflectance corrected data to the output "
-        "files ...\n");
+        "files ... %s\n", ctime(&mytime));
 
     /* Open the output file */
     sr_output = open_output (xml_metadata, input, OUTPUT_SR);
@@ -1827,8 +1843,8 @@ printf ("DEBUG: Writing SR results to output files: %s\n", ctime(&mytime));
     free (ttv);
 
     /* Successful completion */
-mytime = time(NULL);
-printf ("DEBUG: All DONE: %s\n", ctime(&mytime));
+    mytime = time(NULL);
+    printf ("Surface reflectance correction complete ... %s\n", ctime(&mytime));
     return (SUCCESS);
 }
 
@@ -2038,9 +2054,9 @@ int init_sr_refl
 /******************************************************************************
 MODULE:  is_cloud
 
-PURPOSE:  Determines if the pixel is a cloud (cloud, cloud shadow, or cirrus
-cloud).  The Level-1 QA band is used.  A confidence of high for any of the
-three QA types will result in the pixel being flagged as cloudy.
+PURPOSE:  Determines if the pixel is a cloud (cloud or cirrus cloud).  The
+Level-1 QA band is used.  A confidence of high for either of the QA types will
+result in the pixel being flagged as cloudy.
 
 RETURN VALUE:
 Type = boolean
@@ -2055,6 +2071,40 @@ at the USGS EROS
 NOTES:
 ******************************************************************************/
 bool is_cloud
+(
+    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
+)
+{
+    /* If the confidence level is high for cloud or cirrus, then flag this as
+       a cloud */
+    if (level1_qa_cloud_confidence (l1_qa_pix) == 3 ||
+        level1_qa_cirrus_confidence (l1_qa_pix) == 3)
+        return (true);
+    else
+        return (false);
+}
+
+
+/******************************************************************************
+MODULE:  is_cloud_or_shadow
+
+PURPOSE:  Determines if the pixel is a cloud (cloud, cloud shadow, or cirrus
+cloud).  The Level-1 QA band is used.  A confidence of high for any of the
+three QA types will result in the pixel being flagged as cloudy.
+
+RETURN VALUE:
+Type = boolean
+Value           Description
+-----           -----------
+false           Pixel is not cloud or shadow
+true            Pixel is cloud or shadow
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+bool is_cloud_or_shadow
 (
     uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
 )
@@ -2180,9 +2230,10 @@ bool find_closest_non_fill
 
 
 /******************************************************************************
-MODULE:  find_closest_non_cloud
+MODULE:  find_closest_non_cloud_shadow_water
 
-PURPOSE:  Finds the closest non-cloud pixel in the aerosol window
+PURPOSE:  Finds the closest non-cloud, non-shadow, non-water pixel in the
+aerosol window
 
 RETURN VALUE:
 Type = boolean
@@ -2196,9 +2247,10 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-bool find_closest_non_cloud
+bool find_closest_non_cloud_shadow_water
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    int16 **sband,     /* I: input surface reflectance, nlines x nsamps */
     int nlines,        /* I: number of lines in QA band */
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
@@ -2210,6 +2262,7 @@ bool find_closest_non_cloud
     int i;                   /* looping variable for pixels */
     int line, samp;          /* looping variables for lines and samples */
     int aero_window;         /* looping variabel for the aerosol window */
+    double ndvi;             /* use NDVI for flagging water pixels */
 
     /* Loop around the center pixel, moving outward with each loop, searching
        for a pixel that is not of the QA type specified and is not fill */
@@ -2230,10 +2283,22 @@ bool find_closest_non_cloud
                 if (samp < 0 || samp >= nsamps)
                     continue;
 
-                /* If this pixel is not fill and is not cloud, then mark it as
-                   the closest non-cloud pixel and return */
+                /* Calculate NDVI and flag water pixels */
+                if (sband[SR_BAND5][i + samp] < 100)
+                    ndvi = -0.01;
+                else
+                    ndvi = ((double) sband[SR_BAND5][i + samp] -
+                            (double) sband[SR_BAND4][i + samp]) /
+                           ((double) sband[SR_BAND5][i + samp] +
+                            (double) sband[SR_BAND4][i + samp]);
+
+                /* If this pixel is not fill, not water, and is not cloud or
+                   shadow, then mark it as the closest non-cloud pixel and
+                   return.  The NDVI will be used to flag water.  If
+                   ndvi < 0.01 then the pixel is water. */
                 if (!level1_qa_is_fill (qaband[i + samp]) &&
-                    !is_cloud (qaband[i + samp]))
+                    !is_cloud_or_shadow (qaband[i + samp]) &&
+                    ndvi >= 0.01)
                 {
                     *nearest_line = line;
                     *nearest_samp = samp;
@@ -2310,12 +2375,12 @@ bool find_closest_non_water
                            ((double) sband[SR_BAND5][i + samp] +
                             (double) sband[SR_BAND4][i + samp]);
 
-                /* If this pixel is not fill, is not cloud, and is not water,
-                   then mark it as the closest non-water pixel and return.
-                   The NDVI will be used to flag water.  If ndvi < 0.01 then
-                   the pixel is water. */
+                /* If this pixel is not fill and is not water, then mark it as
+                   the closest non-water pixel and return.  The NDVI will be
+                   used to flag water.  If ndvi < 0.01 then the pixel is
+                   water. */
                 if (!level1_qa_is_fill (qaband[i + samp]) &&
-                    !is_cloud (qaband[i + samp]) && ndvi >= 0.01)
+                    ndvi >= 0.01)
                 {
                     *nearest_line = line;
                     *nearest_samp = samp;
@@ -2396,11 +2461,12 @@ void mask_aero_window
                        ((double) sband[SR_BAND5][curr_pix] +
                         (double) sband[SR_BAND4][curr_pix]);
 
-            /* If this pixel is not fill, is not cloud, and is not water, then
-               mark it as clear.  The NDVI will be used to flag water.  If 
-               ndvi < 0.01 then the pixel is water. */
+            /* If this pixel is not fill, is not cloud, is not shadow, and is
+               not water, then mark it as clear.  The NDVI will be used to flag
+               water.  If ndvi < 0.01 then the pixel is water. */
             if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                !is_cloud (qaband[curr_pix]) && ndvi >= 0.01)
+                !is_cloud_or_shadow (qaband[curr_pix]) &&
+                ndvi >= 0.01)
             { /* pixel is clear */
                 quick_qa[curr_qa_pix] = false;
             }
@@ -2408,64 +2474,3 @@ void mask_aero_window
     }  /* for line */
 }
 
-
-/******************************************************************************
-MODULE:  populate_aerosol_window
-
-PURPOSE:  Populates the entire aerosol window (for taero and teps) using the
-value from the center of the aerosol window.
-
-RETURN VALUE: N/A
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-void populate_aerosol_window
-(
-    float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps */
-    float *teps,       /* I/O: angstrom coeff for each pixel, nlines x nsamps */
-    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
-                               nlines x nsamps */
-    int nlines,        /* I: number of lines in QA band */
-    int nsamps,        /* I: number of samps in QA band */
-    int center_line,   /* I: line for the center of the aerosol window */
-    int center_samp    /* I: sample for the center of the aerosol window */
-)
-{
-    int curr_pix;        /* current pixel in 1D arrays of nlines * nsamps */
-    int center_pix;      /* current pixel in 1D arrays of nlines * nsamps for
-                            the center of the aerosol window */
-    int line, samp;      /* looping variables for lines and samples */
-    int aero_window;     /* looping variabel for the aerosol window */
-
-    /* Loop around the center pixel, moving outward with each loop, and populate
-       the aerosol values for the entire aerosol window using the values from
-       the center of the window */
-    center_pix = center_line * nsamps + center_samp;
-    for (aero_window = 1; aero_window <= HALF_AERO_WINDOW; aero_window++)
-    {
-        for (line = center_line - aero_window;
-             line <= center_line + aero_window; line++)
-        {
-            /* Make sure the line is valid */
-            if (line < 0 || line >= nlines)
-                continue;
-
-            curr_pix = line * nsamps;
-            for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++)
-            {
-                /* Make sure the sample is valid */
-                if (samp < 0 || samp >= nsamps)
-                    continue;
-
-                /* Populate the pixel from the center */
-                teps[curr_pix + samp] = teps[center_pix];
-                taero[curr_pix + samp] = taero[center_pix];
-                ipflag[curr_pix + samp] = ipflag[center_pix];
-            }
-        }
-    }
-}

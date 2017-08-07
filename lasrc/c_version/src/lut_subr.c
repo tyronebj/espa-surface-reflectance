@@ -105,8 +105,6 @@ int atmcorlamb2
     float xtaur;        /* rayleigh optical depth for surface pressure */
     float atm_pres;     /* atmospheric pressure at sea level */
     float mraot550nm;   /* nearest value of AOT -- modified local variable */
-    double tmp_roatm;   /* local value for roatm calculations */
-    double tmp_roslamb; /* local value for roslamb calculations */
     int ip;             /* surface pressure looping variable */
     int ip1, ip2;       /* index variables for the surface pressure */
     int iaot;           /* aerosol optical thickness (AOT) looping variable */
@@ -181,7 +179,6 @@ int atmcorlamb2
         mraot550nm, iband, pres, tpres, aot550nm, rolutt, tsmax, tsmin, nbfic,
         nbfi, tts, indts, ttv, xtsstep, xtsmin, xtvstep, xtvmin, its, itv,
         roatm);
-    tmp_roatm = *roatm;
 
     /* Compute the transmission for the solar zenith angle */
     comptrans (ip1, ip2, iaot1, iaot2, xts, mraot550nm, iband, pres, tpres,
@@ -209,18 +206,14 @@ int atmcorlamb2
     local_chand (xfi, xmuv, xmus, xtaur, xrorayp);
 
     /* Perform atmospheric correction */
-    tmp_roslamb = (double) rotoa / (tgog * tgoz);
-    tmp_roslamb = tmp_roslamb - (tmp_roatm - (*xrorayp)) * tgwvhalf -
-        (*xrorayp);
-    tmp_roslamb = tmp_roslamb / (ttatm * tgwv);
-    tmp_roslamb = tmp_roslamb / (1.0 + (*satm) * tmp_roslamb);
+    *roslamb = (double) rotoa / (tgog * tgoz);
+    *roslamb = (*roslamb) - ((*roatm) - (*xrorayp)) * tgwvhalf - (*xrorayp);
+    *roslamb = (*roslamb) / (ttatm * tgwv);
+    *roslamb = (*roslamb) / (1.0 + (*satm) * (*roslamb));
 
     *tgo = tgog * tgoz;
-    tmp_roatm = (tmp_roatm - (*xrorayp)) * tgwvhalf + (*xrorayp);
+    *roatm = ((*roatm) - (*xrorayp)) * tgwvhalf + (*xrorayp);
     *ttatmg = ttatm * tgwv;
-
-    *roatm = tmp_roatm;
-    *roslamb = tmp_roslamb;
 
     /* Successful completion */
     return (SUCCESS);

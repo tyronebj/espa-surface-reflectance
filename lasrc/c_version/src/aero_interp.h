@@ -13,6 +13,10 @@ void aerosol_interp
 (
     Espa_internal_meta_t *xml_metadata, /* I: XML metadata information */
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
+    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps.  It is expected that the ipflag
+                               values are computed for the center of the
+                               aerosol windows. */
     float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps
                           It is expected that the aerosol values are computed
                           for the center of the aerosol windows.  This routine

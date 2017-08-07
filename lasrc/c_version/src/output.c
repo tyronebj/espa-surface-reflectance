@@ -208,12 +208,18 @@ Output_t *open_output
             /* Identify the bitmap values for the mask */
             strcpy (bmeta[ib].bitmap_description[0], "fill");
             strcpy (bmeta[ib].bitmap_description[1],
-                "valid aerosol retrieval (land pixel)");
+                "valid aerosol retrieval (center pixel of NxN window)");
             strcpy (bmeta[ib].bitmap_description[2],
-                "aerosol was interpolated (water pixel)");
-            strcpy (bmeta[ib].bitmap_description[3], "water");
-            strcpy (bmeta[ib].bitmap_description[4], "internal");
-            strcpy (bmeta[ib].bitmap_description[5], "internal");
+                "aerosol retrieval failed and aerosol was interpolated from "
+                "other NxN windows (center pixel of NxN window)");
+            strcpy (bmeta[ib].bitmap_description[3], "water pixel based on the "
+                "aerosol inversion (or water pixel was used in the "
+                "fill-the-window interpolation)");
+            strcpy (bmeta[ib].bitmap_description[4], "cloud or cirrus (from "
+                "Level-1 BQA); these pixels are not corrected for SR");
+            strcpy (bmeta[ib].bitmap_description[5], "non-center window pixel "
+                "for which aerosol was interpolated from surrounding NxN "
+                "center pixels");
             strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
             strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
 
