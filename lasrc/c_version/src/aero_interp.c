@@ -18,6 +18,7 @@ NOTES:
 void aerosol_interp
 (
     Espa_internal_meta_t *xml_metadata, /* I: XML metadata information */
+    int16 **sband,     /* I/O: input TOA reflectance */
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps.  It is expected that the ipflag
@@ -104,20 +105,20 @@ void aerosol_interp
             }
         }
 
-        /* Determine the fractional location of the center of this line in the
-           aerosol windows */
-        yaero = (line + 0.5) / AERO_WINDOW;
-        u = yaero - (int) yaero;
-
         /* Determine the line of the representative center pixel in the
            aerosol NxN window array */
         center_line = (int) (line / AERO_WINDOW) * AERO_WINDOW +
             HALF_AERO_WINDOW;
 
+        /* Determine fractional location of this line in the aerosol window.
+           Negative values are at the top of the window. */
+        yaero = (float) (line - center_line) / AERO_WINDOW;
+        u = yaero - (int) yaero;
+
         /* Determine if this pixel is closest to the line below or the line
            above. If the fractional value is in the top part of the aerosol
            window, then use the line above.  Otherwise use the line below. */
-        if (u < 0.5)
+        if (u < 0.0)
         {
             center_line1 = center_line - AERO_WINDOW;
 
@@ -143,23 +144,45 @@ void aerosol_interp
             if (level1_qa_is_fill (qaband[curr_pix]))
                 continue;
 
-            /* If this pixel is cloud (but not shadow), then don't process */
-            if (is_cloud (qaband[curr_pix]))
+            /* If this pixel is cloud or shadow, then don't process. Use
+               default aerosol values.  Flag them separately. */
+            else if (is_cloud (qaband[curr_pix]))
             {
                 taero[curr_pix] = 0.05;
                 ipflag[curr_pix] = (1 << IPFLAG_CLOUD);
                 continue;
             }
+            else if (is_shadow (qaband[curr_pix]))
+            {
+                taero[curr_pix] = 0.05;
+                ipflag[curr_pix] = (1 << IPFLAG_SHADOW);
+                continue;
+            }
 
-            /* Determine the fractional location of the center of this sample
-               in the aerosol window */
-            xaero = (samp + 0.5) / AERO_WINDOW;
-            v = xaero - (int) xaero;
+            /* If this pixel is water, then don't process. Use default aerosol
+               values. */
+            else if (is_water (sband[SR_BAND4][curr_pix],
+                               sband[SR_BAND5][curr_pix]))
+            {
+                taero[curr_pix] = 0.05;
+                ipflag[curr_pix] = (1 << IPFLAG_WATER);
+                continue;
+            }
 
             /* Determine the sample of the representative center pixel in the
                aerosol NxN window array */
             center_samp = (int) (samp / AERO_WINDOW) * AERO_WINDOW +
                 HALF_AERO_WINDOW;
+
+            /* Determine fractional location of this sample in the aerosol
+               window.  Negative values are at the left of the window. */
+            xaero = (float) (samp - center_samp) / AERO_WINDOW;
+            v = xaero - (int) xaero;
+//if (line == 2677 && samp == 1436)
+//{
+//printf ("DEBUG: line, samp = %d, %d\n", line, samp);
+//printf ("DEBUG: u, v = %f, %f\n", u, v);
+//}
 
             /* If the current line, sample are the same as the center line,
                sample, then skip to the next pixel.  We already have the
@@ -171,7 +194,7 @@ void aerosol_interp
                the sample to the right.  If the fractional value is on the left
                side of the aerosol window, then use the sample to the left.
                Otherwise use the sample to the right. */
-            if (v < 0.5)
+            if (v < 0.0)
             {
                 center_samp1 = center_samp - AERO_WINDOW;
     
@@ -191,6 +214,11 @@ void aerosol_interp
                 if (center_samp1 >= nsamps-1)
                     center_samp1 = center_samp;
             }
+//if (line == 2677 && samp == 1436)
+//{
+//printf ("DEBUG: center_line, center_samp = %d, %d\n", center_line, center_samp);
+//printf ("DEBUG: center_line1, center_samp1 = %d, %d\n", center_line1, center_samp1);
+//}
 
             /* Determine the four aerosol window pixels to be used for
                interpolating the current pixel */
@@ -204,6 +232,18 @@ void aerosol_interp
             aero12 = taero[aero_pix12];
             aero21 = taero[aero_pix21];
             aero22 = taero[aero_pix22];
+//if (line == 2677 && samp == 1436)
+//{
+//printf ("DEBUG: aero11 = %f\n", aero11);
+//printf ("DEBUG: aero12 = %f\n", aero12);
+//printf ("DEBUG: aero21 = %f\n", aero21);
+//printf ("DEBUG: aero22 = %f\n", aero22);
+//}
+
+            /* From here make the fractional distance positive, regardless of
+               where it is in the window. */
+            u = fabs (u);
+            v = fabs (v);
 
             /* Determine the fractional distance between the integer location
                and floating point pixel location to be used for interpolation */
@@ -213,6 +253,15 @@ void aerosol_interp
             one_minus_u_x_v = one_minus_u * v;
             u_x_one_minus_v = u * one_minus_v;
             u_x_v = u * v;
+//if (line == 2677 && samp == 1436)
+//{
+//printf ("DEBUG: one_minus_u = %f\n", one_minus_u);
+//printf ("DEBUG: one_minus_v = %f\n", one_minus_v);
+//printf ("DEBUG: one_minus_u_x_one_minus_v = %f\n", one_minus_u_x_one_minus_v);
+//printf ("DEBUG: one_minus_u_x_v = %f\n", one_minus_u_x_v);
+//printf ("DEBUG: u_x_one_minus_v = %f\n", u_x_one_minus_v);
+//printf ("DEBUG: u_x_v = %f\n", u_x_v);
+//}
 
             /* Interpolate the aerosol */
             /* TODO -- Skip the cloud aerosols??? .... */
@@ -346,10 +395,12 @@ int aerosol_window_interp
         for (samp = HALF_AERO_WINDOW; samp < nsamps;
              samp += AERO_WINDOW, curr_pix += AERO_WINDOW)
         {
-            /* Process non-fill and non-cloud pixels */
+            /* Process non-fill, non-water, non-cloud, and non-shadow pixels */
             smflag[curr_pix] = false;
             if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                !btest (ipflag[curr_pix], IPFLAG_CLOUD))
+                !btest (ipflag[curr_pix], IPFLAG_CLOUD) &&
+                !btest (ipflag[curr_pix], IPFLAG_SHADOW) &&
+                !btest (ipflag[curr_pix], IPFLAG_WATER))
             {
                 /* Initialize the variables */
                 nbpixtot++;
@@ -373,10 +424,9 @@ int aerosol_window_interp
                         if (l < 0 || l >= nsamps)
                             continue;
 
-                        /* If the pixel has clear retrieval of aerosols or
-                           valid water aerosols then add it to the total sum */
-                        if (btest (ipflag[win_pix], IPFLAG_CLEAR) ||
-                            btest (ipflag[win_pix], IPFLAG_WATER))
+                        /* If the pixel has clear retrieval of aerosols then
+                           add it to the total sum */
+                        if (btest (ipflag[win_pix], IPFLAG_CLEAR))
                         {
                             nbaeroavg++;
                             taeroavg += taero[win_pix];
@@ -421,7 +471,9 @@ int aerosol_window_interp
                 /* If this is not a fill pixel or cloud pixel then set default
                    values */
                 if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                    !btest (ipflag[curr_pix], IPFLAG_CLOUD))
+                    !btest (ipflag[curr_pix], IPFLAG_CLOUD) &&
+                    !btest (ipflag[curr_pix], IPFLAG_SHADOW) &&
+                    !btest (ipflag[curr_pix], IPFLAG_WATER))
                 {
                     taeros[curr_pix] = 0.05;
                     tepss[curr_pix] = 1.5;
@@ -447,11 +499,14 @@ int aerosol_window_interp
                     for (samp = HALF_AERO_WINDOW; samp < nsamps;
                          samp += AERO_WINDOW, curr_pix += AERO_WINDOW)
                     {
-                        /* If this is not a fill pixel, and not a cloud pixel,
-                           and the aerosol average was not computed for this
-                           pixel then just give it generic values. */
+                        /* If this is not a fill pixel, not a water pixel, not
+                           a cloud pixel, not a shadow pixel, and the aerosol
+                           average was not computed for this pixel then just
+                           give it generic values. */
                         if (!level1_qa_is_fill (qaband[curr_pix]) &&
                             !btest (ipflag[curr_pix], IPFLAG_CLOUD) &&
+                            !btest (ipflag[curr_pix], IPFLAG_SHADOW) &&
+                            !btest (ipflag[curr_pix], IPFLAG_WATER) &&
                             !smflag[curr_pix])
                         {
                             taeros[curr_pix] = 0.05;
@@ -473,10 +528,13 @@ int aerosol_window_interp
                 for (samp = HALF_AERO_WINDOW; samp < nsamps;
                      samp += AERO_WINDOW, curr_pix += AERO_WINDOW)
                 {
-                    /* If this is not a fill pixel, not a cloud pixel, and the
-                       aerosol average was not computed for this pixel */
+                    /* If this is not a fill pixel, not a water pixel, not a
+                       cloud pixel, not a shadow pixel, and the aerosol average
+                       was not computed for this pixel */
                     if (!level1_qa_is_fill (qaband[curr_pix]) &&
                         !btest (ipflag[curr_pix], IPFLAG_CLOUD) &&
+                        !btest (ipflag[curr_pix], IPFLAG_SHADOW) &&
+                        !btest (ipflag[curr_pix], IPFLAG_WATER) &&
                         !smflag[curr_pix])
                     {
                         nbaeroavg = 0;

@@ -25,10 +25,10 @@ typedef char byte;
 //#define HALF_AERO_WINDOW 4
 //#define AERO_WINDOW 7
 //#define HALF_AERO_WINDOW 3
-//#define AERO_WINDOW 5
-//#define HALF_AERO_WINDOW 2
-#define AERO_WINDOW 3
-#define HALF_AERO_WINDOW 1
+#define AERO_WINDOW 5
+#define HALF_AERO_WINDOW 2
+//#define AERO_WINDOW 3
+//#define HALF_AERO_WINDOW 1
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10
@@ -108,12 +108,16 @@ typedef enum {SR_BAND1=0, SR_BAND2, SR_BAND3, SR_BAND4, SR_BAND5, SR_BAND6,
 typedef enum {
   IPFLAG_FILL=0,            /* fill value */
   IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land pixel) */
+  /* NOT USED */
   IPFLAG_INTERP=2,          /* aerosol failed retrieval and was interpolated */
-  IPFLAG_WATER=3,           /* water pixel (aerosol retrieval will be redone
+  IPFLAG_WATER=2,           /* water pixel (aerosol retrieval will be redone
                                using subaeroretwat) */
-  IPFLAG_CLOUD=4,           /* pixel was flagged as cloud in the Level-1 QA */
+  IPFLAG_CLOUD=3,           /* pixel was flagged as cloud in the Level-1 QA */
+  IPFLAG_SHADOW=4,          /* pixel was flagged as cloud shadow in the
+                               Level-1 QA */
   IPFLAG_INTERP_WINDOW=5,   /* aerosol was interpolated using the center of the
                                NxN windows */
+  /* NOT USED */
   IPFLAG_RETRIEVAL_FAIL=6,  /* water retrieval failed -- needs interpolated
                                (all failed retrieval pixels are interpolated,
                                 thus this is really a temporary/internal use

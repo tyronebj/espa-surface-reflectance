@@ -557,7 +557,7 @@ int compute_sr_refl
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
-//#define WRITE_TAERO 1
+#define WRITE_TAERO 1
 #ifdef WRITE_TAERO
     FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
 #endif
@@ -943,10 +943,21 @@ int compute_sr_refl
             }
 
             /* If this non-fill pixel is water, then look for a pixel which is
-               not water.  If none are found, then just use this pixel. */
+               not water.  If none are found then the whole window is fill or
+               water.  Flag this pixel as water. */
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: line, samp = %d, %d\n", center_line, center_samp);
+//    printf ("DEBUG:     band4 = %d\n", sband[SR_BAND4][curr_pix]);
+//    printf ("DEBUG:     band5 = %d\n", sband[SR_BAND5][curr_pix]);
+//}
             if (is_water (sband[SR_BAND4][curr_pix],
                           sband[SR_BAND5][curr_pix]))
             {
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: IS WATER\n");
+//}
                 /* Look for other non-fill/non-water pixels in the window.
                    Start with the center of the window and search outward. */
                 if (find_closest_non_water (qaband, sband, nlines, nsamps,
@@ -957,6 +968,32 @@ int compute_sr_refl
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: Closest non-water line, samp = %d, %d\n", nearest_line, nearest_samp);
+//}
+                }
+                else
+                {
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: Whole window is water/fill\n");
+//}
+                    /* Assign generic values for the water pixel */
+                    ipflag[center_pix] = (1 << IPFLAG_WATER);
+                    taero[center_pix] = 0.05;
+                    teps[center_pix] = 1.5;
+
+                    /* Reset the looping variables to the center of the aerosol
+                       window versus the actual non-fill pixel that was
+                       processed so that we get the correct center for the next
+                       aerosol window */
+                    i = center_line;
+                    j = center_samp;
+                    curr_pix = center_pix;
+
+                    /* Next window */
+                    continue;
                 }
             }
 
@@ -968,6 +1005,10 @@ int compute_sr_refl
                 /* Look for other non-fill/non-water/non-cloud/non-shadow
                    pixels in the window.  Start with the center of the window
                    and search outward. */
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: IS CLOUD\n");
+//}
                 if (find_closest_non_cloud_shadow_water (qaband, sband, nlines,
                     nsamps, center_line, center_samp, &nearest_line,
                     &nearest_samp))
@@ -977,23 +1018,30 @@ int compute_sr_refl
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: Closest non-cloud line, samp = %d, %d\n", nearest_line, nearest_samp);
+//}
                 }
             }
 
-            /* If the pixel selected is a cloud (but not shadow), then don't
-               mess with aerosol interpolation.  Just assign generic aerosol
+            /* If the pixel selected is a cloud or shadow, then don't mess
+               with aerosol interpolation.  Just assign generic aerosol
                values. */
-            if (is_cloud (qaband[curr_pix]))
+            if (is_cloud_or_shadow (qaband[curr_pix]))
             {
                 /* Assign generic values for the cloud pixel */
-                ipflag[center_pix] = (1 << IPFLAG_CLOUD);
+                if (is_cloud (qaband[curr_pix]))
+                    ipflag[center_pix] = (1 << IPFLAG_CLOUD);
+                else if (is_shadow (qaband[curr_pix]))
+                    ipflag[center_pix] = (1 << IPFLAG_SHADOW);
                 taero[center_pix] = 0.05;
                 teps[center_pix] = 1.5;
 
                 /* Reset the looping variables to the center of the aerosol
-                   window versus the actual non-fill/non-cloud pixel that was
-                   processed so that we get the correct center for the next
-                   aerosol window */
+                   window versus the actual non-fill/non-cloud pixel that
+                   was processed so that we get the correct center for the
+                   next aerosol window */
                 i = center_line;
                 j = center_samp;
                 curr_pix = center_pix;
@@ -1002,6 +1050,10 @@ int compute_sr_refl
                 continue;
             }
 
+//if (center_line == 3187 && center_samp == 907)
+//{
+//    printf ("DEBUG: ipflag is %d\n", ipflag[center_pix]);
+//}
             /* Get the lat/long for the current pixel (which may not be the
                center of the aerosol window), for the center of that pixel */
             img.l = i - 0.5;
@@ -1429,22 +1481,26 @@ int compute_sr_refl
                 }
                 else
                 {
-                    /* This is water and the retrieval needs to be redone */
-                    taero[center_pix] = raot;
+                    /* Flag as water and use generic values */
                     ipflag[center_pix] |= (1 << IPFLAG_WATER);
+                    taero[center_pix] = 0.05;
+                    teps[center_pix] = 1.5;
                 }
             }
             else
             {
-                /* Retrieval needs to be redone */
-                taero[center_pix] = raot;
+                /* Flag as water and use generic values */
                 ipflag[center_pix] |= (1 << IPFLAG_WATER);
+                taero[center_pix] = 0.05;
+                teps[center_pix] = 1.5;
             }
 
-
+#ifdef GAIL
             /* Redo the aerosol retrieval if flagged as water, which is
                basically anything that isn't a good aerosol retrieval and
-               flagged as clear. */
+               flagged as clear.  If this is actually water, then we will use
+               generic values.  Previously identified values are already
+               flagged and generic values are being used. */
             if (btest (ipflag[center_pix], IPFLAG_WATER))
             {
                 /* Reset variables */
@@ -1518,12 +1574,14 @@ int compute_sr_refl
                 }
                 else
                 {
-                    /* Successful retrieval over water */
-                    teps[center_pix] = eps;
-                    taero[center_pix] = raot;
-                    corf = raot / xmus;
+                    /* This is water. Keep it flagged as such and use generic
+                       values for water. */
+                    ipflag[center_pix] = (1 << IPFLAG_WATER);
+                    taero[center_pix] = 0.05;
+                    teps[center_pix] = 1.5;
                 }
             }  /* end if water */
+#endif
 
             /* Reset the looping variables to the center of the aerosol window
                versus the actual non-fill/non-cloud pixel that was processed
@@ -1577,6 +1635,7 @@ int compute_sr_refl
     fclose (aero_fptr);
 #endif
 
+#ifdef GAIL /* Aerosols will either be valid, cloud, shadow, or water */
     /* Interpolate the aerosol pixels which could not be inverted */
     mytime = time(NULL);
     printf ("Interpolating the NxN window aerosol values ... %s\n",
@@ -1601,13 +1660,14 @@ int compute_sr_refl
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
+#endif
 
     /* Use the center of the aerosol windows to interpolate the remaining
        pixels in the window */
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s\n",
         ctime(&mytime));
-    aerosol_interp (xml_metadata, qaband, ipflag, taero, nlines, nsamps);
+    aerosol_interp (xml_metadata, sband, qaband, ipflag, taero, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1643,10 +1703,16 @@ int compute_sr_refl
                     continue;
 
                 /* If this pixel is cloud, then don't process. taero values
-                   are generic values anyhow. */
+                   are generic values anyhow, but TOA values will be returned
+                   for clouds (not shadows). */
                 if (is_cloud (qaband[curr_pix]))
                     continue;
 
+//if (i == 2757 && j == 7259)
+//{
+//    printf ("DEBUG: line, samp: %d, %d\n", i, j);
+//    printf ("DEBUG: aerosol value: %f\n", taero[curr_pix]);
+//}
                 /* Determine the solar and view angles for the current pixel */
                 xtv = vza[curr_pix] * 0.01;
                 xmuv = cos(xtv * DEG2RAD);
@@ -2114,6 +2180,39 @@ bool is_cloud_or_shadow
     if (level1_qa_cloud_confidence (l1_qa_pix) == 3 ||
         level1_qa_cloud_shadow_confidence (l1_qa_pix) == 3 ||
         level1_qa_cirrus_confidence (l1_qa_pix) == 3)
+        return (true);
+    else
+        return (false);
+}
+
+
+/******************************************************************************
+MODULE:  is_shadow
+
+PURPOSE:  Determines if the pixel is a cloud shadow.  The Level-1 QA band is
+used.  A confidence of high for this QA type will result in the pixel being
+flagged as a cloud shadow.
+
+RETURN VALUE:
+Type = boolean
+Value           Description
+-----           -----------
+false           Pixel is not cloud shadow
+true            Pixel is cloud shadow
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+bool is_shadow
+(
+    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
+)
+{
+    /* If the confidence level is high for cloud shadow, then flag this as a
+       cloud */
+    if (level1_qa_cloud_shadow_confidence (l1_qa_pix) == 3)
         return (true);
     else
         return (false);

@@ -162,6 +162,11 @@ bool is_cloud_or_shadow
     uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
 );
 
+bool is_shadow
+(
+    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
+);
+
 bool is_water
 (
     int16 band4_pix,     /* I: Band 4 reflectance for current pixel */
