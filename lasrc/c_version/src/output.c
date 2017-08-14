@@ -230,6 +230,7 @@ Output_t *open_output
         }
         else if (output_type == OUTPUT_RADSAT)
         {
+printf ("DEBUG: Band %d is RADSAT_QA band\n", ib);
             /* Common QA band fields */
             bmeta[ib].data_type = ESPA_UINT16;
             bmeta[ib].fill_value = RADSAT_FILL_VALUE;
@@ -245,6 +246,7 @@ Output_t *open_output
                 error_handler (true, FUNC_NAME, errmsg);
                 return (NULL);
             }
+printf ("DEBUG: nbits for RADSAT is %d\n", bmeta[ib].nbits);
 
             /* Identify the bitmap values for the mask */
             strcpy (bmeta[ib].bitmap_description[0],
@@ -426,7 +428,8 @@ NOTES:
 ******************************************************************************/
 int free_output
 (
-    Output_t *this    /* I/O: Output data structure to free */
+    Output_t *this,   /* I/O: Output data structure to free */
+    Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 )
 {
     char FUNC_NAME[] = "free_output";   /* function name */
@@ -443,13 +446,16 @@ int free_output
     if (this != NULL)
     {
         /* Free the bitmap data for the aerosol and radsat bands */
-        if (this->metadata.band[SR_AEROSOL].nbits > 0)
+        if (output_type == OUTPUT_SR &&
+            this->metadata.band[SR_AEROSOL].nbits > 0)
         {
             for (b = 0; b < this->metadata.band[SR_AEROSOL].nbits; b++)
                 free (this->metadata.band[SR_AEROSOL].bitmap_description[b]);
             free (this->metadata.band[SR_AEROSOL].bitmap_description);
         }
-        else if (this->metadata.band[SR_RADSAT].nbits > 0)
+
+        if (output_type == OUTPUT_RADSAT &&
+            this->metadata.band[SR_RADSAT].nbits > 0)
         {
             for (b = 0; b < this->metadata.band[SR_RADSAT].nbits; b++)
                 free (this->metadata.band[SR_RADSAT].bitmap_description[b]);
