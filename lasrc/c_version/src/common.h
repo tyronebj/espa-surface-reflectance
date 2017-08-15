@@ -17,7 +17,7 @@ typedef char byte;
 
 /* Define the default aerosol value */
 #define DEFAULT_AERO 0.05
-#define DEFALUT_EPS 1.5
+#define DEFAULT_EPS 1.5
 
 /* Define the size of the aerosol window that will be used when running the
    aerosol inversion.  The aerosols will be inverted for the center of the
