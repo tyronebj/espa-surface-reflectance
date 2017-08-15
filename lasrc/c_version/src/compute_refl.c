@@ -1523,6 +1523,11 @@ int compute_sr_refl
     printf ("Computing median of clear pixels in NxN windows %s\n",
         ctime(&mytime));
     median_aerosol = find_median_aerosol (ipflag, taero, nlines, nsamps);
+    if (median_aerosol == 0.0)
+    {   /* error message already printed */
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
     printf ("Median aerosol value for clear aerosols is %f\n", median_aerosol);
 
     /* Fill the cloud, shadow, and water pixels with the median aerosol

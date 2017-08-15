@@ -377,11 +377,11 @@ float find_median_aerosol
     {
         sprintf (errmsg, "Error allocating memory for clear aerosol array");
         error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
+        return (0.0);
     }
 
-    /* Compute the average of the 5x5 window of aerosols (using the NxN windows)
-       for each center window pixel that failed aerosol inversion */
+    /* Loop through the NxN center window values and write the clear aerosol
+       values to the aerosol array for determining the median */
     nbclrpix = 0;
     for (line = HALF_AERO_WINDOW; line < nlines; line += AERO_WINDOW)
     {
