@@ -14,7 +14,7 @@ RM    = rm
 EXTRA = -Wall $(EXTRA_OPTIONS)
 
 # Define the include files
-INC = aero_interp.h common.h date.h input.h output.h lut_subr.h lasrc.h
+INC = aero_interp.h common.h date.h input.h output.h quick_select.h lut_subr.h lasrc.h
 
 # Define the source code and object files
 SRC = aero_interp.c       \
@@ -24,6 +24,7 @@ SRC = aero_interp.c       \
       input.c             \
       lut_subr.c          \
       output.c            \
+      quick_select.c      \
       subaeroret.c        \
       lasrc.c
 OBJ = $(SRC:.c=.o)

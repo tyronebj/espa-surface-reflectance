@@ -1381,7 +1381,6 @@ int readluts
         return (ERROR);
     }
 
-/* GAIL TODO -- can this be read all at one time?? Same with tsmin. */
     edges[0] = 1;   /* number of lines */
     for (i = 0; i < NVIEW_ZEN_VALS; i++)
     {
@@ -1587,7 +1586,6 @@ int readluts
         return (ERROR);
     }
 
-    /* GAIL TODO */
     start[0] = 0;   /* lines */
     start[1] = 0;   /* samples */
     edges[0] = 20;  /* number of lines */

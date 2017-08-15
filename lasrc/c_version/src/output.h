@@ -53,7 +53,8 @@ int close_output
 
 int free_output
 (
-    Output_t *this    /* I/O: Output data structure to free */
+    Output_t *this,   /* I/O: Output data structure to free */
+    Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 );
 
 int put_output_lines

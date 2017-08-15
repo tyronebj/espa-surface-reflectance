@@ -468,7 +468,7 @@ int main (int argc, char *argv[])
         for (ib = SR_BAND1; ib <= SR_BAND7; ib++)
             unlink (toa_output->metadata.band[ib].file_name);
     }
-    free_output (toa_output);
+    free_output (toa_output, OUTPUT_TOA);
 
     /* Open the RADSAT output file */
     radsat_output = open_output (&xml_metadata, input, OUTPUT_RADSAT);
@@ -519,7 +519,7 @@ int main (int argc, char *argv[])
 
     /* Close the output radsat product, cleanup bands, and free the memory */
     close_output (radsat_output, OUTPUT_RADSAT);
-    free_output (radsat_output);
+    free_output (radsat_output, OUTPUT_RADSAT);
     free (radsat);
 
     /* Only continue with the surface reflectance corrections if SR processing

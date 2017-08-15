@@ -408,6 +408,7 @@ int compute_sr_refl
                              line, samp+1; line+1, samp; and line+1, samp+1 */
     float wv11, wv12, wv21, wv22;  /* water vapor at line,samp;
                              line, samp+1; line+1, samp; and line+1, samp+1 */
+    float median_aerosol; /* median aerosol value for clear pixels */
     uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
     float *twvi = NULL;   /* interpolated water vapor value,
@@ -945,19 +946,9 @@ int compute_sr_refl
             /* If this non-fill pixel is water, then look for a pixel which is
                not water.  If none are found then the whole window is fill or
                water.  Flag this pixel as water. */
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: line, samp = %d, %d\n", center_line, center_samp);
-//    printf ("DEBUG:     band4 = %d\n", sband[SR_BAND4][curr_pix]);
-//    printf ("DEBUG:     band5 = %d\n", sband[SR_BAND5][curr_pix]);
-//}
             if (is_water (sband[SR_BAND4][curr_pix],
                           sband[SR_BAND5][curr_pix]))
             {
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: IS WATER\n");
-//}
                 /* Look for other non-fill/non-water pixels in the window.
                    Start with the center of the window and search outward. */
                 if (find_closest_non_water (qaband, sband, nlines, nsamps,
@@ -968,21 +959,13 @@ int compute_sr_refl
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: Closest non-water line, samp = %d, %d\n", nearest_line, nearest_samp);
-//}
                 }
                 else
                 {
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: Whole window is water/fill\n");
-//}
                     /* Assign generic values for the water pixel */
                     ipflag[center_pix] = (1 << IPFLAG_WATER);
-                    taero[center_pix] = 0.05;
-                    teps[center_pix] = 1.5;
+                    taero[center_pix] = DEFAULT_AERO;
+                    teps[center_pix] = DEFAULT_EPS;
 
                     /* Reset the looping variables to the center of the aerosol
                        window versus the actual non-fill pixel that was
@@ -1005,10 +988,6 @@ int compute_sr_refl
                 /* Look for other non-fill/non-water/non-cloud/non-shadow
                    pixels in the window.  Start with the center of the window
                    and search outward. */
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: IS CLOUD\n");
-//}
                 if (find_closest_non_cloud_shadow_water (qaband, sband, nlines,
                     nsamps, center_line, center_samp, &nearest_line,
                     &nearest_samp))
@@ -1018,10 +997,6 @@ int compute_sr_refl
                     i = nearest_line;
                     j = nearest_samp;
                     curr_pix = i * nsamps + j;
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: Closest non-cloud line, samp = %d, %d\n", nearest_line, nearest_samp);
-//}
                 }
             }
 
@@ -1035,8 +1010,8 @@ int compute_sr_refl
                     ipflag[center_pix] = (1 << IPFLAG_CLOUD);
                 else if (is_shadow (qaband[curr_pix]))
                     ipflag[center_pix] = (1 << IPFLAG_SHADOW);
-                taero[center_pix] = 0.05;
-                teps[center_pix] = 1.5;
+                taero[center_pix] = DEFAULT_AERO;
+                teps[center_pix] = DEFAULT_EPS;
 
                 /* Reset the looping variables to the center of the aerosol
                    window versus the actual non-fill/non-cloud pixel that
@@ -1050,10 +1025,6 @@ int compute_sr_refl
                 continue;
             }
 
-//if (center_line == 3187 && center_samp == 907)
-//{
-//    printf ("DEBUG: ipflag is %d\n", ipflag[center_pix]);
-//}
             /* Get the lat/long for the current pixel (which may not be the
                center of the aerosol window), for the center of that pixel */
             img.l = i - 0.5;
@@ -1483,105 +1454,17 @@ int compute_sr_refl
                 {
                     /* Flag as water and use generic values */
                     ipflag[center_pix] |= (1 << IPFLAG_WATER);
-                    taero[center_pix] = 0.05;
-                    teps[center_pix] = 1.5;
+                    taero[center_pix] = DEFAULT_AERO;
+                    teps[center_pix] = DEFAULT_EPS;
                 }
             }
             else
             {
                 /* Flag as water and use generic values */
                 ipflag[center_pix] |= (1 << IPFLAG_WATER);
-                taero[center_pix] = 0.05;
-                teps[center_pix] = 1.5;
+                taero[center_pix] = DEFAULT_AERO;
+                teps[center_pix] = DEFAULT_EPS;
             }
-
-#ifdef GAIL
-            /* Redo the aerosol retrieval if flagged as water, which is
-               basically anything that isn't a good aerosol retrieval and
-               flagged as clear.  If this is actually water, then we will use
-               generic values.  Previously identified values are already
-               flagged and generic values are being used. */
-            if (btest (ipflag[center_pix], IPFLAG_WATER))
-            {
-                /* Reset variables */
-                erelc[DN_BAND1] = 1.0;
-                erelc[DN_BAND2] = -1.0;
-                erelc[DN_BAND3] = -1.0;
-                erelc[DN_BAND4] = 1.0;
-                erelc[DN_BAND5] = 1.0;
-                erelc[DN_BAND6] = -1.0;
-                erelc[DN_BAND7] = 1.0;
-                erelc[DN_BAND8] = -1.0;
-                troatm[DN_BAND1] = aerob1[curr_pix] * SCALE_FACTOR;
-                troatm[DN_BAND4] = aerob4[curr_pix] * SCALE_FACTOR;
-                troatm[DN_BAND5] = aerob5[curr_pix] * SCALE_FACTOR;
-                troatm[DN_BAND7] = aerob7[curr_pix] * SCALE_FACTOR;
-                iband1 = DN_BAND4;
-                iband3 = DN_BAND1;
-                pres = tp[curr_pix];
-                uoz = tozi[curr_pix];
-                uwv = twvi[curr_pix];
-                eps = 1.5;
-                iaots = 0;
-
-                /* Aerosol retrieval over water */
-                retval = subaeroretwat (iband1, iband3, xts, xtv, xmus, xmuv,
-                    xfi, cosxfi, pres, uoz, uwv, erelc, troatm, tpres,
-                    aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
-                    xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
-                    tts, indts, ttv, tauray, ogtransa1, ogtransb0, ogtransb1,
-                    wvtransa, wvtransb, oztransa, &raot, &residual, &iaots,
-                    eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing aerosol retrieval over "
-                        "water.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
-
-                teps[center_pix] = eps;
-                taero[center_pix] = raot;
-                corf = raot / xmus;
-
-                /* Test band 1 reflectance to eliminate negative */
-                iband = DN_BAND1;
-                rotoa = aerob1[curr_pix] * SCALE_FACTOR;
-                raot550nm = raot;
-                retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
-                    raot550nm, iband, pres, tpres, aot550nm, rolutt,
-                    transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                    normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
-                    ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-                    ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
-                    &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing lambertian "
-                        "atmospheric correction type 2.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
-                ros1 = roslamb;
-
-                /* Test the quality of the aerosol inversion */
-                if (residual > (0.01 + 0.005 * corf) || ros1 < 0)
-                {
-                    /* Set the retrieval failed bit, and unset the water bit */
-                    ipflag[center_pix] &= ~(1 << IPFLAG_WATER);
-                    ipflag[center_pix] |= (1 << IPFLAG_RETRIEVAL_FAIL);
-                }
-                else
-                {
-                    /* This is water. Keep it flagged as such and use generic
-                       values for water. */
-                    ipflag[center_pix] = (1 << IPFLAG_WATER);
-                    taero[center_pix] = 0.05;
-                    teps[center_pix] = 1.5;
-                }
-            }  /* end if water */
-#endif
 
             /* Reset the looping variables to the center of the aerosol window
                versus the actual non-fill/non-cloud pixel that was processed
@@ -1635,19 +1518,19 @@ int compute_sr_refl
     fclose (aero_fptr);
 #endif
 
-#ifdef GAIL /* Aerosols will either be valid, cloud, shadow, or water */
-    /* Interpolate the aerosol pixels which could not be inverted */
+    /* Find the median of the clear aerosols */
     mytime = time(NULL);
-    printf ("Interpolating the NxN window aerosol values ... %s\n",
+    printf ("Computing median of clear pixels in NxN windows %s\n",
         ctime(&mytime));
-    if (aerosol_window_interp (qaband, ipflag, taero, teps, nlines, nsamps) !=
-        SUCCESS)
-    {
-        sprintf (errmsg, "Performing interpolation of the NxN window aerosol "
-            "values.");
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
+    median_aerosol = find_median_aerosol (ipflag, taero, nlines, nsamps);
+    printf ("Median aerosol value for clear aerosols is %f\n", median_aerosol);
+
+    /* Fill the cloud, shadow, and water pixels with the median aerosol
+       value instead of the default aerosol value */
+    mytime = time(NULL);
+    printf ("Fill non-clear aerosol values in NxN windows with the median %s\n",
+        ctime(&mytime));
+    aerosol_fill_median (ipflag, taero, median_aerosol, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1660,14 +1543,14 @@ int compute_sr_refl
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
-#endif
 
     /* Use the center of the aerosol windows to interpolate the remaining
        pixels in the window */
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s\n",
         ctime(&mytime));
-    aerosol_interp (xml_metadata, sband, qaband, ipflag, taero, nlines, nsamps);
+    aerosol_interp (xml_metadata, sband, qaband, ipflag, taero, median_aerosol,
+        nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1708,11 +1591,6 @@ int compute_sr_refl
                 if (is_cloud (qaband[curr_pix]))
                     continue;
 
-//if (i == 2757 && j == 7259)
-//{
-//    printf ("DEBUG: line, samp: %d, %d\n", i, j);
-//    printf ("DEBUG: aerosol value: %f\n", taero[curr_pix]);
-//}
                 /* Determine the solar and view angles for the current pixel */
                 xtv = vza[curr_pix] * 0.01;
                 xmuv = cos(xtv * DEG2RAD);
@@ -1892,7 +1770,7 @@ int compute_sr_refl
 
     /* Close the output surface reflectance products */
     close_output (sr_output, OUTPUT_SR);
-    free_output (sr_output);
+    free_output (sr_output, OUTPUT_SR);
 
     /* Free the spatial mapping pointer */
     free (space);
@@ -2110,7 +1988,7 @@ int init_sr_refl
         *pres = 1013.0 * exp (-dem[dem_pix] * ONE_DIV_8500);
     else
         *pres = 1013.0;
-    *raot550nm = 0.05;
+    *raot550nm = DEFAULT_AERO;
 
     /* Successful completion */
     return (SUCCESS);

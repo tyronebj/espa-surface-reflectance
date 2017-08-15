@@ -230,7 +230,6 @@ Output_t *open_output
         }
         else if (output_type == OUTPUT_RADSAT)
         {
-printf ("DEBUG: Band %d is RADSAT_QA band\n", ib);
             /* Common QA band fields */
             bmeta[ib].data_type = ESPA_UINT16;
             bmeta[ib].fill_value = RADSAT_FILL_VALUE;
@@ -246,7 +245,6 @@ printf ("DEBUG: Band %d is RADSAT_QA band\n", ib);
                 error_handler (true, FUNC_NAME, errmsg);
                 return (NULL);
             }
-printf ("DEBUG: nbits for RADSAT is %d\n", bmeta[ib].nbits);
 
             /* Identify the bitmap values for the mask */
             strcpy (bmeta[ib].bitmap_description[0],

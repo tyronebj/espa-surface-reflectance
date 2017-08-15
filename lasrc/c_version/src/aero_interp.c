@@ -1,4 +1,5 @@
 #include "aero_interp.h"
+#include "quick_select.h"
 
 /******************************************************************************
 MODULE:  aerosol_interp
@@ -29,6 +30,7 @@ void aerosol_interp
                           for the center of the aerosol windows.  This routine
                           will fill in the pixels for the remaining, non-center
                           pixels of the window. */
+    float median_aero, /* I: median aerosol value of clear pixels */
     int nlines,        /* I: number of lines in qaband & taero bands */
     int nsamps         /* I: number of samps in qaband & taero bands */
 )
@@ -145,16 +147,16 @@ void aerosol_interp
                 continue;
 
             /* If this pixel is cloud or shadow, then don't process. Use
-               default aerosol values.  Flag them separately. */
+               median aerosol values.  Flag them separately. */
             else if (is_cloud (qaband[curr_pix]))
             {
-                taero[curr_pix] = 0.05;
+                taero[curr_pix] = median_aero;
                 ipflag[curr_pix] = (1 << IPFLAG_CLOUD);
                 continue;
             }
             else if (is_shadow (qaband[curr_pix]))
             {
-                taero[curr_pix] = 0.05;
+                taero[curr_pix] = median_aero;
                 ipflag[curr_pix] = (1 << IPFLAG_SHADOW);
                 continue;
             }
@@ -164,7 +166,7 @@ void aerosol_interp
             else if (is_water (sband[SR_BAND4][curr_pix],
                                sband[SR_BAND5][curr_pix]))
             {
-                taero[curr_pix] = 0.05;
+                taero[curr_pix] = median_aero;
                 ipflag[curr_pix] = (1 << IPFLAG_WATER);
                 continue;
             }
@@ -178,11 +180,6 @@ void aerosol_interp
                window.  Negative values are at the left of the window. */
             xaero = (float) (samp - center_samp) / AERO_WINDOW;
             v = xaero - (int) xaero;
-//if (line == 2677 && samp == 1436)
-//{
-//printf ("DEBUG: line, samp = %d, %d\n", line, samp);
-//printf ("DEBUG: u, v = %f, %f\n", u, v);
-//}
 
             /* If the current line, sample are the same as the center line,
                sample, then skip to the next pixel.  We already have the
@@ -214,11 +211,6 @@ void aerosol_interp
                 if (center_samp1 >= nsamps-1)
                     center_samp1 = center_samp;
             }
-//if (line == 2677 && samp == 1436)
-//{
-//printf ("DEBUG: center_line, center_samp = %d, %d\n", center_line, center_samp);
-//printf ("DEBUG: center_line1, center_samp1 = %d, %d\n", center_line1, center_samp1);
-//}
 
             /* Determine the four aerosol window pixels to be used for
                interpolating the current pixel */
@@ -232,13 +224,6 @@ void aerosol_interp
             aero12 = taero[aero_pix12];
             aero21 = taero[aero_pix21];
             aero22 = taero[aero_pix22];
-//if (line == 2677 && samp == 1436)
-//{
-//printf ("DEBUG: aero11 = %f\n", aero11);
-//printf ("DEBUG: aero12 = %f\n", aero12);
-//printf ("DEBUG: aero21 = %f\n", aero21);
-//printf ("DEBUG: aero22 = %f\n", aero22);
-//}
 
             /* From here make the fractional distance positive, regardless of
                where it is in the window. */
@@ -253,18 +238,8 @@ void aerosol_interp
             one_minus_u_x_v = one_minus_u * v;
             u_x_one_minus_v = u * one_minus_v;
             u_x_v = u * v;
-//if (line == 2677 && samp == 1436)
-//{
-//printf ("DEBUG: one_minus_u = %f\n", one_minus_u);
-//printf ("DEBUG: one_minus_v = %f\n", one_minus_v);
-//printf ("DEBUG: one_minus_u_x_one_minus_v = %f\n", one_minus_u_x_one_minus_v);
-//printf ("DEBUG: one_minus_u_x_v = %f\n", one_minus_u_x_v);
-//printf ("DEBUG: u_x_one_minus_v = %f\n", u_x_one_minus_v);
-//printf ("DEBUG: u_x_v = %f\n", u_x_v);
-//}
 
             /* Interpolate the aerosol */
-            /* TODO -- Skip the cloud aerosols??? .... */
             taero[curr_pix] = aero11 * one_minus_u_x_one_minus_v +
                               aero12 * one_minus_u_x_v +
                               aero21 * u_x_one_minus_v +
@@ -475,8 +450,8 @@ int aerosol_window_interp
                     !btest (ipflag[curr_pix], IPFLAG_SHADOW) &&
                     !btest (ipflag[curr_pix], IPFLAG_WATER))
                 {
-                    taeros[curr_pix] = 0.05;
-                    tepss[curr_pix] = 1.5;
+                    taeros[curr_pix] = DEFAULT_AERO;
+                    tepss[curr_pix] = DEFAULT_EPS;
                     smflag[curr_pix] = true;
                 }
             }
@@ -509,8 +484,8 @@ int aerosol_window_interp
                             !btest (ipflag[curr_pix], IPFLAG_WATER) &&
                             !smflag[curr_pix])
                         {
-                            taeros[curr_pix] = 0.05;
-                            tepss[curr_pix] = 1.5;
+                            taeros[curr_pix] = DEFAULT_AERO;
+                            tepss[curr_pix] = DEFAULT_EPS;
                             smflag[curr_pix] = true;
                         }  /* if qaband and smflag */
                     }  /* for samp */
@@ -619,4 +594,144 @@ int aerosol_window_interp
 
     /* Successful completion */
     return (SUCCESS);
+}
+
+
+/******************************************************************************
+MODULE:  aerosol_fill_median
+
+PURPOSE:  Changes the aerosol window values for water, cloud, and shadow to
+be the median aerosol value of the clear pixels.
+
+RETURN VALUE:
+Type = N/A
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+void aerosol_fill_median
+(
+    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps.  It is expected that the ipflag
+                               values are computed for the center of the
+                               aerosol windows. */
+    float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps
+                          It is expected that the aerosol values are computed
+                          for the center of the aerosol windows.  This routine
+                          will interpolate/average the pixels of the windows
+                          that failed the aerosol inversion (using ipflag) */
+    float median_aero, /* I: median aerosol value of clear pixels */
+    int nlines,        /* I: number of lines in ipflag & taero bands */
+    int nsamps         /* I: number of samps in ipflag & taero bands */
+)
+{
+    int line, samp;       /* looping variable for lines and samples */
+    int curr_pix;         /* current pixel in 1D arrays of nlines * nsamps */
+
+    /* Loop through the center of the NxN window pixels */
+    for (line = HALF_AERO_WINDOW; line < nlines; line += AERO_WINDOW)
+    {
+        curr_pix = line * nsamps + HALF_AERO_WINDOW;
+        for (samp = HALF_AERO_WINDOW; samp < nsamps;
+             samp += AERO_WINDOW, curr_pix += AERO_WINDOW)
+        {
+            /* Find cloud, shadow, and water pixels and reset the default
+               aerosol value to that of the median aerosol value */
+            if (btest (ipflag[curr_pix], IPFLAG_CLOUD) ||
+                btest (ipflag[curr_pix], IPFLAG_SHADOW) ||
+                btest (ipflag[curr_pix], IPFLAG_WATER))
+            {
+                taero[curr_pix] = median_aero;
+            }
+        }
+    }
+}
+
+
+/******************************************************************************
+MODULE:  find_median_aerosol
+
+PURPOSE:  Finds the median aerosol value for the valid land aerosols.
+
+RETURN VALUE:
+Type = float
+Value           Description
+-----           -----------
+zero            Error allocating memory for the aerosol array
+non-zero        Median aerosol value of the array
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+float find_median_aerosol
+(
+    uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
+                             nlines x nsamps.  It is expected that the ipflag
+                             values are computed for the center of the aerosol
+                             windows. */
+    float *taero,      /* I: aerosol values for each pixel, nlines x nsamps
+                             It is expected that the aerosol values are computed
+                             for the center of the aerosol windows */
+    int nlines,        /* I: number of lines in taero band */
+    int nsamps         /* I: number of samps in taero band */
+)
+{
+    char errmsg[STR_SIZE];                         /* error message */
+    char FUNC_NAME[] = "find_median_aerosol";      /* function name */
+    int line, samp;       /* looping variable for lines and samples */
+    int curr_pix;         /* current pixel in 1D arrays of nlines * nsamps */
+    int nbclrpix;         /* number of clear aerosol pixels in this array */
+    int nwindows;         /* number of NxN windows in the image */
+    float median;         /* median clear aerosol value */
+    float *aero = NULL;   /* array of the clear aerosol values */
+
+    /* Determine how many NxN windows there are in this array of data */
+    nwindows = ceil ((float) nlines / AERO_WINDOW) *
+               ceil ((float) nsamps / AERO_WINDOW);
+
+    /* Allocate memory for the aerosols in each window */
+    aero = calloc (nwindows, sizeof (float));
+    if (aero == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for clear aerosol array");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Compute the average of the 5x5 window of aerosols (using the NxN windows)
+       for each center window pixel that failed aerosol inversion */
+    nbclrpix = 0;
+    for (line = HALF_AERO_WINDOW; line < nlines; line += AERO_WINDOW)
+    {
+        curr_pix = line * nsamps + HALF_AERO_WINDOW;
+        for (samp = HALF_AERO_WINDOW; samp < nsamps;
+             samp += AERO_WINDOW, curr_pix += AERO_WINDOW)
+        {
+            /* Process clear aerosols */
+            if (btest (ipflag[curr_pix], IPFLAG_CLEAR))
+            {
+                aero[nbclrpix] = taero[curr_pix];
+                nbclrpix++;
+            }  /* if pixel is clear */
+        }  /* for samp */
+    }  /* for line */
+
+    /* If no clear aerosols were available, then just return a default value */
+    if (nbclrpix == 0)
+        median = DEFAULT_AERO;
+    else
+    {
+        /* Get the median of the clear pixels */
+        median = quick_select (aero, nbclrpix);
+    }
+
+    /* Free memory */
+    free (aero);
+
+    /* Successful completion */
+    return (median);
 }

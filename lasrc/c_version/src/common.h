@@ -15,18 +15,22 @@ typedef char byte;
 /* Surface reflectance version */
 #define SR_VERSION "1.3.0"
 
+/* Define the default aerosol value */
+#define DEFAULT_AERO 0.05
+#define DEFALUT_EPS 1.5
+
 /* Define the size of the aerosol window that will be used when running the
    aerosol inversion.  The aerosols will be inverted for the center of the
    NxN window (with special handling for fill, clouds, water) and then used
    to fill the rest of the window.  Aerosols are fairly homogenious over a
    reasonable area.  Note: if processing aersol inversion for every pixel,
    then set AERO_WINDOW to 1 and HALF_AERO_WINDOW to 0. */
-//#define AERO_WINDOW 9
-//#define HALF_AERO_WINDOW 4
+#define AERO_WINDOW 9
+#define HALF_AERO_WINDOW 4
 //#define AERO_WINDOW 7
 //#define HALF_AERO_WINDOW 3
-#define AERO_WINDOW 5
-#define HALF_AERO_WINDOW 2
+//#define AERO_WINDOW 5
+//#define HALF_AERO_WINDOW 2
 //#define AERO_WINDOW 3
 //#define HALF_AERO_WINDOW 1
 
