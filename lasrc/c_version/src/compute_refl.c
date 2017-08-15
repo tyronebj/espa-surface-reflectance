@@ -558,7 +558,7 @@ int compute_sr_refl
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
-//#define WRITE_TAERO 1
+#define WRITE_TAERO 1
 #ifdef WRITE_TAERO
     FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
 #endif
