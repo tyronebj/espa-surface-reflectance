@@ -221,6 +221,7 @@ void mask_aero_window
                              (true=not clear, false=clear) */
 );
 
+
 /* Defines for the Level-1 BQA band */
 /* Define the constants used for shifting bits and ANDing with the bits to
    get to the desire quality bits */

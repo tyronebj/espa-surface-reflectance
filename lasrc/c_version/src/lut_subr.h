@@ -11,6 +11,50 @@
 #include "error_handler.h"
 
 /* Prototypes */
+void atmcorlamb2_new
+(
+    float tgo,                /* I: other gaseous transmittance  */
+    float xrorayp,            /* I: reflectance of the atmosphere due to
+                                    molecular (Rayleigh) scattering */
+    float roatm_upper,        /* I: roatm upper bound poly_fit, given band */
+    float roatm_coef[NCOEF],  /* I: poly_fit coefficients for roatm  */
+    float ttatmg_coef[NCOEF], /* I: poly_fit coefficients for ttatmg */
+    float satm_coef[NCOEF],   /* I: poly_fit coefficients for satm */
+    float raot550nm,          /* I: nearest value of AOT */
+    int iband,                /* I: band index (0-based) */
+    float normext_ib_0_3,     /* I: normext[iband][0][3] */
+    float rotoa,              /* I: top of atmosphere reflectance */
+    float *roslamb,           /* O: lambertian surface reflectance */
+    float eps                 /* I: angstroem coefficient; spectral dependency
+                                    of the AOT */
+);
+
+void subaeroret_new
+(
+    int iband1,                            /* I: band 1 index (0-based) */
+    int iband3,                            /* I: band 3 index (0-based) */
+    float erelc[NSR_BANDS],                /* I: band ratio variable */
+    float troatm[NSR_BANDS],               /* I: toa reflectance */
+    float tgo_arr[NREFL_BANDS],            /* I: per-band other gaseous
+                                                 transmittance */
+    float xrorayp_arr[NREFL_BANDS],        /* I: per-band reflectance of the
+                                                 atmosphere due to molecular
+                                                 (Rayleigh) scattering */
+    int roatm_iaMax[NREFL_BANDS],          /* I: roatm_iaMax */
+    float roatm_coef[NREFL_BANDS][NCOEF],  /* I: per band polynomial
+                                                 coefficients for roatm */
+    float ttatmg_coef[NREFL_BANDS][NCOEF], /* I: per band polynomial
+                                                 coefficients for ttatmg */
+    float satm_coef[NREFL_BANDS][NCOEF],   /* I: per band polynomial
+                                                 coefficients for satm */
+    float normext_p0a3_arr[NREFL_BANDS],   /* I: normext[iband][0][3] */
+    float *raot,     /* O: AOT reflectance */
+    float *residual, /* O: model residual */
+    int *iaots,      /* I/O: AOT index that is passed in and out for multiple
+                             calls (0-based) */
+    float eps        /* I: angstroem coefficient; spectral dependency of AOT */
+);
+
 int atmcorlamb2
 (
     float xts,                       /* I: solar zenith angle (deg) */

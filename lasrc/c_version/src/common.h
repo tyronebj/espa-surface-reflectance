@@ -33,6 +33,8 @@ typedef char byte;
 //#define HALF_AERO_WINDOW 2
 //#define AERO_WINDOW 3
 //#define HALF_AERO_WINDOW 1
+//#define AERO_WINDOW 1
+//#define HALF_AERO_WINDOW 0
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10
@@ -92,6 +94,10 @@ typedef char byte;
 #define NSUNANGLE_VALS 22
 #define NVIEW_ZEN_VALS 20
 #define NSOLAR_ZEN_VALS 22
+
+/* Coefficients for determining atmospheric values */
+#define NCOEF 4
+#define NREFL_BANDS 7
 
 /* Define the input products to be processed.  NOTE: DN_TTL should be the same
    as NBAND_TTL_MAX. */

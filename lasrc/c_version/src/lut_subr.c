@@ -16,6 +16,92 @@ NOTES:
 #include "mfhdf.h"
 
 /******************************************************************************
+MODULE:  atmcorlamb2_new
+
+PURPOSE:  Lambertian atmospheric correction 2, updated to compute the roatm,
+ttatmg, and satm from input coefficients.
+
+RETURN VALUE:
+Type = N/A
+
+NOTES:
+******************************************************************************/
+void atmcorlamb2_new
+(
+    float tgo,                /* I: other gaseous transmittance  */
+    float xrorayp,            /* I: reflectance of the atmosphere due to
+                                    molecular (Rayleigh) scattering */
+    float roatm_upper,        /* I: roatm upper bound poly_fit, given band */
+    float roatm_coef[NCOEF],  /* I: poly_fit coefficients for roatm  */
+    float ttatmg_coef[NCOEF], /* I: poly_fit coefficients for ttatmg */
+    float satm_coef[NCOEF],   /* I: poly_fit coefficients for satm */
+    float raot550nm,          /* I: nearest value of AOT */
+    int iband,                /* I: band index (0-based) */
+    float normext_ib_0_3,     /* I: normext[iband][0][3] */
+    float rotoa,              /* I: top of atmosphere reflectance */
+    float *roslamb,           /* O: lambertian surface reflectance */
+    float eps                 /* I: angstroem coefficient; spectral dependency
+                                    of the AOT */
+)
+{
+    float mraot550nm;      /* nearest value of AOT -- modified local variable */
+    float mraot550nm_sq;   /* mraot550nm squared */
+    float mraot550nm_cube; /* mraot550nm cubed */
+    float lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+    float roatm;           /* atmospheric intrinsic reflectance */
+    float ttatmg;          /* total atmospheric transmission */
+    float satm;            /* spherical albedo */
+
+    /* Modifiy the AOT value based on the angstroem coefficient and lambda
+       values */
+    if  (eps < 0.0)
+        mraot550nm = raot550nm;
+    else
+    {
+        if (iband <= DN_BAND7)
+        {
+            mraot550nm = (raot550nm / normext_ib_0_3) *
+                (pow ((lambda[iband] / 0.55), -eps));
+        }
+        else
+            mraot550nm = raot550nm;
+    }
+
+    /* Check the upper limit of the modified AOT value */
+    if (mraot550nm >= roatm_upper)
+        mraot550nm = roatm_upper;
+
+    /* Store the square and cube of the modified AOT value for multiple use */
+    mraot550nm_sq = mraot550nm * mraot550nm;
+    mraot550nm_cube = mraot550nm * mraot550nm *mraot550nm;
+
+    /* Compute the atmospheric intrinsic reflectance from the coefficients */
+    roatm = roatm_coef[3] +
+            roatm_coef[2] * mraot550nm +
+            roatm_coef[1] * mraot550nm_sq +
+            roatm_coef[0] * mraot550nm_cube;
+
+    /* Compute the total atmospheric transmission from the coefficients */
+    ttatmg = ttatmg_coef[3] +
+             ttatmg_coef[2] * mraot550nm +
+             ttatmg_coef[1] * mraot550nm_sq +
+             ttatmg_coef[0] * mraot550nm_cube;
+
+    /* Compute the spherical albedo from the coefficients */
+    satm = satm_coef[3] +
+           satm_coef[2] * mraot550nm +
+           satm_coef[1] * mraot550nm_sq +
+           satm_coef[0] * mraot550nm_cube;
+
+    /* Perform atmospheric correction */
+    *roslamb = (double) rotoa / tgo;
+    *roslamb = *roslamb - roatm;
+    *roslamb = *roslamb / ttatmg;
+    *roslamb = *roslamb / (1.0 + satm * (*roslamb));
+}
+
+
+/******************************************************************************
 MODULE:  atmcorlamb2
 
 PURPOSE:  Lambertian atmospheric correction 2.

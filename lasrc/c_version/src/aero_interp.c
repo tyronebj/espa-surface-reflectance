@@ -90,9 +90,7 @@ void aerosol_interp
     pixel_size_y = xml_metadata->band[refl_indx].pixel_size[1];
 
     /* Interpolate the aerosol data for each pixel location */
-    printf ("Interpolating the aerosol data ...\n");
     tmp_percent = 0;
-
     for (line = 0; line < nlines; line++)
     {
         /* update status, but not if multi-threaded */

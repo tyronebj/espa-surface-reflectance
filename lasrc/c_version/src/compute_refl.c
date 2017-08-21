@@ -1,6 +1,7 @@
 #include "lasrc.h"
 #include "time.h"
 #include "aero_interp.h"
+#include "poly_coeff.h"
 
 /******************************************************************************
 MODULE:  compute_toa_refl
@@ -66,7 +67,7 @@ int compute_toa_refl
 
     /* Start the processing */
     mytime = time(NULL);
-    printf ("Start TOA reflectance corrections: %s\n", ctime(&mytime));
+    printf ("Start TOA reflectance corrections: %s", ctime(&mytime));
 
     /* Allocate memory for band data */
     uband = calloc (nlines*nsamps, sizeof (uint16));
@@ -273,7 +274,7 @@ int compute_toa_refl
 
     /* Successful completion */
     mytime = time(NULL);
-    printf ("End of TOA reflectance computations: %s\n", ctime(&mytime));
+    printf ("End of TOA reflectance computations: %s", ctime(&mytime));
     return (SUCCESS);
 }
 
@@ -469,6 +470,22 @@ int compute_sr_refl
     int32 indts[22];       /* index for sun angle table */
     int iaots;             /* index for AOTs */
 
+    /* Atmospheric correction coefficient variables */
+    float tgo_arr[NREFL_BANDS];     /* per-band other gaseous transmittance */
+    float xrorayp_arr[NREFL_BANDS]; /* per-band reflectance of the atmosphere
+                                       due to molecular (Rayleigh) scattering */
+    float roatm_arr[NREFL_BANDS][NAOT_VALS];  /* per band AOT vals for roatm */
+    float ttatmg_arr[NREFL_BANDS][NAOT_VALS]; /* per band AOT vals for ttatmg */
+    float satm_arr[NREFL_BANDS][NAOT_VALS];   /* per band AOT vals for satm */
+    float roatm_coef[NREFL_BANDS][NCOEF];  /* per band poly coeffs for roatm */
+    float ttatmg_coef[NREFL_BANDS][NCOEF]; /* per band poly coeffs for ttatmg */
+    float satm_coef[NREFL_BANDS][NCOEF];   /* per band poly coeffs for satm */
+    float normext_p0a3_arr[NREFL_BANDS];   /* per band normext[iband][0][3] */
+    int roatm_iaMax[NREFL_BANDS];          /* ??? */
+    int ia;                                /* looping variable for AOTs */
+    int iaMaxTemp;                         /* max temp for current AOT level */
+    float arr1[NAOT_VALS], coef1[NCOEF];   /* temporary arrays */
+
     /* Auxiliary file variables */
     int16 *dem = NULL;        /* CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
     int16 *andwi = NULL;      /* avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
@@ -565,7 +582,7 @@ int compute_sr_refl
 
     /* Start processing */
     mytime = time(NULL);
-    printf ("Start surface reflectance corrections: %s\n", ctime(&mytime));
+    printf ("Start surface reflectance corrections: %s", ctime(&mytime));
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
@@ -692,9 +709,97 @@ int compute_sr_refl
     }  /* for ib */
     printf ("\n");
 
+    /* Start the retrieval of atmospheric correction parameters for each band */
+    mytime = time(NULL);
+    printf ("Starting retrieval of atmospheric correction parameters ... %s",
+        ctime(&mytime));
+    for (ib = 0; ib <= SR_BAND7; ib++)
+    {
+        /* Get the parameters for the atmospheric correction */
+        /* rotoa is not defined for this call, which is ok, but the
+           roslamb value is not valid upon output. Just set it to 0.0 to
+           be consistent. */
+        normext_p0a3_arr[ib] = normext[ib * NPRES_VALS * NAOT_VALS + 0 + 3];
+            /* normext[ib][0][3]; */
+        rotoa = 0.0;
+        eps = 2.5;
+        for (ia = 0; ia < NAOT_VALS; ia++)
+        {
+            raot550nm = aot550nm[ia];
+            retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi, raot550nm,
+                ib, pres, tpres, aot550nm, rolutt, transt, xtsstep, xtsmin,
+                xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
+                tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
+                ogtransb1, wvtransa, wvtransb, oztransa, rotoa, &roslamb, &tgo,
+                &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
+            if (retval != SUCCESS)
+            {
+                sprintf (errmsg, "Performing lambertian atmospheric correction "
+                    "type 2 for band %d.", ib);
+                error_handler (true, FUNC_NAME, errmsg);
+                exit (ERROR);
+            }
+
+            /* Store the AOT-related variables for use in the atmospheric
+               corrections */
+            roatm_arr[ib][ia] = roatm;
+            ttatmg_arr[ib][ia] = ttatmg;
+            satm_arr[ib][ia] = satm;
+        }
+
+        /* Store the band-related variables for use in the atmospheric
+           corrections. tgo and xrorayp are the same for each AOT, so just
+           save the last set for this band. */
+        tgo_arr[ib] = tgo;
+        xrorayp_arr[ib] = xrorayp;
+    }
+
+    for (ib = 0; ib <= SR_BAND7; ib++)
+    {
+        /* Get the polynomial coefficients for roatm */
+        for (ia = 0; ia < NAOT_VALS; ia++)
+            arr1[ia] = roatm_arr[ib][ia];
+        iaMaxTemp = 1;
+
+        for (ia = 1; ia < NAOT_VALS; ia++)
+        {
+            /* GAIL TODO --- clean these if statements up */
+            if (ia == NAOT_VALS-1)
+                iaMaxTemp = NAOT_VALS-1;
+
+            if ((arr1[ia] - arr1[ia-1]) > 0.00001)
+                continue;
+
+            if ((arr1[ia] - arr1[ia-1]) <= 0.00001)
+            {
+                iaMaxTemp = ia-1;
+                break;
+            }
+        }
+
+        roatm_iaMax[ib] = iaMaxTemp;
+        get_3rd_order_poly_coeff (aot550nm, arr1, iaMaxTemp, coef1);
+        for (ia = 0; ia < NCOEF; ia++)
+            roatm_coef[ib][ia] = coef1[ia];
+
+        /* Get the polynomial coefficients for ttatmg */
+        for (ia = 0; ia < NAOT_VALS; ia++)
+            arr1[ia] = ttatmg_arr[ib][ia];
+        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
+        for (ia = 0; ia < NCOEF; ia++)
+            ttatmg_coef[ib][ia] = coef1[ia];
+
+        /* Get the polynomial coefficients for satm */
+        for (ia = 0; ia < NAOT_VALS; ia++)
+            arr1[ia] = satm_arr[ib][ia];
+        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
+        for (ia = 0; ia < NCOEF; ia++)
+            satm_coef[ib][ia] = coef1[ia];
+    }
+
     /* Interpolate the auxiliary data for each pixel location */
     mytime = time(NULL);
-    printf ("Interpolating the auxiliary data ... %s\n", ctime(&mytime));
+    printf ("Interpolating the auxiliary data ... %s", ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, wv11, wv12, wv21, wv22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22)
@@ -719,7 +824,7 @@ int compute_sr_refl
         curr_pix = i * nsamps;
         for (j = 0; j < nsamps; j++, curr_pix++)
         {
-            /* If this pixel is fill, then don't process */
+            /* If this pixel is fill, do not process */
             if (qaband[curr_pix] == 1)
             {
                 ipflag[curr_pix] |= (1 << IPFLAG_FILL);
@@ -888,7 +993,7 @@ int compute_sr_refl
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
-    printf ("Aerosol Inversion using %d x %d aerosol window ... %s\n",
+    printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         AERO_WINDOW, AERO_WINDOW, ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
@@ -1291,18 +1396,9 @@ int compute_sr_refl
             uwv = twvi[curr_pix];
             eps = 1.0;
             iaots = 0;
-            retval = subaeroret (iband1, iband3, xts, xtv, xmus, xmuv, xfi,
-                cosxfi, pres, uoz, uwv, erelc, troatm, tpres, aot550nm,
-                rolutt, transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                normext, tsmax, tsmin, nbfic, nbfi, tts, indts, ttv, tauray,
-                ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
-                oztransa, &raot, &residual, &iaots, eps);
-            if (retval != SUCCESS)
-            {
-                sprintf (errmsg, "Performing aerosol retrieval.");
-                error_handler (true, FUNC_NAME, errmsg);
-                exit (ERROR);
-            }
+            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
+                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             eps1 = eps;
@@ -1311,18 +1407,9 @@ int compute_sr_refl
 
             /* Retrieve the aerosol information for eps 1.75 */
             eps = 1.75;
-            retval = subaeroret (iband1, iband3, xts, xtv, xmus, xmuv, xfi,
-                cosxfi, pres, uoz, uwv, erelc, troatm, tpres, aot550nm,
-                rolutt, transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                normext, tsmax, tsmin, nbfic, nbfi, tts, indts, ttv, tauray,
-                ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
-                oztransa, &raot, &residual, &iaots, eps);
-            if (retval != SUCCESS)
-            {
-                sprintf (errmsg, "Performing aerosol retrieval.");
-                error_handler (true, FUNC_NAME, errmsg);
-                exit (ERROR);
-            }
+            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
+                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             eps2 = eps;
@@ -1331,18 +1418,9 @@ int compute_sr_refl
 
             /* Retrieve the aerosol information for eps 2.5 */
             eps = 2.5;
-            retval = subaeroret (iband1, iband3, xts, xtv, xmus, xmuv, xfi,
-                cosxfi, pres, uoz, uwv, erelc, troatm, tpres, aot550nm,
-                rolutt, transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                normext, tsmax, tsmin, nbfic, nbfi, tts, indts, ttv, tauray,
-                ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb,
-                oztransa, &raot, &residual, &iaots, eps);
-            if (retval != SUCCESS)
-            {
-                sprintf (errmsg, "Performing aerosol retrieval.");
-                error_handler (true, FUNC_NAME, errmsg);
-                exit (ERROR);
-            }
+            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
+                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             eps3 = eps;
@@ -1363,19 +1441,9 @@ int compute_sr_refl
 
             if (epsmin >= 1.0 && epsmin <= 2.5)
             {
-                retval = subaeroret (iband1, iband3, xts, xtv, xmus, xmuv,
-                    xfi, cosxfi, pres, uoz, uwv, erelc, troatm, tpres,
-                    aot550nm, rolutt, transt, xtsstep, xtsmin, xtvstep,
-                    xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
-                    tts, indts, ttv, tauray, ogtransa1, ogtransb0,
-                    ogtransb1, wvtransa, wvtransb, oztransa, &raot,
-                    &residual, &iaots, eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing aerosol retrieval.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
+                subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
+                    xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                    satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
             }
             else
             {
@@ -1405,42 +1473,20 @@ int compute_sr_refl
                 iband = DN_BAND5;
                 rotoa = aerob5[curr_pix] * SCALE_FACTOR;
                 raot550nm = raot;
-                retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
-                    raot550nm, iband, pres, tpres, aot550nm, rolutt,
-                    transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                    normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
-                    ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-                    ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
-                    &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing lambertian "
-                        "atmospheric correction type 2.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
+                atmcorlamb2_new (tgo_arr[iband], xrorayp_arr[iband],
+                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
+                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
+                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros5 = roslamb;
 
                 /* Test if band 4 makes sense */
                 iband = DN_BAND4;
                 rotoa = aerob4[curr_pix] * SCALE_FACTOR;
                 raot550nm = raot;
-                retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
-                    raot550nm, iband, pres, tpres, aot550nm, rolutt,
-                    transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                    normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
-                    ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-                    ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
-                    &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing lambertian "
-                        "atmospheric correction type 2.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
+                atmcorlamb2_new (tgo_arr[iband], xrorayp_arr[iband],
+                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
+                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
+                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros4 = roslamb;
 
                 /* Use the NDVI to validate the reflectance values */
@@ -1520,7 +1566,7 @@ int compute_sr_refl
 
     /* Find the median of the clear aerosols */
     mytime = time(NULL);
-    printf ("Computing median of clear pixels in NxN windows %s\n",
+    printf ("Computing median of clear pixels in NxN windows %s",
         ctime(&mytime));
     median_aerosol = find_median_aerosol (ipflag, taero, nlines, nsamps);
     if (median_aerosol == 0.0)
@@ -1533,7 +1579,7 @@ int compute_sr_refl
     /* Fill the cloud, shadow, and water pixels with the median aerosol
        value instead of the default aerosol value */
     mytime = time(NULL);
-    printf ("Fill non-clear aerosol values in NxN windows with the median %s\n",
+    printf ("Fill non-clear aerosol values in NxN windows with the median %s",
         ctime(&mytime));
     aerosol_fill_median (ipflag, taero, median_aerosol, nlines, nsamps);
 
@@ -1552,7 +1598,7 @@ int compute_sr_refl
     /* Use the center of the aerosol windows to interpolate the remaining
        pixels in the window */
     mytime = time(NULL);
-    printf ("Interpolating the aerosol values in the NxN windows %s\n",
+    printf ("Interpolating the aerosol values in the NxN windows %s",
         ctime(&mytime));
     aerosol_interp (xml_metadata, sband, qaband, ipflag, taero, median_aerosol,
         nlines, nsamps);
@@ -1569,9 +1615,18 @@ int compute_sr_refl
     fclose (aero_fptr);
 #endif
 
+    /* Use the center of the aerosol windows to interpolate the teps values
+       (angstrom coefficient).  The median value used for filling in clouds and
+       water will be the default eps value. */
+    mytime = time(NULL);
+    printf ("Interpolating the teps values in the NxN windows %s",
+        ctime(&mytime));
+    aerosol_interp (xml_metadata, sband, qaband, ipflag, teps, DEFAULT_EPS,
+        nlines, nsamps);
+
     /* Perform the second level of atmospheric correction using the aerosols */
     mytime = time(NULL);
-    printf ("Performing atmospheric correction ... %s\n", ctime(&mytime));
+    printf ("Performing atmospheric correction ... %s", ctime(&mytime));
 
     /* 0 .. DN_BAND7 is the same as 0 .. SR_BAND7 here, since the pan band
        isn't spanned */
@@ -1596,6 +1651,7 @@ int compute_sr_refl
                 if (is_cloud (qaband[curr_pix]))
                     continue;
 
+/* TODO - Clean this up GAIL .  Many variables aren't used. xtv, xts, etc. */
                 /* Determine the solar and view angles for the current pixel */
                 xtv = vza[curr_pix] * 0.01;
                 xmuv = cos(xtv * DEG2RAD);
@@ -1613,21 +1669,10 @@ int compute_sr_refl
                 pres = tp[curr_pix];
                 uwv = twvi[curr_pix];
                 uoz = tozi[curr_pix];
-                retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
-                    raot550nm, ib, pres, tpres, aot550nm, rolutt,
-                    transt, xtsstep, xtsmin, xtvstep, xtvmin, sphalbt,
-                    normext, tsmax, tsmin, nbfic, nbfi, tts, indts,
-                    ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-                    ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
-                    &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp,
-                    &next, eps);
-                if (retval != SUCCESS)
-                {
-                    sprintf (errmsg, "Performing lambertian "
-                        "atmospheric correction type 2.");
-                    error_handler (true, FUNC_NAME, errmsg);
-                    exit (ERROR);
-                }
+                atmcorlamb2_new (tgo_arr[ib], xrorayp_arr[ib],
+                    aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
+                    &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
+                    normext_p0a3_arr[ib], rotoa, &roslamb, eps);
 
                 /* If this is the coastal aerosol band then set the aerosol
                    bits in the QA band */
@@ -1676,7 +1721,7 @@ int compute_sr_refl
     /* Write the data to the output file */
     mytime = time(NULL);
     printf ("Writing surface reflectance corrected data to the output "
-        "files ... %s\n", ctime(&mytime));
+        "files ... %s", ctime(&mytime));
 
     /* Open the output file */
     sr_output = open_output (xml_metadata, input, OUTPUT_SR);
