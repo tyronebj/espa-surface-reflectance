@@ -25,14 +25,14 @@ typedef char byte;
    to fill the rest of the window.  Aerosols are fairly homogenious over a
    reasonable area.  Note: if processing aersol inversion for every pixel,
    then set AERO_WINDOW to 1 and HALF_AERO_WINDOW to 0. */
-#define AERO_WINDOW 9
-#define HALF_AERO_WINDOW 4
+//#define AERO_WINDOW 9
+//#define HALF_AERO_WINDOW 4
 //#define AERO_WINDOW 7
 //#define HALF_AERO_WINDOW 3
 //#define AERO_WINDOW 5
 //#define HALF_AERO_WINDOW 2
-//#define AERO_WINDOW 3
-//#define HALF_AERO_WINDOW 1
+#define AERO_WINDOW 3
+#define HALF_AERO_WINDOW 1
 //#define AERO_WINDOW 1
 //#define HALF_AERO_WINDOW 0
 
@@ -118,8 +118,7 @@ typedef enum {SR_BAND1=0, SR_BAND2, SR_BAND3, SR_BAND4, SR_BAND5, SR_BAND6,
 typedef enum {
   IPFLAG_FILL=0,            /* fill value */
   IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land pixel) */
-  IPFLAG_WATER=2,           /* water pixel (aerosol retrieval will be redone
-                               using subaeroretwat) */
+  IPFLAG_WATER=2,           /* water pixel */
   IPFLAG_CLOUD=3,           /* pixel was flagged as cloud in the Level-1 QA */
   IPFLAG_SHADOW=4,          /* pixel was flagged as cloud shadow in the
                                Level-1 QA */
