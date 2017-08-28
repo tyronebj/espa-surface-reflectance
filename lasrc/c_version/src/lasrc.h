@@ -75,7 +75,6 @@ int compute_sr_refl
     int16 *vza,         /* I: per-pixel view zenith angles, nlines x nsamps */
     int16 *vaa,         /* I: per-pixel view azimuth angles, nlines x nsamps */
     float xts,          /* I: solar zenith angle (deg) */
-    float xfs,          /* I: solar azimuth angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
     char *intrefnm,     /* I: intrinsic reflectance filename */

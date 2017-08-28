@@ -79,8 +79,7 @@ int main (int argc, char *argv[])
     uint16 *radsat = NULL;    /* QA band for radiometric saturation of the
                                  Level-1 product, nlines x nsamps */
 
-    float xts;           /* solar zenith angle (deg) */
-    float xfs;           /* solar azimuth angle (deg) */
+    float xts;           /* scene center solar zenith angle (deg) */
     float xmus;          /* cosine of solar zenith angle */
     bool process_sr = true;  /* this is set to false if the solar zenith
                                 is too large and the surface reflectance
@@ -186,7 +185,6 @@ int main (int argc, char *argv[])
 
     /* Pull the needed metadata from the XML file and input structure */
     xts = gmeta->solar_zenith;
-    xfs = gmeta->solar_azimuth;
     pixsize = (float) input->size.pixsize[0];
     xmus = cos (xts * DEG2RAD);
     nlines = input->size.nlines;
@@ -531,7 +529,7 @@ int main (int argc, char *argv[])
         printf ("Performing atmospheric corrections for each reflectance "
             "band ...\n");
         retval = compute_sr_refl (input, &xml_metadata, xml_infile, qaband,
-            nlines, nsamps, pixsize, sband, sza, saa, vza, vaa, xts, xfs, xmus,
+            nlines, nsamps, pixsize, sband, sza, saa, vza, vaa, xts, xmus,
             anglehdf, intrefnm, transmnm, spheranm, cmgdemnm, rationm, auxnm);
         if (retval != SUCCESS)
         {

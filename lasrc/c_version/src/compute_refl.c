@@ -329,8 +329,7 @@ int compute_sr_refl
                               nlines x nsamps */
     int16 *vaa,         /* I: scaled per-pixel view azimuth angles (degrees),
                               nlines x nsamps */
-    float xts,          /* I: solar zenith angle (deg) */
-    float xfs,          /* I: solar azimuth angle (deg) */
+    float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
     char *intrefnm,     /* I: intrinsic reflectance filename */
@@ -403,12 +402,14 @@ int compute_sr_refl
     float ndwi_th1, ndwi_th2; /* values for NDWI calculations */
     float xcmg, ycmg;     /* x/y location for CMG */
     float xndwi;          /* calculated NDWI value */
+#ifdef INTERP_AUX
     int uoz11, uoz21, uoz12, uoz22;  /* ozone at line,samp; line, samp+1;
                                         line+1, samp; and line+1, samp+1 */
     float pres11, pres12, pres21, pres22;  /* pressure at line,samp;
                              line, samp+1; line+1, samp; and line+1, samp+1 */
     float wv11, wv12, wv21, wv22;  /* water vapor at line,samp;
                              line, samp+1; line+1, samp; and line+1, samp+1 */
+#endif
     float median_aerosol; /* median aerosol value for clear pixels */
     uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
@@ -525,10 +526,12 @@ int compute_sr_refl
     int ratio_pix12;  /* pixel location for ratio products [lcmg][scmg+1] */
     int ratio_pix21;  /* pixel location for ratio products [lcmg+1][scmg] */
     int ratio_pix22;  /* pixel location for ratio products [lcmg+1][scmg+1] */
+#ifdef INTERP_AUX
     int cmg_pix11;    /* pixel location for CMG/DEM products [lcmg][scmg] */
     int cmg_pix12;    /* pixel location for CMG/DEM products [lcmg][scmg+1] */
     int cmg_pix21;    /* pixel location for CMG/DEM products [lcmg+1][scmg] */
     int cmg_pix22;    /* pixel location for CMG/DEM products [lcmg+1][scmg+1] */
+#endif
 
     /* Variables for finding the eps that minimizes the residual */
     double xa, xb, xc, xd, xe, xf;  /* coefficients */
@@ -615,7 +618,13 @@ int compute_sr_refl
         return (ERROR);
     }
 
-    /* Initialize the look up tables and atmospheric correction variables */
+    /* Initialize the look up tables and atmospheric correction variables
+       view zenith initialized to 0.0 (xtv)
+       azimuthal difference between sun and obs angle initialize to 0.0 (xfi)
+       surface pressure is initialized to the pressure at the center of the
+           scene (using the DEM) (pres)
+       water vapor is initialized to the value at the center of the scene (uwv)
+       ozone is initialized to the value at the center of the scene (uoz) */
     retval = init_sr_refl (nlines, nsamps, input, space, anglehdf, intrefnm,
         transmnm, spheranm, cmgdemnm, rationm, auxnm, &eps, &iaots, &xtv,
         &xmuv, &xfi, &cosxfi, &raot550nm, &pres, &uoz, &uwv, &xtsstep,
@@ -797,6 +806,10 @@ int compute_sr_refl
             satm_coef[ib][ia] = coef1[ia];
     }
 
+#ifdef INTERP_AUX
+/* TODO -- if the auxiliary data interpolation is taken out, the these
+   variables can be removed from the memory initialization as well - tozi,
+   twvi, tp */
     /* Interpolate the auxiliary data for each pixel location */
     mytime = time(NULL);
     printf ("Interpolating the auxiliary data ... %s", ctime(&mytime));
@@ -990,6 +1003,7 @@ int compute_sr_refl
     printf ("100%%\n");
     fflush (stdout);
 #endif
+#endif
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
@@ -997,7 +1011,7 @@ int compute_sr_refl
         AERO_WINDOW, AERO_WINDOW, ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, xtv, xts, xmus, xmuv, xfi, cosxfi, iband, iband1, iband3, pres, uoz, uwv, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, erelc, troatm)
+    #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iband, iband1, iband3, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, erelc, troatm)
 #endif
     for (i = HALF_AERO_WINDOW; i < nlines; i += AERO_WINDOW)
     {
@@ -1380,20 +1394,9 @@ int compute_sr_refl
             troatm[DN_BAND4] = aerob4[curr_pix] * SCALE_FACTOR;
             troatm[DN_BAND7] = aerob7[curr_pix] * SCALE_FACTOR;
 
-            /* Determine the solar and view angles for the current pixel */
-            xtv = vza[curr_pix] * 0.01;
-            xmuv = cos(xtv * DEG2RAD);
-            xts = sza[curr_pix] * 0.01;
-            xmus = cos(xts * DEG2RAD);
-            xfi = saa[curr_pix] * 0.01 - vaa[curr_pix] * 0.01 ;
-            cosxfi = cos(xfi * DEG2RAD);
-
             /* Retrieve the aerosol information for eps 1.0 */
             iband1 = DN_BAND4;
             iband3 = DN_BAND1;
-            pres = tp[curr_pix];
-            uoz = tozi[curr_pix];
-            uwv = twvi[curr_pix];
             eps = 1.0;
             iaots = 0;
             subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
@@ -1634,7 +1637,7 @@ int compute_sr_refl
     {
         printf ("  Band %d\n", ib+1);
 #ifdef _OPENMP
-        #pragma omp parallel for private (i, j, curr_pix, xtv, xts, xmus, xmuv, xfi, cosxfi, rsurf, rotoa, raot550nm, eps, pres, uwv, uoz, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
+        #pragma omp parallel for private (i, j, curr_pix, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
         for (i = 0; i < nlines; i++)
         {
@@ -1651,24 +1654,12 @@ int compute_sr_refl
                 if (is_cloud (qaband[curr_pix]))
                     continue;
 
-/* TODO - Clean this up GAIL .  Many variables aren't used. xtv, xts, etc. */
-                /* Determine the solar and view angles for the current pixel */
-                xtv = vza[curr_pix] * 0.01;
-                xmuv = cos(xtv * DEG2RAD);
-                xts = sza[curr_pix] * 0.01;
-                xmus = cos(xts * DEG2RAD);
-                xfi = saa[curr_pix] * 0.01 - vaa[curr_pix] * 0.01;
-                cosxfi = cos(xfi * DEG2RAD);
-
                 /* Correct all pixels */
                 rsurf = sband[ib][curr_pix] * SCALE_FACTOR;
                 rotoa = (rsurf * bttatmg[ib] / (1.0 - bsatm[ib] * rsurf) +
                     broatm[ib]) * btgo[ib];
                 raot550nm = taero[curr_pix];
                 eps = teps[curr_pix];
-                pres = tp[curr_pix];
-                uwv = twvi[curr_pix];
-                uoz = tozi[curr_pix];
                 atmcorlamb2_new (tgo_arr[ib], xrorayp_arr[ib],
                     aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
                     &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
