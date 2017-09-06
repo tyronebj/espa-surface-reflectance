@@ -82,7 +82,7 @@ float quick_select
         if (high <= low)
             return arr[median];
 
-        /* Two elelement array */
+        /* Two element array */
         if (high == low + 1)
         {
             if (arr[low] > arr[high])

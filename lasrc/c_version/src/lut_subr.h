@@ -373,9 +373,11 @@ int memory_allocation_sr
     uint16 **wv,         /* O: water vapor values [CMG_NBLAT x CMG_NBLON] */
     uint8 **oz,          /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
     float **rolutt,      /* O: intrinsic reflectance table
-                         [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS x
+                                NSOLAR_VALS] */
     float **transt,      /* O: transmission table
-                        [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS x
+                                NSUNANGLE_VALS] */
     float **sphalbt,     /* O: spherical albedo table
                                [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float **normext,     /* O: aerosol extinction coefficient at the current

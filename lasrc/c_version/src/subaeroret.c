@@ -341,7 +341,7 @@ int subaeroret
     float raotsaved;        /* save the raot value */
     float next;             /* ???? */
     float tgo;              /* other gaseous transmittance */
-    float roatm;            /* atmospheric intrinsic reflectance */
+    float roatm;            /* intrinsic atmospheric reflectance */
     float ttatmg;           /* total atmospheric transmission */
     float satm;             /* spherical albedo */
     float xrorayp;          /* reflectance of the atmosphere due to molecular

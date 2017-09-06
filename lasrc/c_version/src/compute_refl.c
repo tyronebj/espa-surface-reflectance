@@ -359,7 +359,7 @@ int compute_sr_refl
     float rotoa;         /* top of atmosphere reflectance */
     float roslamb;       /* lambertian surface reflectance */
     float tgo;           /* other gaseous transmittance (tgog * tgoz) */
-    float roatm;         /* atmospheric intrinsic reflectance */
+    float roatm;         /* intrinsic atmospheric reflectance */
     float ttatmg;        /* total atmospheric transmission */
     float satm;          /* atmosphere spherical albedo */
     float xrorayp;       /* reflectance of the atmosphere due to molecular
@@ -382,8 +382,7 @@ int compute_sr_refl
     float rsurf;        /* surface reflectance */
     float corf;         /* aerosol impact (higher values represent high
                            aerosol) */
-
-    float ros4,ros5; /* surface reflectance for bands 1, 4, and 5 */
+    float ros4,ros5;    /* surface reflectance for bands 4 and 5 */
     int tmp_percent;      /* current percentage for printing status */
 #ifndef _OPENMP
     int curr_tmp_percent; /* percentage for current line */
@@ -804,7 +803,7 @@ int compute_sr_refl
     }
 
 #ifdef INTERP_AUX
-/* TODO -- if the auxiliary data interpolation is taken out, the these
+/* TODO -- if the auxiliary data interpolation is taken out, then these
    variables can be removed from the memory initialization as well - tozi,
    twvi, tp */
     /* Interpolate the auxiliary data for each pixel location */
@@ -2059,8 +2058,8 @@ bool is_cloud
 {
     /* If the confidence level is high for cloud or cirrus, then flag this as
        a cloud */
-    if (level1_qa_cloud_confidence (l1_qa_pix) == 3 ||
-        level1_qa_cirrus_confidence (l1_qa_pix) == 3)
+    if (level1_qa_cloud_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
+        level1_qa_cirrus_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
         return (true);
     else
         return (false);
@@ -2093,9 +2092,9 @@ bool is_cloud_or_shadow
 {
     /* If the confidence level is high for cloud, cloud shadow, or cirrus, then
        flag this as a cloud */
-    if (level1_qa_cloud_confidence (l1_qa_pix) == 3 ||
-        level1_qa_cloud_shadow_confidence (l1_qa_pix) == 3 ||
-        level1_qa_cirrus_confidence (l1_qa_pix) == 3)
+    if (level1_qa_cloud_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
+        level1_qa_cloud_shadow_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
+        level1_qa_cirrus_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
         return (true);
     else
         return (false);
@@ -2128,7 +2127,7 @@ bool is_shadow
 {
     /* If the confidence level is high for cloud shadow, then flag this as a
        cloud */
-    if (level1_qa_cloud_shadow_confidence (l1_qa_pix) == 3)
+    if (level1_qa_cloud_shadow_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
         return (true);
     else
         return (false);
@@ -2204,7 +2203,7 @@ bool find_closest_non_fill
     int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
 )
 {
-    int i;                   /* looping variable for pixels */
+    int curr_pix;            /* looping variable for pixels */
     int line, samp;          /* looping variables for lines and samples */
     int aero_window;         /* looping variabel for the aerosol window */
 
@@ -2219,9 +2218,9 @@ bool find_closest_non_fill
             if (line < 0 || line >= nlines)
                 continue;
 
-            i = line * nsamps;
+            curr_pix = line * nsamps + center_samp - aero_window;
             for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++)
+                 samp <= center_samp + aero_window; samp++, curr_pix++)
             {
                 /* Make sure the sample is valid */
                 if (samp < 0 || samp >= nsamps)
@@ -2229,7 +2228,7 @@ bool find_closest_non_fill
 
                 /* If this pixel is not fill, then mark it as the closest
                    non-fill pixel and return */
-                if (!level1_qa_is_fill (qaband[i + samp]))
+                if (!level1_qa_is_fill (qaband[curr_pix]))
                 {
                     *nearest_line = line;
                     *nearest_samp = samp;
@@ -2274,10 +2273,9 @@ bool find_closest_non_cloud_shadow_water
     int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
 )
 {
-    int i;                   /* looping variable for pixels */
+    int curr_pix;            /* looping variable for pixels */
     int line, samp;          /* looping variables for lines and samples */
     int aero_window;         /* looping variabel for the aerosol window */
-    double ndvi;             /* use NDVI for flagging water pixels */
 
     /* Loop around the center pixel, moving outward with each loop, searching
        for a pixel that is not of the QA type specified and is not fill */
@@ -2290,30 +2288,21 @@ bool find_closest_non_cloud_shadow_water
             if (line < 0 || line >= nlines)
                 continue;
 
-            i = line * nsamps;
+            curr_pix = line * nsamps + center_samp - aero_window;
             for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++)
+                 samp <= center_samp + aero_window; samp++, curr_pix++)
             {
                 /* Make sure the sample is valid */
                 if (samp < 0 || samp >= nsamps)
                     continue;
 
-                /* Calculate NDVI and flag water pixels */
-                if (sband[SR_BAND5][i + samp] < 100)
-                    ndvi = -0.01;
-                else
-                    ndvi = ((double) sband[SR_BAND5][i + samp] -
-                            (double) sband[SR_BAND4][i + samp]) /
-                           ((double) sband[SR_BAND5][i + samp] +
-                            (double) sband[SR_BAND4][i + samp]);
-
                 /* If this pixel is not fill, not water, and is not cloud or
                    shadow, then mark it as the closest non-cloud pixel and
-                   return.  The NDVI will be used to flag water.  If
-                   ndvi < 0.01 then the pixel is water. */
-                if (!level1_qa_is_fill (qaband[i + samp]) &&
-                    !is_cloud_or_shadow (qaband[i + samp]) &&
-                    ndvi >= 0.01)
+                   return. */
+                if (!level1_qa_is_fill (qaband[curr_pix]) &&
+                    !is_cloud_or_shadow (qaband[curr_pix]) &&
+                    !is_water (sband[SR_BAND4][curr_pix],
+                               sband[SR_BAND5][curr_pix]))
                 {
                     *nearest_line = line;
                     *nearest_samp = samp;
@@ -2357,10 +2346,9 @@ bool find_closest_non_water
     int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
 )
 {
-    int i;                   /* looping variable for pixels */
+    int curr_pix;            /* looping variable for pixels */
     int line, samp;          /* looping variables for lines and samples */
     int aero_window;         /* looping variabel for the aerosol window */
-    double ndvi;             /* use NDVI for flagging water pixels */
 
     /* Loop around the center pixel, moving outward with each loop, searching
        for a pixel that is not of the QA type specified and is not fill */
@@ -2373,29 +2361,19 @@ bool find_closest_non_water
             if (line < 0 || line >= nlines)
                 continue;
 
-            i = line * nsamps;
+            curr_pix = line * nsamps + center_samp - aero_window;
             for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++)
+                 samp <= center_samp + aero_window; samp++, curr_pix++)
             {
                 /* Make sure the sample is valid */
                 if (samp < 0 || samp >= nsamps)
                     continue;
 
-                /* Calculate NDVI and flag water pixels */
-                if (sband[SR_BAND5][i + samp] < 100)
-                    ndvi = -0.01;
-                else
-                    ndvi = ((double) sband[SR_BAND5][i + samp] -
-                            (double) sband[SR_BAND4][i + samp]) /
-                           ((double) sband[SR_BAND5][i + samp] +
-                            (double) sband[SR_BAND4][i + samp]);
-
                 /* If this pixel is not fill and is not water, then mark it as
-                   the closest non-water pixel and return.  The NDVI will be
-                   used to flag water.  If ndvi < 0.01 then the pixel is
-                   water. */
-                if (!level1_qa_is_fill (qaband[i + samp]) &&
-                    ndvi >= 0.01)
+                   the closest non-water pixel and return. */
+                if (!level1_qa_is_fill (qaband[curr_pix]) &&
+                    !is_water (sband[SR_BAND4][curr_pix],
+                               sband[SR_BAND5][curr_pix]))
                 {
                     *nearest_line = line;
                     *nearest_samp = samp;
@@ -2440,7 +2418,6 @@ void mask_aero_window
                                 level-1 QA */
     int curr_qa_pix;         /* looping variable for current quick QA pixel */
     int line, samp;          /* looping variables for lines and samples */
-    double ndvi;             /* use NDVI for flagging water pixels */
 
     /* Initialize the quick QA window to not clear, which includes pixels
        that go beyond the scene boundaries */
@@ -2467,21 +2444,12 @@ void mask_aero_window
             if (samp < 0 || samp >= nsamps)
                 continue;
 
-            /* Calculate NDVI and flag water pixels */
-            if (sband[SR_BAND5][curr_pix] < 100)
-                ndvi = -0.01;
-            else
-                ndvi = ((double) sband[SR_BAND5][curr_pix] -
-                        (double) sband[SR_BAND4][curr_pix]) /
-                       ((double) sband[SR_BAND5][curr_pix] +
-                        (double) sband[SR_BAND4][curr_pix]);
-
             /* If this pixel is not fill, is not cloud, is not shadow, and is
-               not water, then mark it as clear.  The NDVI will be used to flag
-               water.  If ndvi < 0.01 then the pixel is water. */
+               not water, then mark it as clear. */
             if (!level1_qa_is_fill (qaband[curr_pix]) &&
                 !is_cloud_or_shadow (qaband[curr_pix]) &&
-                ndvi >= 0.01)
+                !is_water (sband[SR_BAND4][curr_pix],
+                           sband[SR_BAND5][curr_pix]))
             { /* pixel is clear */
                 quick_qa[curr_qa_pix] = false;
             }

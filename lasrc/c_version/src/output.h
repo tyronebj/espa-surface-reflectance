@@ -47,19 +47,19 @@ Output_t *open_output
 
 int close_output
 (
-    Output_t *this,   /* I/O: Output data structure to close */
+    Output_t *output,       /* I/O: Output data structure to close */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 );
 
 int free_output
 (
-    Output_t *this,   /* I/O: Output data structure to free */
+    Output_t *output,       /* I/O: Output data structure to free */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 );
 
 int put_output_lines
 (
-    Output_t *this,    /* I: Output data structure; buf contains the line to
+    Output_t *output,  /* I: Output data structure; buf contains the line to
                              be written */
     void *buf,         /* I: buffer to be written */
     int iband,         /* I: current band to be written (0-based) */
@@ -70,12 +70,12 @@ int put_output_lines
 
 int get_output_lines
 (
-    Output_t *this,  /* I: pointer to output data structure */
-    int iband,       /* I: current band to read (0-based) */
-    int iline,       /* I: current line to read (0-based) */
-    int nlines,      /* I: number of lines to read */
-    int nbytes,      /* I: number of bytes per pixel in this band */
-    void *buf        /* I: pointer to the buffer to be returned */
+    Output_t *output, /* I: pointer to output data structure */
+    int iband,        /* I: current band to read (0-based) */
+    int iline,        /* I: current line to read (0-based) */
+    int nlines,       /* I: number of lines to read */
+    int nbytes,       /* I: number of bytes per pixel in this band */
+    void *buf         /* I: pointer to the buffer to be returned */
 );
 
 char *upper_case_str

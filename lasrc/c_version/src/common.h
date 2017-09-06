@@ -23,18 +23,16 @@ typedef char byte;
    aerosol inversion.  The aerosols will be inverted for the center of the
    NxN window (with special handling for fill, clouds, water) and then used
    to fill the rest of the window.  Aerosols are fairly homogenious over a
-   reasonable area.  Note: if processing aersol inversion for every pixel,
-   then set AERO_WINDOW to 1 and HALF_AERO_WINDOW to 0. */
-//#define AERO_WINDOW 9
-//#define HALF_AERO_WINDOW 4
-//#define AERO_WINDOW 7
-//#define HALF_AERO_WINDOW 3
-//#define AERO_WINDOW 5
-//#define HALF_AERO_WINDOW 2
+   reasonable area.  
+   The following are example NxN window setups:
+   9x9: AERO_WINDOW 9 and HALF_AERO_WINDOW 4
+   7x7: AERO_WINDOW 7 and HALF_AERO_WINDOW 3
+   5x5: AERO_WINDOW 5 and HALF_AERO_WINDOW 2
+   3x3: AERO_WINDOW 3 and HALF_AERO_WINDOW 1
+   1x1: AERO_WINDOW 1 and HALF_AERO_WINDOW 0
+*/
 #define AERO_WINDOW 3
 #define HALF_AERO_WINDOW 1
-//#define AERO_WINDOW 1
-//#define HALF_AERO_WINDOW 0
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10
@@ -112,6 +110,9 @@ typedef enum {SR_BAND1=0, SR_BAND2, SR_BAND3, SR_BAND4, SR_BAND5, SR_BAND6,
 
 /* Definte the RADSAT band */
 #define SR_RADSAT 0
+
+/* High confidence Level-1 QA values */
+#define L1QA_HIGH_CONF 3
 
 /* Bit values of ipflag (interpolation flag) QA, which includes aerosol
    levels */

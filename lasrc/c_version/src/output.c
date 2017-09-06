@@ -39,7 +39,6 @@ Output_t *open_output
                                           outputs? */
 )
 {
-    Output_t *this = NULL;
     char FUNC_NAME[] = "open_output";   /* function name */
     char errmsg[STR_SIZE];       /* error message */
     char *upper_str = NULL;      /* upper case version of the SI short name */
@@ -50,13 +49,14 @@ Output_t *open_output
     int ib;    /* looping variable for bands */
     int refl_indx = -1;          /* band index in XML file for the reflectance
                                     band */
+    Output_t *output = NULL;     /* output data structure to be returned */
     Espa_band_meta_t *bmeta = NULL;  /* pointer to the band metadata array
                                         within the output structure */
     int nband;                   /* number of output bands to be created */
 
     /* Create the Output data structure */
-    this = (Output_t *) malloc (sizeof (Output_t));
-    if (this == NULL) 
+    output = (Output_t *) malloc (sizeof (Output_t));
+    if (output == NULL) 
     {
         sprintf (errmsg, "Error allocating Output data structure");
         error_handler (true, FUNC_NAME, errmsg);
@@ -87,23 +87,23 @@ Output_t *open_output
     /* Initialize the internal metadata for the output product. The global
        metadata won't be updated, however the band metadata will be updated
        and used later for appending to the original XML file. */
-    init_metadata_struct (&this->metadata);
+    init_metadata_struct (&output->metadata);
 
     /* Copy the instrument type */
-    this->inst = input->meta.inst;
+    output->inst = input->meta.inst;
 
     /* Allocate memory for the total bands; radsat is only one band */
     if (output_type == OUTPUT_RADSAT)
         nband = 1;
     else
         nband = NBAND_TTL_OUT;
-    if (allocate_band_metadata (&this->metadata, nband) != SUCCESS)
+    if (allocate_band_metadata (&output->metadata, nband) != SUCCESS)
     {
         sprintf (errmsg, "Allocating band metadata.");
         error_handler (true, FUNC_NAME, errmsg);
         return (NULL);
     }
-    bmeta = this->metadata.band;
+    bmeta = output->metadata.band;
 
     /* Pull the scene name from the metadata */
     strcpy (scene_name, in_meta->global.product_id);
@@ -133,12 +133,12 @@ Output_t *open_output
 
     /* Populate the data structure, using information from the reflectance
        bands */
-    this->open = false;
-    this->nband = nband;
-    this->nlines = input->size.nlines;
-    this->nsamps = input->size.nsamps;
-    for (ib = 0; ib < this->nband; ib++)
-        this->fp_bin[ib] = NULL;
+    output->open = false;
+    output->nband = nband;
+    output->nlines = input->size.nlines;
+    output->nsamps = input->size.nsamps;
+    for (ib = 0; ib < output->nband; ib++)
+        output->fp_bin[ib] = NULL;
  
     for (ib = 0; ib < nband; ib++)
     {
@@ -169,8 +169,8 @@ Output_t *open_output
             strcpy (bmeta[ib].source, "level1");
         }
 
-        bmeta[ib].nlines = this->nlines;
-        bmeta[ib].nsamps = this->nsamps;
+        bmeta[ib].nlines = output->nlines;
+        bmeta[ib].nsamps = output->nsamps;
         bmeta[ib].pixel_size[0] = input->size.pixsize[0];
         bmeta[ib].pixel_size[1] = input->size.pixsize[1];
         strcpy (bmeta[ib].pixel_units, "meters");
@@ -330,12 +330,12 @@ Output_t *open_output
         /* Set up the filename with the scene name and band name and open the
            file for read/write access.  Don't open if this is OLI-only and
            these are the thermal bands. */
-        if ((ib != SR_BAND10 && ib != SR_BAND11) || this->inst != INST_OLI)
+        if ((ib != SR_BAND10 && ib != SR_BAND11) || output->inst != INST_OLI)
         {
             sprintf (bmeta[ib].file_name, "%s_%s.img", scene_name,
                 bmeta[ib].name);
-            this->fp_bin[ib] = open_raw_binary (bmeta[ib].file_name, "w+");
-            if (this->fp_bin[ib] == NULL)
+            output->fp_bin[ib] = open_raw_binary (bmeta[ib].file_name, "w+");
+            if (output->fp_bin[ib] == NULL)
             {
                 sprintf (errmsg, "Unable to open output band %d file: %s", ib,
                     bmeta[ib].file_name);
@@ -347,10 +347,10 @@ Output_t *open_output
         /* Free the memory for the upper-case string */
         free (upper_str);
     }  /* for ib */
-    this->open = true;
+    output->open = true;
 
     /* Successful completion */
-    return this;
+    return output;
 }
 
 
@@ -370,7 +370,7 @@ NOTES:
 ******************************************************************************/
 int close_output
 (
-    Output_t *this,   /* I/O: Output data structure to close */
+    Output_t *output,       /* I/O: Output data structure to close */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 )
 {
@@ -378,7 +378,7 @@ int close_output
     char errmsg[STR_SIZE];    /* error message */
     int ib;                   /* looping variable */
 
-    if (!this->open)
+    if (!output->open)
     {
         sprintf (errmsg, "File is not open, so it cannot be closed.");
         error_handler (true, FUNC_NAME, errmsg);
@@ -386,7 +386,7 @@ int close_output
     }
 
     /* Close raw binary products */
-    for (ib = 0; ib < this->nband; ib++)
+    for (ib = 0; ib < output->nband; ib++)
     {
         if ((output_type == OUTPUT_TOA) && (ib == SR_AEROSOL))
             continue;
@@ -396,11 +396,12 @@ int close_output
         else
         {
             /* No thermal bands are open for OLI-only scenes */
-            if ((ib != SR_BAND10 && ib != SR_BAND11) || this->inst != INST_OLI)
-                close_raw_binary (this->fp_bin[ib]);
+            if ((ib != SR_BAND10 && ib != SR_BAND11) ||
+                 output->inst != INST_OLI)
+                close_raw_binary (output->fp_bin[ib]);
         }
     }
-    this->open = false;
+    output->open = false;
 
     return (SUCCESS);
 }
@@ -422,7 +423,7 @@ NOTES:
 ******************************************************************************/
 int free_output
 (
-    Output_t *this,   /* I/O: Output data structure to free */
+    Output_t *output,       /* I/O: Output data structure to free */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 )
 {
@@ -430,37 +431,37 @@ int free_output
     char errmsg[STR_SIZE];    /* error message */
     int b;                    /* looping variable for the bits */
   
-    if (this->open) 
+    if (output->open) 
     {
         sprintf (errmsg, "File is still open, so cannot free memory.");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
   
-    if (this != NULL)
+    if (output != NULL)
     {
         /* Free the bitmap data for the aerosol and radsat bands */
         if (output_type == OUTPUT_SR &&
-            this->metadata.band[SR_AEROSOL].nbits > 0)
+            output->metadata.band[SR_AEROSOL].nbits > 0)
         {
-            for (b = 0; b < this->metadata.band[SR_AEROSOL].nbits; b++)
-                free (this->metadata.band[SR_AEROSOL].bitmap_description[b]);
-            free (this->metadata.band[SR_AEROSOL].bitmap_description);
+            for (b = 0; b < output->metadata.band[SR_AEROSOL].nbits; b++)
+                free (output->metadata.band[SR_AEROSOL].bitmap_description[b]);
+            free (output->metadata.band[SR_AEROSOL].bitmap_description);
         }
 
         if (output_type == OUTPUT_RADSAT &&
-            this->metadata.band[SR_RADSAT].nbits > 0)
+            output->metadata.band[SR_RADSAT].nbits > 0)
         {
-            for (b = 0; b < this->metadata.band[SR_RADSAT].nbits; b++)
-                free (this->metadata.band[SR_RADSAT].bitmap_description[b]);
-            free (this->metadata.band[SR_RADSAT].bitmap_description);
+            for (b = 0; b < output->metadata.band[SR_RADSAT].nbits; b++)
+                free (output->metadata.band[SR_RADSAT].bitmap_description[b]);
+            free (output->metadata.band[SR_RADSAT].bitmap_description);
         }
 
         /* Free the band data */
-        free (this->metadata.band);
+        free (output->metadata.band);
 
         /* Free the data structure */
-        free (this);
+        free (output);
     }
   
     return (SUCCESS);
@@ -483,7 +484,7 @@ NOTES:
 ******************************************************************************/
 int put_output_lines
 (
-    Output_t *this,    /* I: Output data structure; buf contains the line to
+    Output_t *output,  /* I: output data structure; buf contains the line to
                              be written */
     void *buf,         /* I: buffer to be written */
     int iband,         /* I: current band to be written (0-based) */
@@ -497,31 +498,31 @@ int put_output_lines
     long loc;                 /* current location in the output file */
   
     /* Check the parameters */
-    if (this == (Output_t *)NULL) 
+    if (output == (Output_t *)NULL) 
     {
         sprintf (errmsg, "Invalid input structure");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    if (!this->open)
+    if (!output->open)
     {
         sprintf (errmsg, "File is not open.  Cannot write data.");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    if (iband < 0 || iband >= this->nband)
+    if (iband < 0 || iband >= output->nband)
     {
         sprintf (errmsg, "Invalid band number.");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    if (iline < 0 || iline >= this->nlines)
+    if (iline < 0 || iline >= output->nlines)
     {
         sprintf (errmsg, "Invalid line number.");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    if (nlines < 0 || iline+nlines > this->nlines)
+    if (nlines < 0 || iline+nlines > output->nlines)
     {
         sprintf (errmsg, "Line plus number of lines to be written exceeds "
             "the predefined size of the image.");
@@ -530,8 +531,8 @@ int put_output_lines
     }
   
     /* Write the data, but first seek to the correct line */
-    loc = (long) iline * this->nsamps * nbytes;
-    if (fseek (this->fp_bin[iband], loc, SEEK_SET))
+    loc = (long) iline * output->nsamps * nbytes;
+    if (fseek (output->fp_bin[iband], loc, SEEK_SET))
     {
         sprintf (errmsg, "Seeking to the current line in the output file for "
             "band %d", iband);
@@ -539,8 +540,8 @@ int put_output_lines
         return (ERROR);
     }
 
-    if (write_raw_binary (this->fp_bin[iband], nlines, this->nsamps, nbytes,
-        buf) != SUCCESS)
+    if (write_raw_binary (output->fp_bin[iband], nlines, output->nsamps,
+        nbytes, buf) != SUCCESS)
     {
         sprintf (errmsg, "Error writing the output line(s) for band %d.",
             iband);

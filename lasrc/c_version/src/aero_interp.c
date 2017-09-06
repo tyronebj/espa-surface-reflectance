@@ -93,7 +93,7 @@ void aerosol_interp
     tmp_percent = 0;
     for (line = 0; line < nlines; line++)
     {
-        /* update status, but not if multi-threaded */
+        /* update status */
         curr_tmp_percent = 100 * line / nlines;
         if (curr_tmp_percent > tmp_percent)
         {
