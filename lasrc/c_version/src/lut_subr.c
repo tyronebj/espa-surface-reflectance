@@ -1880,7 +1880,7 @@ int readluts
 
             /* 21 lines of sun angles per pressure level */
             ipres_indx = ipres * NAOT_VALS * NSUNANGLE_VALS;
-            for (i = 0; i < NSUNANGLE_VALS-1; i++)  /* TODO -- why one short? */
+            for (i = 0; i < NSUNANGLE_VALS-1; i++)
             {
                 /* Grab the first value in the line.  Basically this is a
                    repeat of the previous pressure level and band, as all the

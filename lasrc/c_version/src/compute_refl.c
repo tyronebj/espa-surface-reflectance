@@ -578,7 +578,6 @@ int compute_sr_refl
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
-#define WRITE_TAERO 1
 #ifdef WRITE_TAERO
     FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
 #endif
@@ -772,14 +771,12 @@ int compute_sr_refl
 
         for (ia = 1; ia < NAOT_VALS; ia++)
         {
-            /* GAIL TODO --- clean these if statements up */
             if (ia == NAOT_VALS-1)
                 iaMaxTemp = NAOT_VALS-1;
 
-            if ((arr1[ia] - arr1[ia-1]) > 0.00001)
+            if ((arr1[ia] - arr1[ia-1]) > ESPA_EPSILON)
                 continue;
-
-            if ((arr1[ia] - arr1[ia-1]) <= 0.00001)
+            else
             {
                 iaMaxTemp = ia-1;
                 break;

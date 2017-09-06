@@ -18,6 +18,9 @@
 #include "envi_header.h"
 #include "error_handler.h"
 
+/* Defines */
+#define ESPA_EPSILON 0.00001
+
 /* Prototypes */
 void usage ();
 
