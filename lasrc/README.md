@@ -1,4 +1,4 @@
-## LaSRC Version 1.4.0 Release Notes
+## LaSRC Version 1.3.0 Release Notes
 Release Date: September 2017
 
 ### Downloads
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.4.0]
+See git tag [lasrc-version_1.3.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
