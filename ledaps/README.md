@@ -1,5 +1,5 @@
-## Ledaps Version 3.2.0 Release Notes
-Release Date: June 2017
+## Ledaps Version 3.2.1 Release Notes
+Release Date: August 2017
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.2.0]
+See git tag [ledaps-version_3.2.1]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,4 +92,6 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Updated the XML short_name to support a 4-digit instrument identifier
+  1. Clarified the error message for solar angles that are greater than 76
+     degrees.  These are flagged as being too large for surface reflectance
+     processing, but removed the phrase that indicated they are out of range.

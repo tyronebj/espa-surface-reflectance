@@ -91,4 +91,3 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
    clouds, shadows, water, and interpolated pixels to be masked.
 3. A bug in the routine which frees the RADSAT and SR_AEROSOL bits was fixed.
    This bug intermittently created core dumps.
-

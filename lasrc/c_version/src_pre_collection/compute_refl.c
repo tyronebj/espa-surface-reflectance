@@ -1607,14 +1607,14 @@ int compute_sr_refl
                             /* Make sure the line is valid */
                             if (k < 0 || k >= nlines)
                                 continue;
-    
+
                             win_pix = k * nsamps + j-5;
                             for (l = j-5; l <= j+5; l++, win_pix++)
                             {
                                 /* Make sure the sample is valid */
                                 if (l < 0 || l >= nsamps)
                                     continue;
-    
+
                                 /* If the pixel has valid averages, then use
                                    them in this second pass */
                                 if (smflag[win_pix])
