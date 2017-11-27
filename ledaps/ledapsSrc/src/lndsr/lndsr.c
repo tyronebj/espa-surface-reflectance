@@ -248,7 +248,7 @@ int main (int argc, char *argv[]) {
     input_b6 = OpenInput(&xml_metadata, true /* thermal */);
     if (input_b6 == NULL) {
         param->thermal_band = false;
-        printf ("WARNING: no thermal brightness temp band available. "
+        printf ("WARNING: no TOA brightness temp band available. "
             "Processing without.");
     }
     else
@@ -263,8 +263,8 @@ int main (int argc, char *argv[]) {
        scene falls into that category. */
     if (input->meta.sun_zen * DEG > 76.0) {
         EXIT_ERROR ("Solar zenith angle is too large to allow for surface "
-            "reflectance processing.  Corrections must be limited to top of "
-            "atmosphere and at-sensor brightness temperature corrections. "
+            "reflectance processing.  Corrections must be limited to top-of-"
+            "atmosphere reflectance and brightness temperature corrections. "
             "Use the --process_sr=False command-line argument when running "
             "do_ledaps.py.", "main");
     }

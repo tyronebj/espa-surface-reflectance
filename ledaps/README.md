@@ -1,5 +1,5 @@
-## Ledaps Version 3.2.1 Release Notes
-Release Date: August 2017
+## Ledaps Version 3.2.2 Release Notes
+Release Date: January 2018
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.2.1]
+See git tag [ledaps-version_3.2.2]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,6 +92,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Clarified the error message for solar angles that are greater than 76
-     degrees.  These are flagged as being too large for surface reflectance
-     processing, but removed the phrase that indicated they are out of range.
+  1. Clarified the brightness temp modifier as top-of-atmosphere.

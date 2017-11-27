@@ -177,7 +177,7 @@ bool Cal6(Lut_t *lut, Input_t *input, unsigned char *line_in, int16 *line_out,
       continue;
     }
 
-    /* compute the brightness temperature in Kelvin and apply scaling of
+    /* compute the TOA brightness temperature in Kelvin and apply scaling of
        10.0 (tied to lut->scale_factor_th). valid ranges are set up in lut.c
        as well. */
     rad = (rad_gain * (float)val) + rad_bias;
