@@ -217,7 +217,7 @@ int main (int argc, char *argv[]) {
       if (!GetInputLineTh(input, iline, line_in))
         EXIT_ERROR("reading input data for a line", "main");
 
-      /* Handle the brightness temp corrections */
+      /* Handle the TOA brightness temp corrections */
       if (!Cal6(lut, input, line_in, line_out_th, &line_out_qa[curr_line],
         &cal_stats6, iline))
         EXIT_ERROR("doing calibration for a line", "main");
