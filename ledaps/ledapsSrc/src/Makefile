@@ -5,7 +5,7 @@
 #-----------------------------------------------------------------------------
 .PHONY: all install clean
 
-MODULES = lndpm lndcal lndsr lndsrbm 6sV-1.0B
+MODULES = lndpm lndcal lndsr 6sV-1.0B
 
 all:
 	@for module in $(MODULES); do \

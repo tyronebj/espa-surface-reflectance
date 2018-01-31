@@ -1,5 +1,5 @@
-## LaSRC Version 1.3.1 Release Notes
-Release Date: January 2018
+## LaSRC Version 1.4.0 Release Notes
+Release Date: March 2018
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.3.1]
+See git tag [lasrc-version_1.4.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,4 +80,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Clarified the brightness temp modifier as top-of-atmosphere.
+1. Removed support for pre-Collection scenes.

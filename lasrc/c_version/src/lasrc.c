@@ -612,17 +612,20 @@ void usage ()
             "used, none of the other parameters are used or required.\n");
 
     printf ("\nlasrc --help will print the usage statement\n");
-    printf ("\nExample: lasrc --xml=LC80410272013181LGN00.xml "
+    printf ("\nExample: lasrc "
+            "--xml=LC08_L1TP_041027_20130630_20140312_01_T1.xml "
             "--aux=L8ANC2013181.hdf_fused --verbose\n");
     printf ("   ==> Writes bands 9-11 as TOA reflectance and brightness "
             "temperature.  Writes bands 1-7 as surface reflectance.\n\n");
 
-    printf ("\nExample: lasrc --xml=LC80410272013181LGN00.xml "
+    printf ("\nExample: lasrc "
+            "--xml=LC08_L1TP_041027_20130630_20140312_01_T1.xml "
             "--aux=L8ANC2013181.hdf_fused --write_toa --verbose\n");
     printf ("   ==> Writes bands 1-11 as TOA reflectance and brightness "
             "temperature.  Writes bands 1-7 as surface reflectance.\n");
 
-    printf ("\nExample: lasrc --xml=LC80410272013181LGN00.xml "
+    printf ("\nExample: lasrc "
+            "--xml=LC08_L1TP_041027_20130630_20140312_01_T1.xml "
             "--aux=L8ANC2013181.hdf_fused --process_sr=false --verbose\n");
     printf ("   ==> Writes bands 1-11 as TOA reflectance and brightness "
             "temperature.  Surface reflectance corrections are not applied.\n");
