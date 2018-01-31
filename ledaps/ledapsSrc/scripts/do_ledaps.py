@@ -284,7 +284,7 @@ class Ledaps():
                 return ERROR
 
             if process_sr == 'True':
-                cmdstr = 'lndsr --pfile lndsr.{}.txt {}'.format(xml)
+                cmdstr = 'lndsr --pfile lndsr.{}.txt'.format(xml)
                 (status, output) = commands.getstatusoutput(cmdstr)
                 logger.info(output)
                 exit_code = status >> 8

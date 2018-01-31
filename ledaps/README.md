@@ -93,3 +93,9 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 
 ## Release Notes
   1. Removed support for pre-Collection data.
+  2. Cleaned up the source code and removed modules that are no longer used.
+     lndcsm (cloud mask) hasn't been used in many years.
+     lndsrbm (post-processing cloud mask) is no longer used.  The cloud QA
+     information written for these products needs to represent what was used
+     for the surface reflectance corrections, not something generated after the
+     corrections were applied.
