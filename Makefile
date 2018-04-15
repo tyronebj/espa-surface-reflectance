@@ -1,95 +1,29 @@
-#-----------------------------------------------------------------------------
-# Makefile
-#
-# Project Name: surface reflectance
-#-----------------------------------------------------------------------------
-.PHONY: check-environment all install clean all-script install-script clean-script all-ledaps install-ledaps clean-ledaps all-ledaps-aux install-ledaps-aux clean-ledaps-aux all-lasrc install-lasrc clean-lasrc all-lasrc-aux install-lasrc-aux clean-lasrc-aux all-aux install-aux
+.DEFAULT_GOAL := build
+VERSION    := $(or $(TRAVIS_TAG),$(shell cat version.txt))
+REPO       := $(or $(DOCKER_USER),$(shell whoami))"/$(shell basename $(shell pwd))"
+BRANCH     := $(or $(TRAVIS_BRANCH),$(shell git rev-parse --abbrev-ref HEAD | tr / -))
+COMMIT     := $(or $(TRAVIS_COMMIT),$(shell git rev-parse HEAD))
+COMMIT_TAG := $(REPO):$(COMMIT)
+BRANCH_TAG := $(REPO):$(BRANCH)-$(VERSION)
 
-include make.config
+build:
+	@docker build --target builder -f Dockerfile -t $(COMMIT_TAG) --rm=true --compress $(PWD)
 
-DIR_LEDAPS = ledaps
-DIR_LaSRC = lasrc
+tag:
+	@docker tag $(COMMIT_TAG) $(BRANCH_TAG)
+	@$(shell [ $(BRANCH) == master ] && docker tag $(COMMIT_TAG) $(REPO):latest)
 
-#-----------------------------------------------------------------------------
-all: all-script all-ledaps all-lasrc
+login:
+	@$(if $(and $(DOCKER_USER), $(DOCKER_PASS)), docker login -u $(DOCKER_USER) -p $(DOCKER_PASS), docker login)
 
-install: check-environment install-script install-ledaps install-lasrc
+push: login
+	docker push $(REPO)
 
-clean: clean-script clean-ledaps clean-lasrc
+debug:
+	@echo "VERSION:    $(VERSION)"
+	@echo "REPO:       $(REPO)"
+	@echo "BRANCH:     $(BRANCH)"
+	@echo "COMMIT_TAG: $(COMMIT_TAG)"
+	@echo "BRANCH_TAG: $(BRANCH_TAG)"
 
-#-----------------------------------------------------------------------------
-all-script:
-	echo "make all in scripts"; \
-        (cd scripts; $(MAKE) all);
-
-install-script:
-	echo "make install in scripts"; \
-        (cd scripts; $(MAKE) install);
-
-clean-script:
-	echo "make clean in scripts"; \
-        (cd scripts; $(MAKE) clean);
-
-#-----------------------------------------------------------------------------
-all-lasrc:
-	echo "make all in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) all-lasrc);
-
-install-lasrc:
-	echo "make install in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) install-lasrc);
-
-clean-lasrc:
-	echo "make clean in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) clean-lasrc);
-
-#-----------------------------------------------------------------------------
-all-lasrc-aux:
-	echo "make all in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) all-lasrc-aux);
-
-install-lasrc-aux:
-	echo "make install in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) install-lasrc-aux);
-
-clean-lasrc-aux:
-	echo "make clean in $(DIR_LaSRC)"; \
-        (cd $(DIR_LaSRC); $(MAKE) clean-lasrc-aux);
-
-#-----------------------------------------------------------------------------
-all-ledaps:
-	echo "make all in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) all-ledaps);
-
-install-ledaps:
-	echo "make install in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) install-ledaps);
-
-clean-ledaps:
-	echo "make clean in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) clean-ledaps);
-
-#-----------------------------------------------------------------------------
-all-ledaps-aux:
-	echo "make all in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) all-ledaps-aux);
-
-install-ledaps-aux:
-	echo "make install in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) install-ledaps-aux);
-
-clean-ledaps-aux:
-	echo "make clean in $(DIR_LEDAPS)"; \
-        (cd $(DIR_LEDAPS); $(MAKE) clean-ledaps-aux);
-
-#-----------------------------------------------------------------------------
-all-aux: all-ledaps-aux all-lasrc-aux
-
-install-aux: install-ledaps-aux install-lasrc-aux
-
-#-----------------------------------------------------------------------------
-check-environment:
-ifndef PREFIX
-    $(error Environment variable PREFIX is not defined)
-endif
-
+docker-deploy: debug build tag push
