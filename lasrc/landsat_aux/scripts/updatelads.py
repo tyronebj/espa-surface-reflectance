@@ -79,6 +79,10 @@ def geturl(url, token=None, out=None):
 
     Returns: None
     """
+    # get the logger
+    logger = logging.getLogger(__name__)
+
+    # get the headers for the application data download
     headers = {'user-agent' : USERAGENT}
     if not token is None:
         headers['Authorization'] = 'Bearer ' + token
@@ -97,11 +101,28 @@ def geturl(url, token=None, out=None):
             result = subprocess.check_output(args)
             return result.decode('utf-8') if isinstance(result, bytes) else result
         else:
-            subprocess.call(args, stdout=out)
+            # download of the actual LAADS data product
+            retval = subprocess.call(args, stdout=out)
+
+            # make sure the download was successful or retry up to 5 more times
+            # and sleep in between
+            if retval:
+                retry_count = 1
+                while ((retry_count <= 5) and (retval)):
+                    time.sleep(60)
+                    logger.info('Retry {} of download for {}'
+                                .format(retry_count, url))
+                    retval = subprocess.call(args, stdout=out)
+                    retry_count += 1
+    
+                if retval:
+                    logger.warn('Unsuccessful download of {} (retried 5 times)'
+                                .format(url))
+
     except subprocess.CalledProcessError as e:
-        msg = ('curl GET error message: {}'
-               .format((e.message if hasattr(e, 'message') else e.output),
-                file=sys.stderr))
+        msg = ('curl GET error for URL (). {}:{}'
+               .format(url, e.message, e.output))
+        logger.error(msg)
 
     return None
 
@@ -203,7 +224,7 @@ def downloadLads (year, doy, destination, token=None):
         except ImportError:
             import json
             files = json.loads(geturl(url + '.json', token))
-    
+
         # log a warning if no files were found
         if len(files) == 0:
             msg = 'No files were found in {}. Continue processing.'.format(url)
@@ -545,6 +566,12 @@ def main ():
         # Non-ESPA processing.  TOKEN needs to be defined at the top of this
         # script.
         token = TOKEN
+
+    if token is None:
+        logger.error('Application token is None. This needs to be a valid '
+            'token provided for accessing the LAADS data. '
+            'https://ladsweb.modaps.eosdis.nasa.gov/tools-and-services/data-download-scripts/')
+        return ERROR
 
     # if processing today then process the current year.  if the current
     # DOY is within the first month, then process the previous year as well
