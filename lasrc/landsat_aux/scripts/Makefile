@@ -10,8 +10,7 @@ TOP = ../../..
 include $(TOP)/make.config
 
 # Define scripts
-SCRIPTS = api_interface.py \
-          config_utils.py \
+SCRIPTS = config_utils.py \
           updatelads.py
 
 #-----------------------------------------------------------------------------

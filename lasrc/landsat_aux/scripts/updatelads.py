@@ -14,7 +14,9 @@ from optparse import OptionParser
 import requests
 import logging
 from config_utils import get_cfg_file_path, retrieve_cfg
-from api_interface import api_connect
+from api_interface import api_connect  # from espa-processing, not needed if
+                                       # TOKEN is defined (i.e. non-ESPA
+                                       # environments
 
 try:
     from StringIO import StringIO   # python2
@@ -31,8 +33,10 @@ START_YEAR = 2013      # quarterly processing will reprocess back to the
 ##NOTE: For non-ESPA environments, the TOKEN needs to be defined.  This is
 ##the application token that is required for accessing the LAADS data
 ##https://ladsweb.modaps.eosdis.nasa.gov/tools-and-services/data-download-scripts/
+##The non-ESPA user should also comment out the api_interface/api_connect import
+##line above, unless you desire to check this code out of github.
 TOKEN = None
-USERAGENT = 'tis/download.py_1.0--' + sys.version.replace('\n','').replace('\r','')
+USERAGENT = 'espa.cr.usgs.gov/updatelads.py 1.4.1--' + sys.version.replace('\n','').replace('\r','')
 
 # Specify the base location for the LAADS data as well as the
 # correct subdirectories for each of the instrument-specific ozone
@@ -561,7 +565,8 @@ def main ():
         proc_cfg = retrieve_cfg(PROC_CFG_FILENAME)
         rpcurl = proc_cfg.get('processing', 'espa_api')
         server = api_connect(rpcurl)
-        token = server.get_configuration('aux.downloads.laads.token')
+        if server:
+            token = server.get_configuration('aux.downloads.laads.token')
     else:
         # Non-ESPA processing.  TOKEN needs to be defined at the top of this
         # script.
