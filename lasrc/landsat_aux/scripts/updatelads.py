@@ -14,9 +14,7 @@ from optparse import OptionParser
 import requests
 import logging
 from config_utils import get_cfg_file_path, retrieve_cfg
-from api_interface import api_connect  # from espa-processing, not needed if
-                                       # TOKEN is defined (i.e. non-ESPA
-                                       # environments
+from api_interface import api_connect
 
 try:
     from StringIO import StringIO   # python2
@@ -33,8 +31,6 @@ START_YEAR = 2013      # quarterly processing will reprocess back to the
 ##NOTE: For non-ESPA environments, the TOKEN needs to be defined.  This is
 ##the application token that is required for accessing the LAADS data
 ##https://ladsweb.modaps.eosdis.nasa.gov/tools-and-services/data-download-scripts/
-##The non-ESPA user should also comment out the api_interface/api_connect import
-##line above, unless you desire to check this code out of github.
 TOKEN = None
 USERAGENT = 'espa.cr.usgs.gov/updatelads.py 1.4.1--' + sys.version.replace('\n','').replace('\r','')
 

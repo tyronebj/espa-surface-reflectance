@@ -1,6 +1,3 @@
-###NOTE GAIL: This file is included in espa-processing, so it's not part of the
-###overall software for updatelads.  Just keeping a local copy for testing
-###without needing to pull down espa-processing.
 import requests
 import logging
 
