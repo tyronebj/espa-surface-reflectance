@@ -11,7 +11,8 @@ deploy:
     on:
       branch:
         - master
-        - devel
+        - develop
+        - docker-devel
 notifications:
   email:
     on_success: never

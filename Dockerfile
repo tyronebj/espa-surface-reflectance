@@ -1,9 +1,10 @@
 # =======================================================
 #   Binary Build Layer
 # =======================================================
-FROM jbrinkmann/lagoon-toad:devel-1.7.0.0 as builder
+FROM usgseros/espa-l2qa-tools:docker-devel-3.0rc1.dev1 as builder
 LABEL maintainer="USGS EROS LSRD http://eros.usgs.gov" \
       description="ESPA scripts generating top-of-atmosphere and surface reflectance products"
+USER root
 
 WORKDIR ${SRC_DIR}
 COPY . ${SRC_DIR}
@@ -20,3 +21,5 @@ RUN cd ${SRC_DIR}/scripts \
     && make install \
     && cd ${SRC_DIR} \
     && rm -rf *
+USER espadev
+

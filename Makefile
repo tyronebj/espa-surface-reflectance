@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := build
 VERSION    := $(or $(TRAVIS_TAG),$(shell cat version.txt))
-REPO       := $(or $(DOCKER_USER),$(shell whoami))"/$(shell basename $(shell pwd))"
+REPO       := "usgseros/$(shell basename $(shell pwd))"
 BRANCH     := $(or $(TRAVIS_BRANCH),$(shell git rev-parse --abbrev-ref HEAD | tr / -))
 COMMIT     := $(or $(TRAVIS_COMMIT),$(shell git rev-parse HEAD))
 COMMIT_TAG := $(REPO):$(COMMIT)
