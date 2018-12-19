@@ -24,7 +24,7 @@ typedef struct cld_diags_t {
 int allocate_cld_diags(struct cld_diags_t *cld_diags,int cell_height, int cell_width, int scene_height, int scene_width);
 void free_cld_diags(struct cld_diags_t *cld_diags);
 void fill_cld_diags(cld_diags_t *cld_diags);
-void interpol_clddiags_1pixel(cld_diags_t *cld_diags, int img_line, int img_sample,float *inter_value);
+void interpol_clddiags_1pixel(cld_diags_t *cld_diags, int img_line, int img_sample, float *t6_clear, float *airtemp_2m);
 
 bool cloud_detection_pass1(Lut_t *lut, int nsamp, int il, int16 **line_in, uint8 *qa_line, int16 *b6_line,float *atemp_line, cld_diags_t *cld_diags);
 bool cloud_detection_pass2(Lut_t *lut, int nsamp, int il, int16 **line_in, uint8 *qa_line, int16 *b6_line, cld_diags_t *cld_diags,char *ddv_line);

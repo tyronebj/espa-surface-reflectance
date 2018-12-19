@@ -1,5 +1,5 @@
-## Ledaps Version 3.3.0 Release Notes
-Release Date: March 2018
+## Ledaps Version 3.3.1 Release Notes
+Release Date: December 2018
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.3.0]
+See git tag [ledaps-version_3.3.1]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,10 +92,10 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Removed support for pre-Collection data.
-  2. Cleaned up the source code and removed modules that are no longer used.
-     lndcsm (cloud mask) hasn't been used in many years.
-     lndsrbm (post-processing cloud mask) is no longer used.  The cloud QA
-     information written for these products needs to represent what was used
-     for the surface reflectance corrections, not something generated after the
-     corrections were applied.
+  1. Fixed a bug introduced to the cloud shadow code when multi-threading was
+     added.  This bug only affects the cloud shadow computation when the band
+     6 clear temperature values are invalid, in which case the ancillary
+     airtemp_2m values are used from the cloud diagnostics.  The interpolation
+     of these ancillary values is where the bug resides and a value of -9999
+     is ultimately used, and therefore the cloud shadow is not computed for
+     the pixel.

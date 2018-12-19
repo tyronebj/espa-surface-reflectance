@@ -1024,7 +1024,7 @@ int main (int argc, char *argv[]) {
 
             /* Cloud shadow */
             cast_cloud_shadow(lut, input->size.s, il_start, line_in, b6_line,
-                &cld_diags,ptr_rot_cld,&ar_gridcell, space_def.pixel_size[0],
+                &cld_diags, ptr_rot_cld, &ar_gridcell, space_def.pixel_size[0],
                 adjust_north);
 
             /* Dilate Cloud shadow */
