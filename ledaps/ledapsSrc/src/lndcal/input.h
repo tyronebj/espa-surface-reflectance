@@ -79,15 +79,23 @@ typedef struct {
   int iband_th;            /* Thermal Band number= (6) */
   float rad_gain[NBAND_REFL_MAX]; /* TOA radiance band gain */
   float rad_bias[NBAND_REFL_MAX]; /* TOA radiance band bias */
-  float rad_gain_th;           /* Thermal TOA radiance band gain */
-  float rad_bias_th;           /* Thermal TOA radiance band bias */
+  float rad_gain_th[2];    /* Thermal TOA radiance band gain (ETM+ B6L)
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
+  float rad_bias_th[2];    /* Thermal TOA radiance band bias
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
   bool use_toa_refl_consts;    /* Are the TOA reflectance gain/bias and K1/K2
                                   constants available? Same with earth-sun
                                   distance */
   float refl_gain[NBAND_REFL_MAX]; /* TOA reflectance band gain */
   float refl_bias[NBAND_REFL_MAX]; /* TOA reflectance band bias */
-  float k1_const;          /* K1 thermal constant */
-  float k2_const;          /* K2 thermal constant */
+  float k1_const[2];       /* K1 thermal constant
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
+  float k2_const[2];       /* K2 thermal constant
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
 } Input_meta_t;
 
 /* Structure for the 'input' data type */
@@ -96,12 +104,15 @@ typedef struct {
   Input_type_t file_type;  /* Type of the input image files */
   Input_meta_t meta;       /* Input metadata */
   int nband;               /* Number of input image files (bands) */
-  int nband_th;            /* Number of thermal input image files (0 or 1) */
+  int nband_th;            /* Number of thermal input image files (0, 1, 2) */
   Img_coord_int_t size;    /* Input file size */
   Img_coord_int_t size_th; /* Input (thermal) file size */
   char *file_name[NBAND_REFL_MAX];  
                            /* Name of the input image files */
-  char *file_name_th;      /* Name of the thermal input image files */
+  char *file_name_th[2];   /* Name of the thermal input image files
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
+
   char *file_name_sun_zen; /* Name of the represetative per-pixel solar zenith
                               file */
   bool open[NBAND_REFL_MAX]; 
@@ -111,7 +122,9 @@ typedef struct {
   bool open_th;            /* thermal open flag */
   bool open_sun_zen;       /* solar zenith open flag */
   FILE *fp_bin[NBAND_REFL_MAX];  /* File pointer for binary files */
-  FILE *fp_bin_th;         /* File pointer for thermal binary file */
+  FILE *fp_bin_th[2];      /* File pointer for thermal binary file;
+                              [0] is TM band 6  OR
+                              [0] is ETM+ band 6L, [1] is ETM+ band 6H */
   FILE *fp_bin_sun_zen;    /* File pointer for the representative per-pixel
                               array solar zenith band */
 } Input_t;
@@ -120,7 +133,8 @@ typedef struct {
 
 Input_t *OpenInput(Espa_internal_meta_t *metadata);
 bool GetInputLine(Input_t *this, int iband, int iline, unsigned char *line);
-bool GetInputLineTh(Input_t *this, int iline, unsigned char *line);
+bool GetInputLineTh(Input_t *this, int iline, unsigned char *line,
+  bool read_b6h, unsigned char *line_b6h);
 bool GetInputLineSunZen(Input_t *this, int iline, int16 *line);
 bool CloseInput(Input_t *this);
 bool FreeInput(Input_t *this);

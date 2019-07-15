@@ -41,7 +41,6 @@
 #define LUT_H
 
 #include "lndcal.h"
-#include "lndcal.h"
 #include "input.h"
 #include "param.h"
 #include "bool.h"
@@ -59,8 +58,12 @@ typedef struct {
   float cos_sun_zen;           /* Cosine of the solar zenith angle          */
   float esun[NBAND_REFL_MAX];  /* Mean solar exoatmospheric irradiances     */ 
   float dsun2;                 /* Earth sun distance squared                */
-  float K1;                    /* K1 constant                               */
-  float K2;                    /* K2 constant                               */
+  float K1[2];                 /* K1 constant
+                                  [0] is TM band 6  OR
+                                  [0] is ETM+ band 6L, [1] is ETM+ band 6H  */
+  float K2[2];                 /* K2 constant
+                                  [0] is TM band 6  OR
+                                  [0] is ETM+ band 6L, [1] is ETM+ band 6H  */
   char* long_name_prefix_ref;  /* ref long name prefix (append band num)    */
   char* units_ref;             /* ref units                                 */
   int valid_range_ref[2];      /* ref valid range                           */

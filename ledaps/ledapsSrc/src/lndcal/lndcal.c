@@ -40,8 +40,6 @@ int main (int argc, char *argv[]) {
   unsigned char *line_out_qa = NULL;
   int16 *line_out = NULL;
   int16 *line_out_th = NULL;
-  Cal_stats_t cal_stats;
-  Cal_stats6_t cal_stats6;
   int nps,nls, nps6, nls6;
   int i,odometer_flag=0;
   char msgbuf[1024];
@@ -96,14 +94,11 @@ int main (int argc, char *argv[]) {
   lut = GetLut(param, input->nband, input);
   if (lut == (Lut_t *)NULL) EXIT_ERROR("bad lut file", "main");
 
-  nps6=  input->size_th.s;
-  nls6=  input->size_th.l;
-  nps =  input->size.s;
-  nls =  input->size.l;
+  nps6 = input->size_th.s;
+  nls6 = input->size_th.l;
+  nps  = input->size.s;
+  nls  = input->size.l;
 
-  for (ib = 0; ib < input->nband; ib++) 
-    cal_stats.first[ib] = true;
-  cal_stats6.first = true;
   if (input->meta.inst == INST_MSS)mss_flag=1; 
 
   /* Open the output files.  Raw binary band files will be be opened. */
@@ -111,7 +106,8 @@ int main (int argc, char *argv[]) {
     mss_flag);
   if (output == NULL) EXIT_ERROR("opening output file", "main");
 
-  /* Allocate memory for the input buffer, enough for all reflectance bands */
+  /* Allocate memory for the input buffer, enough for all reflectance bands
+     (which more than covers the size of two thermal bands for ETM+) */
   input_psize = sizeof(unsigned char);
   line_in = calloc (nps * nband_refl, input_psize);
    if (line_in == NULL) 
@@ -161,16 +157,20 @@ int main (int argc, char *argv[]) {
 
     /* Process thermal if it exists */
     if (input->nband_th > 0) {
-      /* Read the input thermal data */
-      if (!GetInputLineTh(input, iline, line_in))
+      /* Read the input thermal data. If ETM+ just read band 6L for now. */
+      if (!GetInputLineTh(input, iline, line_in, false, NULL))
         EXIT_ERROR("reading input data for a line", "main");
 
-      /* Flag fill and saturated pixels for thermal */
+      /* Flag fill and saturated pixels for thermal.  If this is an ETM+
+         product, the band 6L data will be used for fill and saturation.  If
+         band 6L is saturated, then band 6H is also saturated, but not vice
+         versa.  So band 6L will be the valid representation of the combined
+         band 6. */
       curr_pix = curr_line;  /* start at the beginning of the current line */
       for (isamp = 0; isamp < nps; isamp++, curr_pix++) {
-        val= line_in[isamp];
+        val= line_in[isamp];  /* band 6L */
         if ( val==ifill) line_out_qa[curr_pix] = lut->qa_fill; 
-        else if ( val>=SATU_VAL6 ) line_out_qa[curr_pix] = ( 0x000001 << 6 ); 
+        else if ( val==SATU_VAL6 ) line_out_qa[curr_pix] = ( 0x000001 << 6 ); 
       }
     }  /* end if thermal */
 
@@ -192,12 +192,12 @@ int main (int argc, char *argv[]) {
           jb= (ib != 5 ) ? ib+1 : ib+2;
           val= line_in[my_pix];
           if ( val==ifill   )num_zero++;
-          if ( val==SATU_VAL[ib] ) line_out_qa[curr_pix] |= ( 0x000001 <<jb ); 
+          if ( val==SATU_VAL[ib] ) line_out_qa[curr_pix] |= ( 0x000001 << jb ); 
         }
 
         /* If it's fill in any band, it's flagged as fill in the QA.  The
            reflectance values will be set to fill in the Cal routine. */
-        if ( num_zero >  0 ) line_out_qa[curr_pix] = lut->qa_fill; 
+        if ( num_zero > 0 ) line_out_qa[curr_pix] = lut->qa_fill; 
       }  /* end if not fill */
     }  /* end for isamp */
   }  /* end for iline */
@@ -207,17 +207,28 @@ int main (int argc, char *argv[]) {
     ifill= (int)lut->in_fill;
     for (iline = 0; iline < nls6; iline++) {
       curr_line = iline * nps6;  /* start of the line in the QA band */
-      if ( odometer_flag && ( iline==0 || iline ==(nls-1) || iline%100==0  ) )
+      if ( odometer_flag && ( iline==0 || iline ==(nls6-1) || iline%100==0  ) )
         printf("--- main loop BAND6 Line %d --- \r",iline); fflush(stdout); 
 
-      /* Read the input thermal data */
-      if (!GetInputLineTh(input, iline, line_in))
-        EXIT_ERROR("reading input data for a line", "main");
+      /* Read the input thermal data. If ETM+ then band 6L will be loaded first
+         in line_in, followed by band 6H. */
+      if (!GetInputLineTh(input, iline, line_in, true, &line_in[nps6]))
+        EXIT_ERROR("reading input thermal data for a line", "main");
 
-      /* Handle the TOA brightness temp corrections */
-      if (!Cal6(lut, input, line_in, line_out_th, &line_out_qa[curr_line],
-        &cal_stats6, iline))
-        EXIT_ERROR("doing calibration for a line", "main");
+      /* Handle the TOA brightness temp corrections. TM and ETM+ are handled
+         differently due to the combined band algorithm for ETM+. */
+      if (input->nband_th == 1) {
+        /* TM */
+        if (!Cal6(lut, input, line_in, line_out_th, &line_out_qa[curr_line],
+          iline))
+          EXIT_ERROR("doing BT calibration for a line", "main");
+      }
+      else if (input->nband_th == 2) {
+        /* ETM+ */
+        if (!Cal6_combined(lut, input, line_in, &line_in[nps6], line_out_th,
+          &line_out_qa[curr_line], iline))
+          EXIT_ERROR("doing BT calibration for a line", "main");
+      }
 
       /* Write the results */
       ib=0;
@@ -254,7 +265,7 @@ int main (int argc, char *argv[]) {
        results */
     for (ib = 0; ib < input->nband; ib++) {
       if (!Cal(param, lut, ib, input, &line_in[ib*nps], line_in_sun_zen,
-        line_out, &line_out_qa[curr_line], &cal_stats, iline))
+        line_out, &line_out_qa[curr_line], iline))
         EXIT_ERROR("doing calibraton for a line", "main");
 
       if (!PutOutputLine(output, ib, iline, line_out))
@@ -280,21 +291,6 @@ int main (int argc, char *argv[]) {
   line_out_th = NULL;
   free(line_out_qa);
   line_out_qa = NULL;
-
-#ifdef DO_STATS
-  for (ib = 0; ib < input->nband; ib++) {
-    printf(
-      " band %d rad min %8.5g max %8.4f  |  ref min  %8.5f max  %8.4f\n", 
-      input->meta.iband[ib], cal_stats.rad_min[ib], cal_stats.rad_max[ib],
-      cal_stats.ref_min[ib], cal_stats.ref_max[ib]);
-  }
-
-  if ( input->nband_th > 0 )
-    printf(
-      " band %d rad min %8.5g max %8.4f  |  tmp min  %8.5f max  %8.4f\n", 6,
-      cal_stats6.rad_min,  cal_stats6.rad_max,
-      cal_stats6.temp_min, cal_stats6.temp_max);
-#endif
 
   /* Close input and output files */
   if (!CloseInput(input)) EXIT_ERROR("closing input file", "main");

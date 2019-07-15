@@ -91,13 +91,37 @@ Input_t *OpenInput(Espa_internal_meta_t *metadata)
       }
       this->open[ib] = true;
     }
+
+    /* TM band 6 */
     if ( this->nband_th == 1 ) {
-      this->fp_bin_th = fopen(this->file_name_th, "r");
-      if (this->fp_bin_th == NULL) 
-        error_string = "opening thermal binary file";
+      this->fp_bin_th[0] = fopen(this->file_name_th[0], "r");
+      if (this->fp_bin_th[0] == NULL) 
+        error_string = "opening TM band 6 binary file";
       else
         this->open_th = true;
     }
+
+    /* ETM+ band 6L & 6H */
+    if ( this->nband_th == 2 ) {
+      /* band 6L */
+      this->fp_bin_th[0] = fopen(this->file_name_th[0], "r");
+      if (this->fp_bin_th[0] == NULL) {
+        error_string = "opening ETM+ band 6L binary file";
+        this->open_th = false;
+      }
+      else
+        this->open_th = true;
+
+      /* band 6H */
+      this->fp_bin_th[1] = fopen(this->file_name_th[1], "r");
+      if (this->fp_bin_th[1] == NULL) {
+        error_string = "opening ETM+ band 6H binary file";
+        this->open_th = false;
+      }
+      else
+        this->open_th &= true;
+    }
+
     this->fp_bin_sun_zen = fopen(this->file_name_sun_zen, "r");
     if (this->fp_bin_sun_zen == NULL) 
       error_string = "opening solar zenith representative band binary file";
@@ -117,10 +141,17 @@ Input_t *OpenInput(Espa_internal_meta_t *metadata)
         this->open[ib] = false;
       }
     }
-    free(this->file_name_th);
-    this->file_name_th = NULL;
-    if ( this->file_type == INPUT_TYPE_BINARY )
-      fclose(this->fp_bin_th);  
+
+    free(this->file_name_th[0]);
+    this->file_name_th[0] = NULL;
+    free(this->file_name_th[1]);
+    this->file_name_th[1] = NULL;
+
+    if ( this->file_type == INPUT_TYPE_BINARY && this->nband_th >= 1 ) {
+      fclose(this->fp_bin_th[0]);
+      if ( this->nband_th > 1 )
+        fclose(this->fp_bin_th[1]);
+    }
     this->open_th = false;
     free(this);
     this = NULL;
@@ -157,7 +188,8 @@ bool GetInputLine(Input_t *this, int iband, int iline, unsigned char *line)
   return true;
 }
 
-bool GetInputLineTh(Input_t *this, int iline, unsigned char *line) 
+bool GetInputLineTh(Input_t *this, int iline, unsigned char *line,
+  bool read_b6h, unsigned char *line_b6h)
 {
   long loc;
   void *buf_void = NULL;
@@ -172,13 +204,29 @@ bool GetInputLineTh(Input_t *this, int iline, unsigned char *line)
     RETURN_ERROR("band not open", "GetInputLineTh", false);
 
   buf_void = (void *)line;
-  if (this->file_type == INPUT_TYPE_BINARY) {
+  if (this->file_type == INPUT_TYPE_BINARY && this->nband_th >= 1) {
+    /* Read the first band which is either TM Band 6 or ETM+ Band 6L */
     loc = (long) (iline * this->size_th.s * sizeof(uint8));
-    if (fseek(this->fp_bin_th, loc, SEEK_SET))
-      RETURN_ERROR("error seeking line (binary)", "GetInputLineTh", false);
+    if (fseek(this->fp_bin_th[0], loc, SEEK_SET))
+      RETURN_ERROR("error seeking b6/b6L line (binary)", "GetInputLineTh",
+        false);
     if (fread(buf_void, sizeof(uint8), (size_t)this->size_th.s, 
-              this->fp_bin_th) != (size_t)this->size_th.s)
-      RETURN_ERROR("error reading line (binary)", "GetInputLineTh", false);
+      this->fp_bin_th[0]) != (size_t)this->size_th.s)
+      RETURN_ERROR("error reading b6/b6L line (binary)", "GetInputLineTh",
+        false);
+  }
+
+  buf_void = (void *)line_b6h;
+  if (read_b6h && this->file_type == INPUT_TYPE_BINARY && this->nband_th > 1) {
+    /* Read the second band which is ETM+ Band 6H */
+    loc = (long) (iline * this->size_th.s * sizeof(uint8));
+    if (fseek(this->fp_bin_th[1], loc, SEEK_SET))
+      RETURN_ERROR("error seeking b6H line (binary)", "GetInputLineTh",
+        false);
+    if (fread(buf_void, sizeof(uint8), (size_t)this->size_th.s,
+      this->fp_bin_th[1]) != (size_t)this->size_th.s)
+      RETURN_ERROR("error reading b6H line (binary)", "GetInputLineTh",
+        false);
   }
 
   return true;
@@ -249,8 +297,11 @@ bool CloseInput(Input_t *this)
 
   /*** now close the thermal file ***/
   if (this->open_th) {
-    if (this->file_type == INPUT_TYPE_BINARY)
-      fclose(this->fp_bin_th);
+    if (this->file_type == INPUT_TYPE_BINARY && this->nband_th >= 1) {
+      fclose(this->fp_bin_th[0]);
+      if (this->nband_th > 1)
+        fclose(this->fp_bin_th[1]);
+    }
     this->open_th = false;
   }
 
@@ -293,8 +344,10 @@ bool FreeInput(Input_t *this)
       this->file_name[ib] = NULL;
     }
 
-    free(this->file_name_th);
-    this->file_name_th = NULL;
+    free(this->file_name_th[0]);
+    this->file_name_th[0] = NULL;
+    free(this->file_name_th[1]);
+    this->file_name_th[1] = NULL;
 
     free(this->file_name_sun_zen);
     this->file_name_sun_zen = NULL;
@@ -336,10 +389,14 @@ bool InputMetaCopy(Input_meta_t *this, int nband, Input_meta_t *copy)
     copy->refl_gain[ib] = this->refl_gain[ib];
     copy->refl_bias[ib] = this->refl_bias[ib];
   }
-  copy->rad_gain_th = this->rad_gain_th;
-  copy->rad_bias_th = this->rad_bias_th;
-  copy->k1_const = this->k1_const;
-  copy->k2_const = this->k2_const;
+  copy->rad_gain_th[0] = this->rad_gain_th[0];
+  copy->rad_gain_th[1] = this->rad_gain_th[1];
+  copy->rad_bias_th[0] = this->rad_bias_th[0];
+  copy->rad_bias_th[1] = this->rad_bias_th[1];
+  copy->k1_const[0] = this->k1_const[0];
+  copy->k1_const[1] = this->k1_const[1];
+  copy->k2_const[0] = this->k2_const[0];
+  copy->k2_const[1] = this->k2_const[1];
   copy->use_toa_refl_consts = this->use_toa_refl_consts;
   return true;
 }
@@ -412,14 +469,20 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata)
         this->open[ib] = false;
         this->fp_bin[ib] = NULL;
     }
-    this->nband_th = 0;
+    this->nband_th = 0;  /* no thermal band */
     this->open_th = false;
-    this->meta.rad_gain_th = GAIN_BIAS_FILL;
-    this->meta.rad_bias_th = GAIN_BIAS_FILL;
-    this->meta.k1_const = GAIN_BIAS_FILL;
-    this->meta.k2_const = GAIN_BIAS_FILL;
-    this->file_name_th = NULL;
-    this->fp_bin_th = NULL;
+    this->meta.rad_gain_th[0] = GAIN_BIAS_FILL;
+    this->meta.rad_gain_th[1] = GAIN_BIAS_FILL;
+    this->meta.rad_bias_th[0] = GAIN_BIAS_FILL;
+    this->meta.rad_bias_th[1] = GAIN_BIAS_FILL;
+    this->meta.k1_const[0] = GAIN_BIAS_FILL;
+    this->meta.k1_const[1] = GAIN_BIAS_FILL;
+    this->meta.k2_const[0] = GAIN_BIAS_FILL;
+    this->meta.k2_const[1] = GAIN_BIAS_FILL;
+    this->file_name_th[0] = NULL;
+    this->file_name_th[1] = NULL;
+    this->fp_bin_th[0] = NULL;
+    this->fp_bin_th[1] = NULL;
 
     this->open_sun_zen = false;
     this->file_name_sun_zen = NULL;
@@ -507,7 +570,11 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata)
         this->meta.iband[4] = 5;
         this->meta.iband[5] = 7;
 
-        this->nband_th = 1;  /* number of thermal bands; only use 6L for ETM */
+        /* number of thermal bands; use combination of 6H and 6L for ETM+ */
+        if (this->meta.inst == INST_TM)
+            this->nband_th = 1;
+        else
+            this->nband_th = 2;
         this->meta.iband_th = 6;
     }
 
@@ -618,14 +685,14 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata)
             th_indx = i;
 
             /* get the band6 info */
-            this->meta.rad_gain_th = metadata->band[i].rad_gain;
-            this->meta.rad_bias_th = metadata->band[i].rad_bias;
-            this->file_name_th = strdup (metadata->band[i].file_name);
+            this->meta.rad_gain_th[0] = metadata->band[i].rad_gain;
+            this->meta.rad_bias_th[0] = metadata->band[i].rad_bias;
+            this->file_name_th[0] = strdup (metadata->band[i].file_name);
 
             if (this->meta.use_toa_refl_consts)
             {
-                this->meta.k1_const = metadata->band[i].k1_const;
-                this->meta.k2_const = metadata->band[i].k2_const;
+                this->meta.k1_const[0] = metadata->band[i].k1_const;
+                this->meta.k2_const[0] = metadata->band[i].k2_const;
             }
         }
         else if (!strcmp (metadata->band[i].name, "b61") &&
@@ -635,15 +702,30 @@ bool GetXMLInput(Input_t *this, Espa_internal_meta_t *metadata)
             /* this is the index we'll use for thermal band info */
             th_indx = i;
 
-            /* get the band6 info */
-            this->meta.rad_gain_th = metadata->band[i].rad_gain;
-            this->meta.rad_bias_th = metadata->band[i].rad_bias;
-            this->file_name_th = strdup (metadata->band[i].file_name);
+            /* get the band 6L info */
+            this->meta.rad_gain_th[0] = metadata->band[i].rad_gain;
+            this->meta.rad_bias_th[0] = metadata->band[i].rad_bias;
+            this->file_name_th[0] = strdup (metadata->band[i].file_name);
 
             if (this->meta.use_toa_refl_consts)
             {
-                this->meta.k1_const = metadata->band[i].k1_const;
-                this->meta.k2_const = metadata->band[i].k2_const;
+                this->meta.k1_const[0] = metadata->band[i].k1_const;
+                this->meta.k2_const[0] = metadata->band[i].k2_const;
+            }
+        }
+        else if (!strcmp (metadata->band[i].name, "b62") &&
+            this->meta.inst == INST_ETM &&
+            !strncmp (metadata->band[i].product, "L1", 2))  /* Level-1 */
+        {
+            /* get the band 6H info */
+            this->meta.rad_gain_th[1] = metadata->band[i].rad_gain;
+            this->meta.rad_bias_th[1] = metadata->band[i].rad_bias;
+            this->file_name_th[1] = strdup (metadata->band[i].file_name);
+
+            if (this->meta.use_toa_refl_consts)
+            {
+                this->meta.k1_const[1] = metadata->band[i].k1_const;
+                this->meta.k2_const[1] = metadata->band[i].k2_const;
             }
         }
         else if (!strcmp (metadata->band[i].name, "solar_zenith_band4"))

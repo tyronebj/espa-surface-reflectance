@@ -199,12 +199,12 @@ Lut_t *GetLut(Param_t *param, int nband, Input_t *input) {
           this->esun[ib] = esun_tm_4[iband];
           if ( ib==0 ){
             if (input_meta->use_toa_refl_consts) {
-              this->K1 = input_meta->k1_const;
-              this->K2 = input_meta->k2_const;
+              this->K1[0] = input_meta->k1_const[0];
+              this->K2[0] = input_meta->k2_const[0];
             }
             else {
-              this->K1 = K1_tm_4;
-              this->K2 = K2_tm_4;
+              this->K1[0] = K1_tm_4;
+              this->K2[0] = K2_tm_4;
             }
           }
         }
@@ -217,12 +217,12 @@ Lut_t *GetLut(Param_t *param, int nband, Input_t *input) {
           this->esun[ib] = esun_tm_5[iband];
           if ( ib==0 ){
             if (input_meta->use_toa_refl_consts) {
-              this->K1 = input_meta->k1_const;
-              this->K2 = input_meta->k2_const;
+              this->K1[0] = input_meta->k1_const[0];
+              this->K2[0] = input_meta->k2_const[0];
             }
             else {
-              this->K1 = K1_tm_5;
-              this->K2 = K2_tm_5;
+              this->K1[0] = K1_tm_5;
+              this->K2[0] = K2_tm_5;
             }
           }
         }
@@ -234,12 +234,16 @@ Lut_t *GetLut(Param_t *param, int nband, Input_t *input) {
         this->esun[ib] = esun_etm[iband];
         if ( ib==0 ){
           if (input_meta->use_toa_refl_consts) {
-            this->K1 = input_meta->k1_const;
-            this->K2 = input_meta->k2_const;
+            this->K1[0] = input_meta->k1_const[0];
+            this->K1[1] = input_meta->k1_const[1];
+            this->K2[0] = input_meta->k2_const[0];
+            this->K2[1] = input_meta->k2_const[1];
           }
           else {
-            this->K1 = K1_etm;
-            this->K2 = K2_etm;
+            this->K1[0] = K1_etm;
+            this->K1[1] = K1_etm;
+            this->K2[0] = K2_etm;
+            this->K2[1] = K2_etm;
           }
         }
         break;

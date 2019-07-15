@@ -72,8 +72,8 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
   /* Determine the number of output bands */
   if (!thermal)
     nband = input->nband;
-  else
-    nband = input->nband_th;
+  else  /* only one output thermal band (ETM+ uses a combination of 6H & 6L) */
+    nband = 1;
 
   /* QA will not be writen for MSS data or for thermal.  In the case of the
      thermal processing, the saturation QA band has already been generated as
@@ -191,8 +191,12 @@ Output_t *OpenOutput(Espa_internal_meta_t *in_meta, Input_t *input,
         bmeta[ib].scale_factor = lut->scale_factor_ref;
         bmeta[ib].scale_factor = lut->scale_factor_th;
         bmeta[ib].add_offset = lut->add_offset_th;
-        sprintf (bmeta[ib].long_name, "band %d top-of-atmosphere brightness "
-          "temperature", input->meta.iband_th);
+        if (input->nband_th == 1)
+          sprintf (bmeta[ib].long_name, "band %d top-of-atmosphere brightness "
+            "temperature", input->meta.iband_th);
+        else if (input->nband_th > 1)
+          sprintf (bmeta[ib].long_name, "combined band %d top-of-atmosphere "
+            "brightness temperature", input->meta.iband_th);
         strcpy (bmeta[ib].data_units, lut->units_th);
         bmeta[ib].valid_range[0] = (float) lut->valid_range_th[0];
         bmeta[ib].valid_range[1] = (float) lut->valid_range_th[1];

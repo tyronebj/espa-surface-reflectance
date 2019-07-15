@@ -1,5 +1,5 @@
-## Ledaps Version 3.3.1 Release Notes
-Release Date: March 2019
+## Ledaps Version 3.4.0 Release Notes
+Release Date: July 2019
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.3.1]
+See git tag [ledaps-version_3.4.0]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,10 +92,13 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Fixed a bug introduced to the cloud shadow code when multi-threading was
-     added.  This bug only affects the cloud shadow computation when the band
-     6 clear temperature values are invalid, in which case the ancillary
-     airtemp_2m values are used from the cloud diagnostics.  The interpolation
-     of these ancillary values is where the bug resides and a value of -9999
-     is ultimately used, and therefore the cloud shadow is not computed for
-     the pixel.
+  1. The ETM+ band 6 BT band output from lndcal will be a combined product of
+     band 6H and band 6L. The basis for ETM+ BT will be band 6H (instead of
+     band 6L). If band 6H is saturated, then band 6L will be used to compute
+     the BT value. If both bands are saturated, then the saturation value is
+     written and the RADSAT band is masked as saturated for this pixel.
+     Band 6H saturation is a value equal to 255 (high) or a value equal to 1
+     (low).  Band 6L saturation is a value equal to 255.  Low saturation does
+     not occur in Band 6L.
+  2. Also removed the calibration statistics calculation, since that is not
+     turned on for implementation.
