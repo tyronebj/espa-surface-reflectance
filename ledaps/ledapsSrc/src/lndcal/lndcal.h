@@ -16,6 +16,11 @@
 #define NBAND_CAL_MAX (NBAND_REFL_MAX + NBAND_QA)
 #define QA_BAND_NUM (6)
 
+
+#define BT_SCALE 10.0
+#define TOA_SCALE 10000.0
+#define BAND6 6              /* used for band 6 saturation QA */
+
 typedef signed short int16;
 typedef unsigned char uint8;
 

@@ -170,7 +170,7 @@ int main (int argc, char *argv[]) {
       for (isamp = 0; isamp < nps; isamp++, curr_pix++) {
         val= line_in[isamp];  /* band 6L */
         if ( val==ifill) line_out_qa[curr_pix] = lut->qa_fill; 
-        else if ( val==SATU_VAL6 ) line_out_qa[curr_pix] = ( 0x000001 << 6 ); 
+        else if ( val==SATU_VAL6 ) line_out_qa[curr_pix] = (0x000001 << BAND6);
       }
     }  /* end if thermal */
 
@@ -191,8 +191,8 @@ int main (int argc, char *argv[]) {
         for (ib = 0; ib < input->nband; ib++, my_pix += nps) {
           jb= (ib != 5 ) ? ib+1 : ib+2;
           val= line_in[my_pix];
-          if ( val==ifill   )num_zero++;
-          if ( val==SATU_VAL[ib] ) line_out_qa[curr_pix] |= ( 0x000001 << jb ); 
+          if ( val==ifill )num_zero++;
+          if ( val==SATU_VAL[ib] ) line_out_qa[curr_pix] |= (0x000001 << jb);
         }
 
         /* If it's fill in any band, it's flagged as fill in the QA.  The

@@ -90,21 +90,17 @@ bool Cal(Param_t *param, Lut_t *lut, int iband, Input_t *input,
       ref = rad * ref_conv;
     }
 
-    /* Apply a scaling of 10000 (tied to the lut->scale_factor). Valid ranges
-       are set up in lut.c as well. */
-    line_out[is] = (int16)(ref * 10000.0 + 0.5);
+    /* Apply the scaling (tied to the lut->scale_factor). Valid ranges are set
+       up in lut.c as well. */
+    line_out[is] = (int16)(ref * TOA_SCALE + 0.5);
 
     /* Cap the output using the min/max values.  Then reset the toa reflectance
        value so that it's correctly reported in the stats and the min/max
        range matches that of the image data. */
-    if (line_out[is] < lut->valid_range_ref[0]) {
+    if (line_out[is] < lut->valid_range_ref[0])
       line_out[is] = lut->valid_range_ref[0];
-      ref = line_out[is] * 0.0001;
-    }
-    else if (line_out[is] > lut->valid_range_ref[1]) {
+    else if (line_out[is] > lut->valid_range_ref[1])
       line_out[is] = lut->valid_range_ref[1];
-      ref = line_out[is] * 0.0001;
-    }
   }  /* end for is */
 
   return true;
@@ -143,12 +139,11 @@ bool Cal6(Lut_t *lut, Input_t *input, unsigned char *line_in, int16 *line_out,
       continue;
     }
 
-    /* compute the TOA brightness temperature in Kelvin and apply scaling of
-       10.0 (tied to lut->scale_factor_th). valid ranges are set up in lut.c
-       as well. */
+    /* compute the TOA brightness temperature in Kelvin and apply scaling (tied
+       to lut->scale_factor_th). valid ranges are set up in lut.c as well. */
     rad = (rad_gain * (float)val) + rad_bias;
     temp = lut->K2[0] / log(1.0 + (lut->K1[0]/rad));
-    line_out[is] = (int16)(temp * 10.0 + 0.5);
+    line_out[is] = (int16)(temp * BT_SCALE + 0.5);
 
     /* Cap the output using the min/max values */
     if (line_out[is] < lut->valid_range_th[0])
@@ -221,17 +216,17 @@ bool Cal6_combined(Lut_t *lut, Input_t *input, unsigned char *line_b6l,
            missed something by using the band 6L high saturation check).
            move on to the next pixel. */
         line_out[is] = lut->out_satu;
-        line_out_qa[is] = ( 0x000001 << 6 );
+        line_out_qa[is] = ( 0x000001 << BAND6 );
         continue;
       }
     }
 
     /* Compute the TOA brightness temperature for the desired band, in Kelvin,
-       and apply scaling of 10.0 (tied to lut->scale_factor_th).  Valid ranges
-       are set up in lut.c as well. */
+       and apply scaling (tied to lut->scale_factor_th). Valid ranges are set
+       up in lut.c as well. */
     rad = (rad_gain[cband] * (float)val[cband]) + rad_bias[cband];
     temp = lut->K2[cband] / log(1.0 + (lut->K1[cband]/rad));
-    line_out[is] = (int16)(temp * 10.0 + 0.5);
+    line_out[is] = (int16)(temp * BT_SCALE + 0.5);
 
     /* Cap the output using the min/max values */
     if (line_out[is] < lut->valid_range_th[0])
