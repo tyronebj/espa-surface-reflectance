@@ -1,5 +1,5 @@
 ## Ledaps Version 3.4.0 Release Notes
-Release Date: July 2019
+Release Date: August 2019
 
 ### Downloads
 Ledaps source code
