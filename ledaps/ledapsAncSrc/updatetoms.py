@@ -108,7 +108,7 @@ class DatasourceResolver:
         elif year == 1994:
             dsList = self.buildURL('METEOR3', self.SERVER_URL, self.METEOR3,
                                    year, DOY)
-            if url is None:
+            if dsList is None:
                 logger.warn('Could not resolve METEOR3 datasource for year, '
                             'DOY: {0}/{1}'.format(year, DOY))
                 return None
