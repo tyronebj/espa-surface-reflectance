@@ -83,7 +83,7 @@ class DatasourceResolver:
                                    DOY)
             if dsList is None:
                 logger.warn('Could not resolve NIMBUS datasource for year, '
-                            'DOY: {0}/{1}'.format(year))
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
         # use METEOR3 data for 1991-1993, with NIMBUS as the backup
