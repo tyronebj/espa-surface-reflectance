@@ -94,8 +94,8 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ## Release Notes
   1. The TOMS and OMI data are no longer available on the NASA ftp site.
      Removed access to ftp://toms.gsfc.nasa.gov and changed the source to
-     https://ozonewatch.gsfc.nasa.gov.  This site has the TOMS-line OMI data
-     as well as the archived NIMBUS7, METEOR3, and EP/TOMS data files in the
-     same text format and 1.0 x 1.0 degree resolution for the global product.
-     These changes were applied to updatetoms.py in the LEDAPS auxiliary
-     download scripts.
+     https://acd-ext.gsfc.nasa.gov/anonftp/toms/. This site has the TOMS-line
+     OMI data as well as the archived NIMBUS7, METEOR3, and EP/TOMS data files
+     in the same text format and 1.0 x 1.0 degree resolution for the global
+     product. These changes were applied to updatetoms.py in the LEDAPS
+     auxiliary download scripts.
