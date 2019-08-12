@@ -47,11 +47,11 @@ class DatasourceResolver:
     # Specify the base location for the TOMS data as well as the
     # correct subdirectories for each of the instrument-specific ozone
     # products
-    SERVER_URL = 'http://ozonewatch.gsfc.nasa.gov'
-    NIMBUS = '/data/nimbus7/Y'
-    EARTHPROBE = '/data/eptoms/Y'
-    METEOR3 = '/data/meteor3/Y'
-    OMI = '/data/omi/Y'
+    SERVER_URL = 'https://acd-ext.gsfc.nasa.gov/anonftp/toms'
+    NIMBUS = '/nimbus7/data/ozone/Y'
+    EARTHPROBE = '/eptoms/data/ozone/Y'
+    METEOR3 = '/meteor3/data/ozone/Y'
+    OMI = '/omi/data/ozone/Y'
     
     def __init__(self):
         pass
