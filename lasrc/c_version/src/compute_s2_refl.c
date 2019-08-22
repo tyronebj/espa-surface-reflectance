@@ -1084,10 +1084,6 @@ int compute_s2_sr_refl
             subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
                 tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
                 satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
-
-/** Gail this doesn't exist in the FORTRAN code **/
-//            teps[curr_pix] = eps;
-//            taero[curr_pix] = raot;
             corf = raot / xmus;
 
             /* Check the model residual.  Corf represents aerosol impact.
@@ -1289,44 +1285,6 @@ int compute_s2_sr_refl
     aero_fptr = fopen ("aerosols3.img", "w");
     fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
-#endif
-
-#ifdef GAIL_SKIP
-    /* Expand the area around possible failed pixels to smooth the aerosols in
-       the area */
-    mytime = time(NULL);
-    printf ("Expand the failed pixels %s\n", ctime(&mytime)); fflush(stdout);
-    ipflag_expand_failed (ipflag, nlines, nsamps);
-
-#ifdef WRITE_TAERO
-    /* Write the ipflag values for comparison with other algorithms */
-    aero_fptr = fopen ("ipflag5.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
-    fclose (aero_fptr);
-
-    /* Write the aerosol values for comparison with other algorithms */
-    aero_fptr = fopen ("aerosols5.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
-    fclose (aero_fptr);
-#endif
-
-    /* Fill in the failed pixels with an average of the clear surrounding
-       window pixels */
-    mytime = time(NULL);
-    printf ("Averaging the failed pixels %s\n", ctime(&mytime)); fflush(stdout);
-    aero_avg_failed (qaband, ipflag, taero, teps, nlines, nsamps);
-
-#ifdef WRITE_TAERO
-    /* Write the ipflag values for comparison with other algorithms */
-    aero_fptr = fopen ("ipflag6.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
-    fclose (aero_fptr);
-
-    /* Write the aerosol values for comparison with other algorithms */
-    aero_fptr = fopen ("aerosols6.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
-    fclose (aero_fptr);
-#endif
 #endif
 
     /* Perform the second level of atmospheric correction using the aerosols */
