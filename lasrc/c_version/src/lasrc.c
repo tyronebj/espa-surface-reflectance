@@ -287,16 +287,16 @@ int main (int argc, char *argv[])
        files to be read if processing surface reflectance */
     if (process_sr)
     {
-        /* Get the path for the auxiliary products from the L8_AUX_DIR
+        /* Get the path for the auxiliary products from the LASRC_AUX_DIR
            environment variable.  If it isn't defined, then assume the products
            are in the local directory. */
-        aux_path = getenv ("L8_AUX_DIR");
+        aux_path = getenv ("LASRC_AUX_DIR");
         if (aux_path == NULL)
         {
             aux_path = ".";
-            sprintf (errmsg, "L8_AUX_DIR environment variable isn't defined. "
-                "It is assumed the auxiliary products will be available from "
-                "the local directory.");
+            sprintf (errmsg, "LASRC_AUX_DIR environment variable isn't "
+                "defined. It is assumed the auxiliary products will be "
+                "available from the local directory.");
             error_handler (false, FUNC_NAME, errmsg);
         }
 
@@ -334,7 +334,7 @@ int main (int argc, char *argv[])
         if (stat (anglehdf, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find anglehdf data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", anglehdf);
+                "LASRC_AUX_DIR environment variable.", anglehdf);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -342,7 +342,7 @@ int main (int argc, char *argv[])
         if (stat (intrefnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find intrefnm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", intrefnm);
+                "LASRC_AUX_DIR environment variable.", intrefnm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -350,7 +350,7 @@ int main (int argc, char *argv[])
         if (stat (transmnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find transmnm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", transmnm);
+                "LASRC_AUX_DIR environment variable.", transmnm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -358,7 +358,7 @@ int main (int argc, char *argv[])
         if (stat (spheranm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find spheranm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", spheranm);
+                "LASRC_AUX_DIR environment variable.", spheranm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -366,7 +366,7 @@ int main (int argc, char *argv[])
         if (stat (cmgdemnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find cmgdemnm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", cmgdemnm);
+                "LASRC_AUX_DIR environment variable.", cmgdemnm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -374,7 +374,7 @@ int main (int argc, char *argv[])
         if (stat (rationm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find rationm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", rationm);
+                "LASRC_AUX_DIR environment variable.", rationm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -382,7 +382,7 @@ int main (int argc, char *argv[])
         if (stat (auxnm, &statbuf) == -1)
         {
             sprintf (errmsg, "Could not find auxnm data file: %s\n  Check "
-                "L8_AUX_DIR environment variable.", auxnm);
+                "LASRC_AUX_DIR environment variable.", auxnm);
             error_handler (false, FUNC_NAME, errmsg);
             exit (ERROR);
         }
@@ -704,7 +704,7 @@ void usage ()
     printf ("    -xml: name of the input XML file to be processed\n");
     printf ("    -aux: name of the input auxiliary file containing ozone "
             "and water vapor for the scene date.  The file is expected to "
-            "live in the $L8_AUX_DIR/LADS directory or in the local "
+            "live in the $LASRC_AUX_DIR/LADS directory or in the local "
             "directory.\n");
 
     printf ("\nwhere the following parameters are optional:\n");
