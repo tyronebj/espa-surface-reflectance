@@ -1,0 +1,5 @@
+#gcc -O0 -o tiff2hdf *.c -I/usr/local/TOOLKIT/SDPToolkit_gfortran44-5.2.17/hdf/linux64/hdf-4.2.5/include/ /usr/lib64/libtiff.so \
+#/usr/local/geotiff/lib/libgeotiff.a -L/usr/local/TOOLKIT/SDPToolkit_gfortran44-5.2.17/hdf/linux64/hdf-4.2.5/lib/ -lmfhdf \
+# -ldf -ljpeg -lz -lsz -lm -lproj
+
+gcc -O0 -o tiff2hdf *.c -I/data/cots/hdf/include -I/data/cots/libgeotiff-1.2.5-64bit/include -L/data/cots/libgeotiff-1.2.5-64bit/lib -ltiff -L/data/cots/hdf/lib -lmfhdf -ldf -ljpeg -L/data/cots/szip-2.1/lib -lz -lsz -lm -lproj
