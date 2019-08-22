@@ -245,11 +245,13 @@ Output_t *open_output
             else if (input->meta.sat == SAT_SENTINEL_2)
             {
                 strcpy (bmeta[ib].bitmap_description[0], "fill");
-                strcpy (bmeta[ib].bitmap_description[1], "clear pixel");
-                strcpy (bmeta[ib].bitmap_description[2], "water pixel");
-                strcpy (bmeta[ib].bitmap_description[3], "urban/barren pixel");
-                strcpy (bmeta[ib].bitmap_description[4], "internal/temp mask");
-                strcpy (bmeta[ib].bitmap_description[5], "not used");
+                strcpy (bmeta[ib].bitmap_description[1], "clear land pixel");
+                strcpy (bmeta[ib].bitmap_description[2], "aerosol failed");
+                strcpy (bmeta[ib].bitmap_description[3], "not used");
+                strcpy (bmeta[ib].bitmap_description[4], "not used");
+                strcpy (bmeta[ib].bitmap_description[5],
+                    "aerosol value was interpolated from surrounding window "
+                    "aerosols");
                 strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
                 strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
             }

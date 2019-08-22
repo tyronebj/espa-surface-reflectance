@@ -82,8 +82,7 @@ void subaeroret_water_new
     float *residual, /* O: model residual */
     int *iaots,      /* I/O: AOT index that is passed in and out for multiple
                              calls (0-based) */
-    float eps,       /* I: angstroem coefficient; spectral dependency of AOT */
-    int iverbose  /* TEMP VARIABLE GAIL */
+    float eps        /* I: angstroem coefficient; spectral dependency of AOT */
 );
 
 int atmcorlamb2

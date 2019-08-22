@@ -2,9 +2,9 @@
 #include "quick_select.h"
 
 /******************************************************************************
-MODULE:  aerosol_interp
+MODULE:  aerosol_interp_l8
 
-PURPOSE:  Interpolates the aerosol values throughout the image using the
+PURPOSE:  Interpolates the L8 aerosol values throughout the image using the
 aerosols that were calculated for each NxN window. Also cleans up the fill
 pixels in the ipflag.
 
@@ -16,12 +16,11 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-void aerosol_interp
+void aerosol_interp_l8
 (
-    Sat_t sat,         /* I: satellite */
     Espa_internal_meta_t *xml_metadata, /* I: XML metadata information */
-    int aero_window,   /* I: size of the aerosol window (S2 or L8) */
-    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
+    int aero_window,   /* I: size of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window */
     int16 **sband,     /* I/O: input TOA reflectance */
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
@@ -75,33 +74,17 @@ void aerosol_interp
     float u_x_one_minus_v; /* u * (1.0 - v) */
     float u_x_v;           /* u * v */
 
-    /* Setup L8 or S2 number of SR bands */
-    if (sat == SAT_LANDSAT_8)
-    {
-        red_band = SR_L8_BAND4;
-        nir_band = SR_L8_BAND5;
-    }
-    else if (sat == SAT_SENTINEL_2)
-    {
-        red_band = SR_S2_BAND4;
-        nir_band = SR_S2_BAND8A;
-    }
+    /* Setup NIR and red bands */
+    red_band = SR_L8_BAND4;
+    nir_band = SR_L8_BAND5;
 
     /* Use band 1 band-related metadata for the reflectance information for
        Landsat (Level 1 products).  Use band 2 band-related metadata for the
-       reflectance information (Level-1 products).  Sentinel-2 bands have
-       different resolutions and we want a band which represents the 10m
-       resolution.  If these aren't found, grab the second band in the XML
-       file which should be band 2 for both products.  That should be a
-       representative band for both. */
+       reflectance information (Level-1 products). */
     for (i = 0; i < xml_metadata->nbands; i++)
     {
-        if ((sat == SAT_LANDSAT_8 &&
-             !strcmp (xml_metadata->band[i].name, "b1") &&
-             !strncmp (xml_metadata->band[i].product, "L1", 2)) ||
-            (sat == SAT_SENTINEL_2 &&
-             !strcmp (xml_metadata->band[i].name, "B01") &&
-             !strcmp (xml_metadata->band[i].product, "MSIL1C")))
+        if (!strcmp (xml_metadata->band[i].name, "b1") &&
+            !strncmp (xml_metadata->band[i].product, "L1", 2))
         {
             /* this is the index we'll use for the band info */
             refl_indx = i;
@@ -170,8 +153,7 @@ void aerosol_interp
                 continue;
 
             /* If this pixel is cloud or shadow, then don't process. Use
-               median aerosol values.  Flag them separately.  Note: for S2
-               clouds and shadows won't be flagged. */
+               median aerosol values.  Flag them separately. */
             else if (is_cloud (qaband[curr_pix]))
             {
                 taero[curr_pix] = median_aero;
@@ -188,8 +170,8 @@ void aerosol_interp
             /* If this pixel is water and L8, then don't process. Use default
                aerosol values. Right now, for Sentinel pixels, water will be
                treated as a normal pixel. */
-            else if (sat != SAT_SENTINEL_2 &&
-                is_water (sband[red_band][curr_pix], sband[nir_band][curr_pix]))
+            else if (is_water (sband[red_band][curr_pix],
+                               sband[nir_band][curr_pix]))
             {
                 taero[curr_pix] = median_aero;
                 ipflag[curr_pix] = (1 << IPFLAG_WATER);
@@ -276,11 +258,10 @@ void aerosol_interp
             /* If any of the window pixels used in the interpolation were
                water pixels, then mask this pixel with water (in addition to
                the interpolation bit already set) */
-            if (sat == SAT_LANDSAT_8 &&
-                (btest (ipflag[aero_pix11], IPFLAG_WATER) ||
-                 btest (ipflag[aero_pix12], IPFLAG_WATER) ||
-                 btest (ipflag[aero_pix21], IPFLAG_WATER) ||
-                 btest (ipflag[aero_pix22], IPFLAG_WATER)))
+            if (btest (ipflag[aero_pix11], IPFLAG_WATER) ||
+                btest (ipflag[aero_pix12], IPFLAG_WATER) ||
+                btest (ipflag[aero_pix21], IPFLAG_WATER) ||
+                btest (ipflag[aero_pix22], IPFLAG_WATER))
                 ipflag[curr_pix] |= (1 << IPFLAG_WATER);
         }  /* end for samp */
     }  /* end for line */
@@ -302,9 +283,129 @@ void aerosol_interp
 
 
 /******************************************************************************
-MODULE:  aerosol_fill_median
+MODULE:  aerosol_interp_s2
 
-PURPOSE:  Changes the aerosol window values for water, cloud, and shadow to
+PURPOSE:  Interpolates the S2 aerosol values throughout the image using the
+aerosols that were calculated for each NxN window.
+
+RETURN VALUE:
+Type = N/A
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+void aerosol_interp_s2
+(
+    int aero_window,   /* I: size of the aerosol window */
+    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps.  It is expected that the ipflag
+                               values are computed for the UL of the aerosol
+                               windows to match taero. */
+    float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps
+                          It is expected that the aerosol values are computed
+                          for the UL of the aerosol windows.  This routine
+                          will fill in the pixels for the remaining pixels of
+                          the window. */
+    int nlines,        /* I: number of lines in ipflag & taero bands */
+    int nsamps         /* I: number of samps in ipflag & taero bands */
+)
+{
+    int line, samp;    /* looping variable for lines and samples */
+    int iline, isamp;  /* looping variable for lines and samples in the
+                          aerosol window */
+    int curr_pix;      /* current pixel in 1D arrays of nlines * nsamps */
+    int curr_win_pix;  /* current pixel in the 6x6 window for atm corr */
+    int next_samp_pix; /* pixel location of the next sample */
+    int next_line_pix; /* pixel location of the next line */
+    int next_line_samp_pix; /* pixel location of next line and next sample */
+
+    /* Use the UL corner of the aerosol windows to interpolate the remaining
+       pixels in the window */
+    for (line = 0; line < nlines; line++)
+    {
+        curr_pix = line * nsamps;
+        for (samp = 0; samp < nsamps; samp++, curr_pix++)
+        {
+            /* Determine the next line and next sample to be used for
+               interpolating */
+            next_samp_pix = line * nsamps + (samp + aero_window);
+            next_line_pix = (line + aero_window) * nsamps + samp;
+            next_line_samp_pix = (line + aero_window) * nsamps +
+                (samp + aero_window);
+
+            /* Loop through an NxN window with the current pixel being the UL
+               corner of the window */
+            for (iline = line; iline < line+aero_window; iline++)
+            {
+                /* Skip if this isn't a valid line */
+                if (iline >= nlines) continue;
+
+                for (isamp = samp; isamp < samp+aero_window; isamp++)
+                {
+                    /* Skip if this isn't a valid sample */
+                    if (isamp >= nsamps) continue;
+
+                    curr_win_pix = iline * nsamps + isamp;
+                    taero[curr_win_pix] = taero[curr_pix] *
+                        (line+aero_window-iline) * (samp+aero_window-isamp);
+
+                    if ((line+aero_window < nlines) &&
+                        (samp+aero_window < nsamps))
+                        taero[curr_win_pix] +=
+                            (isamp-samp)*(line+aero_window-iline) *
+                             taero[next_samp_pix] +
+                            (samp+aero_window-isamp)*(iline-line) *
+                             taero[next_line_pix] +
+                            (isamp-samp)*(iline-line) *
+                             taero[next_line_samp_pix];
+
+                    if ((line+aero_window >= nlines) &&
+                        (samp+aero_window < nsamps))
+                        taero[curr_win_pix] +=
+                            (isamp-samp)*(line+aero_window-iline) *
+                             taero[next_samp_pix] +
+                            (samp+aero_window-isamp)*(iline-line) *
+                             taero[curr_pix] +
+                            (isamp-samp)*(iline-line) * taero[next_samp_pix];
+
+                    if ((line+aero_window < nlines) &&
+                        (samp+aero_window >= nsamps))
+                        taero[curr_win_pix] +=
+                            (isamp-samp)*(line+aero_window-iline) *
+                             taero[curr_pix] +
+                            (samp+aero_window-isamp)*(iline-line) *
+                             taero[next_line_pix] +
+                            (isamp-samp)*(iline-line) * taero[next_line_pix];
+
+                    if ((line+aero_window >= nlines) &&
+                        (samp+aero_window >= nsamps))
+                        taero[curr_win_pix] +=
+                            (isamp-samp)*(line+aero_window-iline) *
+                             taero[curr_pix] +
+                            (samp+aero_window-isamp)*(iline-line) *
+                             taero[curr_pix] +
+                            (isamp-samp)*(iline-line) * taero[curr_pix];
+
+                    /* Compute the average */
+                    taero[curr_win_pix] /= (aero_window * aero_window);
+                }
+            }
+
+            /* If not one of the representative window pixels, flag as
+               interpolated */
+            if ((line % aero_window != 0) || (samp % aero_window != 0))
+                ipflag[curr_pix] = (1 << IPFLAG_INTERP_WINDOW);
+        }  /* for samp */
+    }  /* for line */
+}
+
+
+/******************************************************************************
+MODULE:  aerosol_fill_median_l8
+
+PURPOSE:  Changes the L8 aerosol window values for water, cloud, and shadow to
 be the median aerosol value of the clear pixels.
 
 RETURN VALUE:
@@ -315,7 +416,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-void aerosol_fill_median
+void aerosol_fill_median_l8
 (
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps.  It is expected that the ipflag
@@ -323,11 +424,9 @@ void aerosol_fill_median
                                aerosol windows. */
     float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps
                           It is expected that the aerosol values are computed
-                          for the center of the aerosol windows.  This routine
-                          will interpolate/average the pixels of the windows
-                          that failed the aerosol inversion (using ipflag) */
-    int aero_window,   /* I: size of the aerosol window (S2 or L8) */
-    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
+                          for the center of the aerosol windows. */
+    int aero_window,   /* I: size of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window */
     float median_aero, /* I: median aerosol value of clear pixels */
     int nlines,        /* I: number of lines in ipflag & taero bands */
     int nsamps         /* I: number of samps in ipflag & taero bands */
@@ -357,9 +456,58 @@ void aerosol_fill_median
 
 
 /******************************************************************************
-MODULE:  find_median_aerosol
+MODULE:  aerosol_fill_median_s2
 
-PURPOSE:  Finds the median aerosol value for the valid land aerosols.
+PURPOSE:  Changes the S2 failed aerosol window values (i.e. water, cloud,
+shadow, urban, barren, etc.) to be the median aerosol value of the clear
+land pixels.
+
+RETURN VALUE:
+Type = N/A
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+void aerosol_fill_median_s2
+(
+    uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps.  It is expected that the ipflag
+                               values are computed for the UL of the aerosol
+                               windows. */
+    float *taero,      /* I/O: aerosol values for each pixel, nlines x nsamps
+                          It is expected that the aerosol values are computed
+                          for the UL of the aerosol windows */
+    int aero_window,   /* I: size of the aerosol window */
+    float median_aero, /* I: median aerosol value of clear pixels */
+    int nlines,        /* I: number of lines in ipflag & taero bands */
+    int nsamps         /* I: number of samps in ipflag & taero bands */
+)
+{
+    int line, samp;       /* looping variable for lines and samples */
+    int curr_pix;         /* current pixel in 1D arrays of nlines * nsamps */
+
+    /* Loop through the UL of the NxN window pixels */
+    for (line = 0; line < nlines; line += aero_window)
+    {
+        curr_pix = line * nsamps;
+        for (samp = 0; samp < nsamps;
+             samp += aero_window, curr_pix += aero_window)
+        {
+            /* Find any pixel flagged as failed and reset the default aerosol
+               value to that of the median aerosol value */
+            if (btest (ipflag[curr_pix], IPFLAG_FAILED))
+                taero[curr_pix] = median_aero;
+        }
+    }
+}
+
+
+/******************************************************************************
+MODULE:  find_median_aerosol_l8
+
+PURPOSE:  Finds the median aerosol value for the valid L8 land aerosols.
 
 RETURN VALUE:
 Type = float
@@ -373,7 +521,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-float find_median_aerosol
+float find_median_aerosol_l8
 (
     uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
                              nlines x nsamps.  It is expected that the ipflag
@@ -382,14 +530,14 @@ float find_median_aerosol
     float *taero,      /* I: aerosol values for each pixel, nlines x nsamps
                              It is expected that the aerosol values are computed
                              for the center of the aerosol windows */
-    int aero_window,   /* I: size of the aerosol window (S2 or L8) */
-    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
+    int aero_window,   /* I: size of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window */
     int nlines,        /* I: number of lines in taero band */
     int nsamps         /* I: number of samps in taero band */
 )
 {
     char errmsg[STR_SIZE];                         /* error message */
-    char FUNC_NAME[] = "find_median_aerosol";      /* function name */
+    char FUNC_NAME[] = "find_median_aerosol_l8";   /* function name */
     int line, samp;       /* looping variable for lines and samples */
     int curr_pix;         /* current pixel in 1D arrays of nlines * nsamps */
     int nbclrpix;         /* number of clear aerosol pixels in this array */
@@ -446,11 +594,99 @@ float find_median_aerosol
 
 
 /******************************************************************************
-MODULE:  ipflag_expand_urban
+MODULE:  find_median_aerosol_s2
 
-PURPOSE:  For every failed water pixel (possible urban, barren,etc. pixel),
-set the surrounding 25x25 clear or interpolated window pixels to possible
-urban as well.
+PURPOSE:  Finds the median Sentinel-2 aerosol value for the valid land aerosols.
+
+RETURN VALUE:
+Type = float
+Value           Description
+-----           -----------
+zero            Error allocating memory for the aerosol array
+non-zero        Median aerosol value of the array
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+NOTES:
+******************************************************************************/
+float find_median_aerosol_s2
+(
+    uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
+                             nlines x nsamps.  It is expected that the ipflag
+                             values are computed for the UL of the aerosol
+                             windows. */
+    float *taero,      /* I: aerosol values for each pixel, nlines x nsamps
+                             It is expected that the aerosol values are computed
+                             for the UL of the aerosol windows */
+    int aero_window,   /* I: size of the aerosol window */
+    int nlines,        /* I: number of lines in ipflag and taero band */
+    int nsamps         /* I: number of samps in ipflag and taero band */
+)
+{
+    char errmsg[STR_SIZE];                         /* error message */
+    char FUNC_NAME[] = "find_median_aerosol_s2";   /* function name */
+    int line, samp;       /* looping variable for lines and samples */
+    int curr_pix;         /* current pixel in 1D arrays of nlines * nsamps */
+    int nbclrpix;         /* number of clear aerosol pixels in this array */
+    int nwindows;         /* number of NxN windows in the image */
+    float median;         /* median clear aerosol value */
+    float *aero = NULL;   /* array of the clear aerosol values */
+
+    /* Determine how many NxN windows there are in this array of data */
+    nwindows = ceil ((float) nlines / aero_window) *
+               ceil ((float) nsamps / aero_window);
+
+    /* Allocate memory for the aerosols in each window */
+    aero = calloc (nwindows, sizeof (float));
+    if (aero == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for clear aerosol array");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (0.0);
+    }
+
+    /* Loop through the NxN UL window values and write the clear aerosol
+       values to the aerosol array for determining the median */
+    nbclrpix = 0;
+    for (line = 0; line < nlines; line += aero_window)
+    {
+        curr_pix = line * nsamps;
+        for (samp = 0; samp < nsamps;
+             samp += aero_window, curr_pix += aero_window)
+        {
+            /* Process clear aerosols */
+            if (btest (ipflag[curr_pix], IPFLAG_CLEAR))
+            {
+                aero[nbclrpix] = taero[curr_pix];
+                nbclrpix++;
+            }  /* if pixel is clear */
+        }  /* for samp */
+    }  /* for line */
+
+    /* If no clear aerosols were available, then just return a default value */
+    if (nbclrpix == 0)
+        median = DEFAULT_AERO;
+    else
+    {
+        /* Get the median of the clear pixels */
+        median = quick_select (aero, nbclrpix);
+    }
+
+    /* Free memory */
+    free (aero);
+
+    /* Successful completion */
+    return (median);
+}
+
+
+/******************************************************************************
+MODULE:  ipflag_expand_failed
+
+PURPOSE:  For every failed pixel (possible urban, barren, water, etc.), set
+the surrounding 25x25 clear or interpolated window pixels to possible failed
+as well.
 
 RETURN VALUE:
 Type = N/A
@@ -463,7 +699,7 @@ NOTES:
 /* Basically look back 2 window pixels and forward 2 window pixels, since each
    window is 6 pixels in size. */
 #define HALF_EXPAND_WIN 12
-void ipflag_expand_urban
+void ipflag_expand_failed
 (
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps. It is expected that the ipflag
@@ -478,17 +714,17 @@ void ipflag_expand_urban
     int curr_win_pix;     /* current window pixel in 1D arrays */
 
     /* Loop through the lines and samples to expand the window around the
-       possible urban pixels with a temp value */
+       possible failed pixels with a temp value */
     for (line = 0; line < nlines; line++)
     {
         curr_pix = line * nsamps;
         for (samp = 0; samp < nsamps; samp++, curr_pix++)
         {
-            if (!btest (ipflag[curr_pix], IPFLAG_URBAN))
+            if (!btest (ipflag[curr_pix], IPFLAG_FAILED))
                 continue;
 
-            /* If this is a possible urban pixel then expand the urban
-               pixels around this pixel */
+            /* If this is a failed pixel then expand the failed pixels around
+               this pixel */
             for (iline = -HALF_EXPAND_WIN; iline <= HALF_EXPAND_WIN; iline++)
             {
                 if ((line + iline < 0) || (line + iline >= nlines))
@@ -499,31 +735,29 @@ void ipflag_expand_urban
                     if ((samp + isamp < 0) || (samp + isamp >= nsamps))
                         continue;
 
-/* GAIL Added water pixels to this for now due to the water pixels standing out in the rivers */
-                    /* Set clear or interpolated pixels to urban */
+                    /* Set clear or interpolated pixels to failed */
                     curr_win_pix = (line + iline) * nsamps + (samp + isamp);
                     if (btest (ipflag[curr_win_pix], IPFLAG_CLEAR) ||
-                        btest (ipflag[curr_win_pix], IPFLAG_WATER))
-                        ipflag[curr_win_pix] = (1 << IPFLAG_URBAN_TMP);
+                        btest (ipflag[curr_win_pix], IPFLAG_INTERP_WINDOW))
+                        ipflag[curr_win_pix] = (1 << IPFLAG_FAILED_TMP);
                 }
             }
         }
     }
 
-    /* Loop through the pixels and reset any temporary possible urban pixel
-       to a possible urban pixel */
+    /* Loop through the pixels and reset any temporary possible failed pixel
+       to a possible failed pixel */
     for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
-        if (btest (ipflag[curr_pix], IPFLAG_URBAN_TMP))
-            ipflag[curr_pix] = (1 << IPFLAG_URBAN);
+        if (btest (ipflag[curr_pix], IPFLAG_FAILED_TMP))
+            ipflag[curr_pix] = (1 << IPFLAG_FAILED);
 }
 
 
 /******************************************************************************
-MODULE:  aero_avg_urban
+MODULE:  aero_avg_failed
 
-PURPOSE:  For every possible urban pixel, determine the 60x60 average of
-water or clear pixels around that pixel. That average value will be used for
-the possible urban pixels.
+PURPOSE:  For every failed pixel, determine the 60x60 average of clear pixels
+around that pixel. That average value will be used to replace the failed pixels.
 
 RETURN VALUE:
 Type = N/A
@@ -533,8 +767,8 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-#define HALF_URBAN_WIN 30
-int aero_avg_urban
+#define HALF_FAILED_WIN 30
+int aero_avg_failed
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
@@ -557,8 +791,7 @@ int aero_avg_urban
     int nbpixnf = 0;       /* number of pixels not filled */
     int nbpixtot = 0;      /* number of total pixels */
     int nbaeroavg = 0;     /* number of pixels counted in the average */
-    int ipass;             /* number of passes required to fill the possible
-                              urban pixels */
+    int ipass;             /* number of passes required to fill failed pixels */
     float taeroavg;        /* average of aerosols in the NxN window */
     float tepsavg;         /* average of angstrom coeff in the NxN window */
     float *taeros=NULL;    /* average aerosol values for each pixel,
@@ -594,7 +827,7 @@ int aero_avg_urban
     }
 
     /* Loop through the lines and samples to expand the window around the
-       possible urban pixels with a temp value */
+       failed pixels with a temp value */
     for (line = 0; line < nlines; line++)
     {
         curr_pix = line * nsamps;
@@ -613,19 +846,19 @@ int aero_avg_urban
             nbaeroavg = 0;
 
             /* Look at the surrounding window and sum up the values for
-               clear or water pixels, but not potential urban pixels */
-            for (iline = -HALF_URBAN_WIN; iline <= HALF_URBAN_WIN; iline++)
+               clear pixels */
+            for (iline = -HALF_FAILED_WIN; iline <= HALF_FAILED_WIN; iline++)
             {
                 if ((line + iline < 0) || (line + iline >= nlines))
                     continue;
-                for (isamp = -HALF_URBAN_WIN; isamp <= HALF_URBAN_WIN; isamp++)
+                for (isamp = -HALF_FAILED_WIN; isamp <= HALF_FAILED_WIN;
+                     isamp++)
                 {
                     if ((samp + isamp < 0) || (samp + isamp >= nsamps))
                         continue;
 
                     curr_win_pix = (line + iline) * nsamps + (samp + isamp);
-                    if (btest (ipflag[curr_win_pix], IPFLAG_CLEAR) ||
-                        btest (ipflag[curr_win_pix], IPFLAG_WATER))
+                    if (btest (ipflag[curr_win_pix], IPFLAG_CLEAR))
                     {
                         nbaeroavg++;
                         taeroavg += taero[curr_win_pix];
@@ -655,7 +888,7 @@ int aero_avg_urban
     {
         for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
         {
-            if (btest (ipflag[curr_pix], IPFLAG_URBAN))
+            if (btest (ipflag[curr_pix], IPFLAG_FAILED))
             {
                 taero[curr_pix] = 0.05;
                 teps[curr_pix] = 1.5;
@@ -673,7 +906,7 @@ int aero_avg_urban
         nbpixnf = 0;
 
         /* Loop through the lines and samples to expand the window around the
-           possible urban pixels with a temp value */
+           failed pixels with a temp value */
         for (line = 0; line < nlines; line++)
         {
             curr_pix = line * nsamps;
@@ -691,11 +924,12 @@ int aero_avg_urban
 
                 /* Look at the surrounding window and sum up the averaged
                    values for already filled pixels */
-                for (iline = -HALF_URBAN_WIN; iline <= HALF_URBAN_WIN; iline++)
+                for (iline = -HALF_FAILED_WIN; iline <= HALF_FAILED_WIN;
+                     iline++)
                 {
                     if ((line + iline < 0) || (line + iline >= nlines))
                         continue;
-                    for (isamp = -HALF_URBAN_WIN; isamp <= HALF_URBAN_WIN;
+                    for (isamp = -HALF_FAILED_WIN; isamp <= HALF_FAILED_WIN;
                          isamp++)
                     {
                         if ((samp + isamp < 0) || (samp + isamp >= nsamps))
@@ -732,14 +966,13 @@ int aero_avg_urban
     }  /* end do while */
 
     /* Loop through the lines and samples and use the average pixels to
-       fill possible urban pixels */
+       fill possible failed pixels */
     for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
     {
-        if (btest (ipflag[curr_pix], IPFLAG_URBAN))
+        if (btest (ipflag[curr_pix], IPFLAG_FAILED))
         {
             taero[curr_pix] = taeros[curr_pix];
             teps[curr_pix] = tepss[curr_pix];
-//            ipflag[curr_pix] = (1 << IPFLAG_CLEAR);
         }
     }
 

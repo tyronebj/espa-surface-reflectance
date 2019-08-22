@@ -1368,7 +1368,7 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Computing median of clear pixels in NxN windows %s",
         ctime(&mytime));
-    median_aerosol = find_median_aerosol (ipflag, taero, L8_AERO_WINDOW,
+    median_aerosol = find_median_aerosol_l8 (ipflag, taero, L8_AERO_WINDOW,
         L8_HALF_AERO_WINDOW, nlines, nsamps);
     if (median_aerosol == 0.0)
     {   /* error message already printed */
@@ -1382,7 +1382,7 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Fill non-clear aerosol values in NxN windows with the median %s",
         ctime(&mytime));
-    aerosol_fill_median (ipflag, taero, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+    aerosol_fill_median_l8 (ipflag, taero, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
         median_aerosol, nlines, nsamps);
 
 #ifdef WRITE_TAERO
@@ -1402,9 +1402,8 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp (input->meta.sat, xml_metadata, L8_AERO_WINDOW,
-        L8_HALF_AERO_WINDOW, sband, qaband, ipflag, taero, median_aerosol,
-        nlines, nsamps);
+    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+        sband, qaband, ipflag, taero, median_aerosol, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1424,9 +1423,8 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the teps values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp (input->meta.sat, xml_metadata, L8_AERO_WINDOW,
-        L8_HALF_AERO_WINDOW, sband, qaband, ipflag, teps, DEFAULT_EPS, nlines,
-        nsamps);
+    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+        sband, qaband, ipflag, teps, DEFAULT_EPS, nlines, nsamps);
 
     /* Perform the second level of atmospheric correction using the aerosols */
     mytime = time(NULL);

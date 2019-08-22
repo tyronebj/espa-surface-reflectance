@@ -155,14 +155,14 @@ typedef enum {
   IPFLAG_FILL=0,            /* fill value */
   IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land pixel) */
   IPFLAG_WATER=2,           /* water pixel */
-  IPFLAG_URBAN=3,           /* flags failed water retrieval pixels for S2 */
+  IPFLAG_FAILED=2,          /* flags failed aerosol retrieval pixels for S2 */
   IPFLAG_CLOUD=3,           /* pixel was flagged as cloud in the Level-1 QA */
-  IPFLAG_URBAN_TMP=4,       /* temp flag for expanding possible failed water
-                               pixels for S2 */
+  IPFLAG_FAILED_TMP=3,      /* temp flag for expanding possible failed pixels
+                               for S2 */
   IPFLAG_SHADOW=4,          /* pixel was flagged as cloud shadow in the
                                Level-1 QA */
-  IPFLAG_INTERP_WINDOW=5,   /* aerosol was interpolated using the center of the
-                               NxN windows */
+  IPFLAG_INTERP_WINDOW=5,   /* aerosol was interpolated using the center (L8) or
+                               UL (S2) of the NxN windows */
   AERO1_QA=6,    /* these two AERO bits mark the amount of aerosols and = 64 */
   AERO2_QA=7     /* reflect the level of atmospheric correction made    = 128 */
 } Ipflag_t;

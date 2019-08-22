@@ -49,8 +49,7 @@ void subaeroret_water_new
     float *residual, /* O: model residual */
     int *iaots,      /* I/O: AOT index that is passed in and out for multiple
                              calls (0-based) */
-    float eps,       /* I: angstroem coefficient; spectral dependency of AOT */
-    int iverbose  /* GAIL TEMP VAR for printing info */
+    float eps        /* I: angstroem coefficient; spectral dependency of AOT */
 )
 {
     int iaot;               /* aerosol optical thickness (AOT) index */
