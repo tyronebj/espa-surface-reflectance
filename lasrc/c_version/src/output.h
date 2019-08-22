@@ -16,7 +16,7 @@
 #define MAX_VALID 16000
 #define MIN_VALID_TH 1500
 #define MAX_VALID_TH 3500
-#define L1_SATURATED 65535       /* saturation value of the Level-1 pixel */
+#define L1_SATURATED 65535    /* saturation value of the Level-1 L8/S2 pixel */
 
 /* Define the output product types */
 typedef enum {OUTPUT_TOA=0, OUTPUT_SR=1, OUTPUT_RADSAT=2} Myoutput_t;
@@ -47,6 +47,7 @@ Output_t *open_output
 
 int close_output
 (
+    Sat_t sat,              /* I: satellite */
     Output_t *output,       /* I/O: Output data structure to close */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 );

@@ -1,5 +1,5 @@
-## LaSRC Version 1.4.1 Release Notes
-Release Date: May 2018
+## LaSRC Version 2.0.0 Release Notes
+Release Date: Sept. 2018
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -10,7 +10,7 @@ LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
 
-See git tag [lasrc-version_1.4.1]
+See git tag [lasrc-version_2.0.0]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -80,5 +80,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Modified the updatelads.py script to utilize the https interface, since the
-   ftp interface is now deprecated due to security concerns.
+1. Fixed a bug with the lat/long computations for the current pixel as well
+   as determining the scene center.  These mods will have minor effects on the
+   L8 results.
+2. 

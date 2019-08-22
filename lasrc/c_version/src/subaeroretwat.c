@@ -1,7 +1,8 @@
 /*****************************************************************************
-FILE: subaeroret.c
+FILE: subaeroret_wat.c
   
-PURPOSE: Contains functions for handling the atmosperic corrections.
+PURPOSE: Contains functions for handling the atmosperic corrections over
+water pixels.
 
 PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
@@ -13,19 +14,18 @@ NOTES:
 #include "lut_subr.h"
 
 /******************************************************************************
-MODULE:  subaeroret_new
+MODULE:  subaeroret_water_new
 
-PURPOSE:  Main driver for the atmospheric correction.  This subroutine uses
-atmospheric coefficients to determine the atmospheric variables, then performs
-the atmospheric corrections.
-
+PURPOSE:  Main driver for the atmospheric correction over water.  This
+subroutine uses atmospheric coefficients to determine the atmospheric
+variables, then performs the atmospheric corrections.
 
 RETURN VALUE:
 Type = N/A
 
 NOTES:
 ******************************************************************************/
-void subaeroret_new
+void subaeroret_water_new
 (
     Sat_t sat,                             /* I: satellite */
     int iband1,                            /* I: band 1 index (0-based) */
@@ -49,7 +49,8 @@ void subaeroret_new
     float *residual, /* O: model residual */
     int *iaots,      /* I/O: AOT index that is passed in and out for multiple
                              calls (0-based) */
-    float eps        /* I: angstroem coefficient; spectral dependency of AOT */
+    float eps,       /* I: angstroem coefficient; spectral dependency of AOT */
+    int iverbose  /* GAIL TEMP VAR for printing info */
 )
 {
     int iaot;               /* aerosol optical thickness (AOT) index */
@@ -74,8 +75,10 @@ void subaeroret_new
                                1.0e-04, 0.0};
                             /* constant values for comparing against the
                                L8 surface reflectance */
-    float s2_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
+//    float s2_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 1.0e-03, 0.0,
+//                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
+    float s2_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 1.0e-03, 0.0,
+                               1.0e-04, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
                             /* constant values for comparing against the
                                Sentinel surface reflectance */
     float aot550nm[NAOT_VALS] = {0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.6,
@@ -126,8 +129,7 @@ void subaeroret_new
     *residual = 0.0;
     for (ib = start_band; ib <= end_band; ib++)
     {
-        /* Don't reprocess iband1 */
-        if ((erelc[ib] > 0.0) && (ib != iband1))
+        if (erelc[ib] > 0.0)
         {
             atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
                 aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
@@ -136,8 +138,7 @@ void subaeroret_new
 
             if (roslamb - tth[ib] < 0.0)
                 testth = true;
-            *residual += (roslamb - erelc[ib] * ros1) *
-                         (roslamb - erelc[ib] * ros1);
+            *residual += (roslamb * roslamb);
             nbval++;
         }
     }
@@ -173,8 +174,7 @@ void subaeroret_new
         *residual = 0.0;
         for (ib = start_band; ib <= end_band; ib++)
         {
-            /* Don't reprocess iband1 */
-            if ((erelc[ib] > 0.0) && (ib != iband1))
+            if (erelc[ib] > 0.0)
             {
                 atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
                     aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
@@ -183,8 +183,7 @@ void subaeroret_new
 
                 if (roslamb - tth[ib] < 0.0)
                     testth = true;
-                *residual += (roslamb - erelc[ib] * ros1) *
-                             (roslamb - erelc[ib] * ros1);
+                *residual += (roslamb * roslamb);
                 nbval++;
             }
         }
@@ -237,8 +236,7 @@ void subaeroret_new
         residualm = 0.0;
         for (ib = start_band; ib <= end_band; ib++)
         {
-            /* Don't reprocess iband1 */
-            if ((erelc[ib] > 0.0) && (ib != iband1))
+            if (erelc[ib] > 0.0)
             {
                 atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
                     aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
@@ -247,8 +245,7 @@ void subaeroret_new
 
                 if (roslamb - tth[ib] < 0.0)
                     testth = true;
-                residualm += (roslamb - erelc[ib] * ros1) *
-                             (roslamb - erelc[ib] * ros1);
+                residualm += (roslamb * roslamb);
                 nbval++;
             }
         }
@@ -274,6 +271,11 @@ void subaeroret_new
         }
 
         *residual = residualm;
-        *iaots = MAX ((iaot2 - 3), 0);
+
+        /* Check the iaot values */
+        if (iaot == 1)
+            *iaots = 0;
+        else
+            *iaots = MAX ((iaot2 - 3), 0);
     }
 }

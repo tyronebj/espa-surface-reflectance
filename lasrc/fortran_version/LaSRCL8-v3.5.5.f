@@ -31,10 +31,10 @@
 	real, allocatable :: tp(:,:)
 	real, allocatable :: taero(:,:)
 	real, allocatable :: taeros(:,:)
-	real, allocatable :: teps(:,:)
+	real, allocatable :: taero3(:,:)
 	real, allocatable :: tclears(:,:)
 	real, allocatable :: taerost(:,:)
-	real, allocatable :: taero3(:,:)
+	real, allocatable :: teps(:,:)
 	real, allocatable :: tepss(:,:)
 	real, allocatable :: tresi(:,:)
 	real, allocatable :: slprb1(:,:)
@@ -84,13 +84,14 @@
 	integer offsettiff
 	integer sdsind(12)
 	data sdsind /0,1,2,3,4,5,6,-1,7,8,9,10/
-	data suffix /"01","02","03","04","05","06","07","08","09","10","11","QA"/
+	data suffix /"01","02","03","04","05","06","07","08","09","10",
+     s           "11","QA"/
 	integer ii,nr,nc,ib,als,i,j,nrp,ncp,ierr
 	integer nrcmg,nccmg,icmg,jcmg
 	real u,v
 	real xcmg,ycmg
 	real xndwi
-	real xts,xfs,dsol,cpi
+	real xts,xfs
 	real scalefactor,offset
 	integer ihdf
 	integer iband
@@ -160,8 +161,8 @@ C The following arguments are all names of the LUTs to look up.
 !	integer ib
         integer retval
 	real roslamb
-       data (sbandname(i),i=1,8)/"ldcmb1","ldcmb2","ldcmb3","ldcmb4","ldcmb5","ldcmb6",
-     s  "ldcmb7","ldcmb8"/
+       data (sbandname(i),i=1,8)/"ldcmb1","ldcmb2","ldcmb3","ldcmb4",
+     s  "ldcmb5","ldcmb6","ldcmb7","ldcmb8"/
         real tgo,roatm,ttatmg,satm,xrorayp,next
 c       integer ldcmind(9)
 c       data ldcmind /9,10,4,1,2,6,7,4,6/ 
@@ -192,7 +193,7 @@ c       data ldcmind /9,10,4,1,2,6,7,4,6/
        real lat1,lat2,lon1,lon2
        integer colp,rowp
        real dy,dx,ang
-       integer nbval,nbclear
+       integer nbclear
        real*8 anom,stemp,mclear
        real fack,facl,cldh
        integer cldhmin,cldhmax,icldh
@@ -388,13 +389,6 @@ c read the RATIOFILE
        status = sfendacc(sds_id)
        write(6,*) "status sfendacc ",status
 
-
-
-
-
-
-
-
        sds_index = 24
        sds_id    = sfselect(sd_id, sds_index)
        write(6,*) "sds_id", sds_id
@@ -409,10 +403,6 @@ c read the RATIOFILE
        write(6,*) "status", status
        status = sfendacc(sds_id)
        write(6,*) "status sfendacc ",status
-       
-       
-       
-       
       
        sds_index = 27
        sds_id    = sfselect(sd_id, sds_index)
@@ -440,27 +430,16 @@ c read the RATIOFILE
 c close HDF file
        status = sfend(sd_id)
        write(6,*) "status sfend ",status
-c cdo not ompute ratio based on averaged ndwi never!  
-c       do i=1,nc
-c       do j=1,nr
-c       ratiob1(i,j)=int(dble(andwi(i,j)*dble(slpratiob1(i,j)/1000.))+intratiob1(i,j))  
-c       ratiob2(i,j)=int(dble(andwi(i,j)*dble(slpratiob2(i,j)/1000.))+intratiob2(i,j))  
-c       ratiob7(i,j)=int(dble(andwi(i,j)*dble(slpratiob7(i,j)/1000.))+intratiob7(i,j))
-c       enddo
-c       enddo  
        
        write(6,*) "RATIO READ ", ratiob1(2001,1001),ratiob2(2001,1001),ratiob7(2001,1001)
        write(6,*) "RATIO READ ", slpratiob1(2001,1001),slpratiob2(2001,1001),slpratiob7(2001,1001)
        write(6,*) "RATIO READ ", intratiob1(2001,1001),intratiob2(2001,1001),intratiob7(2001,1001)
        write(6,*) "RATIO READ ", andwi(2001,1001)
-c       stop
 	
 
 
-C Read ozone and water vapor
-
+cccc GAIL OUT of place
 	pi=atan(1.)*4.
-	cpi=pi
 	read(5,*) ihdf
 	if (ihdf.eq.2) then
 	read(5,'(A200)') filenamehdf
@@ -535,21 +514,16 @@ c read the input files
 	write(fileout,*) pfileout(1:ii),sstr,".hdf"
 	iout=2
 	endif
-c	read(5,*) fpln,lpln,fpcl,lpcl
 	endif
-c	ii=index(pfileout," ")-1
-c	jj=index(pfileout," ",.true.)
-c	write(6,*) fileout(jj:ii),ii,jj,fileout
-c	stop
 	
 	gsize=30.
 	raot550nm=0.06
         fac=pi/180.
 	xmus=cos(xts*fac) 
+cccc END - GAIL OUT of place
 
 
-
-
+C Read ozone and water vapor
 	nrcmg=3600
 	nccmg=7200
        allocate (oz(nccmg,nrcmg),stat=ierr)
@@ -563,6 +537,7 @@ c	stop
        edges(2) = nrcmg
        stride(1) = 1
        stride(2) = 1
+
        sds_index = 0
        sds_id    = sfselect(sd_id, sds_index)
        write(6,*) "sds_id", sds_id
@@ -574,18 +549,24 @@ c	stop
        endif
        status = sfendacc(sds_id)
        write(6,*) "status sfendacc ",status
-       sds_index = 2
+
+       sds_index = 1
        sds_id    = sfselect(sd_id, sds_index)
        write(6,*) "sds_id", sds_id
        status = sfrdata(sds_id, start, stride, edges,wv)
        write(6,*) "status", status
+       if (status.eq.-1) Then
+       write(6,*) "Error reading ",fname
+       stop
+       endif
        status = sfendacc(sds_id)
        write(6,*) "status sfendacc ",status
+
 c close HDF file
        status = sfend(sd_id)
        write(6,*) "status sfend ",status
        
-       write(6,*) "Ozone Water vapor read"
+       write(6,*) "Ozone and Water Vapor read"
 
 c	
 c	allocate(band(nr,nc),STAT=als)
@@ -1313,8 +1294,6 @@ c inverting aerosol
 	 intrb7(i,j)=intr11*(1.-u)*(1.-v)+intr12*(1.-u)*v
      s	      +intr21*(1.-v)*u+intr22*u*v
 
-
-
         xndwi=dble(sband(5,i,j)-dble(sband(7,i,j)/2.))/dble(sband(5,i,j)+dble(sband(7,i,j)/2.))
 	th1=((andwi(jcmg,icmg)+2.*sndwi(jcmg,icmg))/1000.)
 	th2=((andwi(jcmg,icmg)-2.*sndwi(jcmg,icmg))/1000.)
@@ -1631,6 +1610,7 @@ c 	 write(6,*) "problem in subaeroretwat at i,j ",i,j
 	 enddo
 	 enddo
 
+CCCCCC GAIL HERE CCCC
 c before interpolation increase the interpolation to neighbourring pixels (3x3?)
 c not sure this is needed
 c       goto 1001
@@ -1859,7 +1839,6 @@ C endif of ib=1
 	  enddo
 	  enddo
 c update the cloud mask
-           nbval=0
 	   nbclear=0  
 	   mclear=0.
 	   mall=0.

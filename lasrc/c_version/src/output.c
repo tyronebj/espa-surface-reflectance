@@ -46,13 +46,15 @@ Output_t *open_output
     char production_date[MAX_DATE_LEN+1]; /* current date/time for production */
     time_t tp;                   /* time structure */
     struct tm *tm = NULL;        /* time structure for UTC time */
-    int ib;    /* looping variable for bands */
+    int nband = 0;               /* number of output bands to be created */
+    int ib;                      /* looping variable for bands */
     int refl_indx = -1;          /* band index in XML file for the reflectance
                                     band */
     Output_t *output = NULL;     /* output data structure to be returned */
     Espa_band_meta_t *bmeta = NULL;  /* pointer to the band metadata array
                                         within the output structure */
-    int nband;                   /* number of output bands to be created */
+    char s2_bandname[][3] = {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9",
+                             "10", "11", "12"};
 
     /* Create the Output data structure */
     output = (Output_t *) malloc (sizeof (Output_t));
@@ -63,11 +65,17 @@ Output_t *open_output
         return (NULL);
     }
   
-    /* Find the representative band for metadata information.  Use band 1. */
+    /* Use band 1 band-related metadata for the reflectance information for
+       Landsat (Level 1 products).  Use band 2 band-related metadata for the
+       reflectance information (Level-1 products).  Sentinel-2 bands have
+       different resolutions and we want a band which represents the 10m
+       resolution. */
     for (ib = 0; ib < in_meta->nbands; ib++)
     {
-        if (!strcmp (in_meta->band[ib].name, "b1") &&
-            !strncmp (in_meta->band[ib].product, "L1", 2))
+        if ((!strcmp (in_meta->band[ib].name, "b1") &&
+             !strncmp (in_meta->band[ib].product, "L1", 2)) ||
+            (!strcmp (in_meta->band[ib].name, "B01") &&
+             !strcmp (in_meta->band[ib].product, "MSIL1C")))
         {
             /* this is the index we'll use for reflectance band info */
             refl_indx = ib;
@@ -96,7 +104,12 @@ Output_t *open_output
     if (output_type == OUTPUT_RADSAT)
         nband = 1;
     else
-        nband = NBAND_TTL_OUT;
+    {
+        if (input->meta.sat == SAT_LANDSAT_8)
+            nband = NBAND_L8_TTL_OUT;
+        else if (input->meta.sat == SAT_SENTINEL_2)
+            nband = NBAND_S2_TTL_OUT;
+    }
     if (allocate_band_metadata (&output->metadata, nband) != SUCCESS)
     {
         sprintf (errmsg, "Allocating band metadata.");
@@ -145,8 +158,8 @@ Output_t *open_output
         strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 4);
         bmeta[ib].short_name[4] = '\0';
         if (output_type == OUTPUT_TOA)
-        {
-            if ((ib == SR_BAND10) || (ib == SR_BAND11))
+        {  /* Only applies to the L8 product */
+            if ((ib == SR_L8_BAND10) || (ib == SR_L8_BAND11))
             {
                 strcat (bmeta[ib].short_name, "BT");
                 strcpy (bmeta[ib].product, "toa_bt");
@@ -182,12 +195,18 @@ Output_t *open_output
            don't need to process the aerosol mask.  If this is SR, then we
            don't need to process the cirrus or thermal bands.  If this is
            RADSAT then we only have one band. */
-        if ((output_type == OUTPUT_TOA) && (ib == SR_AEROSOL))
+        if ((output_type == OUTPUT_TOA) && (ib == SR_L8_AEROSOL))
             continue;
         else if ((output_type == OUTPUT_SR) &&
-            ((ib == SR_BAND9) || (ib == SR_BAND10) || (ib == SR_BAND11)))
+                 (input->meta.sat == SAT_LANDSAT_8) &&
+                 ((ib == SR_L8_BAND9) || (ib == SR_L8_BAND10) ||
+                  (ib == SR_L8_BAND11)))
             continue;
-        else if ((output_type == OUTPUT_SR) && (ib == SR_AEROSOL))
+        else if ((output_type == OUTPUT_SR) && 
+                 (((input->meta.sat == SAT_LANDSAT_8) &&
+                  (ib == SR_L8_AEROSOL)) ||
+                  ((input->meta.sat == SAT_SENTINEL_2) &&
+                  (ib == SR_S2_AEROSOL))))
         {
             /* Common QA band fields */
             bmeta[ib].data_type = ESPA_UINT8;
@@ -205,19 +224,35 @@ Output_t *open_output
                 return (NULL);
             }
 
-            /* Identify the bitmap values for the mask */
-            strcpy (bmeta[ib].bitmap_description[0], "fill");
-            strcpy (bmeta[ib].bitmap_description[1],
-                "valid aerosol retrieval (center pixel of NxN window)");
-            strcpy (bmeta[ib].bitmap_description[2], "water pixel (or water "
-                "pixel was used in the fill-the-window interpolation)");
-            strcpy (bmeta[ib].bitmap_description[3], "cloud or cirrus");
-            strcpy (bmeta[ib].bitmap_description[4], "cloud shadow");
-            strcpy (bmeta[ib].bitmap_description[5], "non-center window pixel "
-                "for which aerosol was interpolated from surrounding NxN "
-                "center pixels");
-            strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
-            strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
+            /* Identify the bitmap values for the mask, knowing there are
+               differences between Landsat-8 and Sentinel-2 */
+            if (input->meta.sat == SAT_LANDSAT_8)
+            {
+                strcpy (bmeta[ib].bitmap_description[0], "fill");
+                strcpy (bmeta[ib].bitmap_description[1],
+                    "valid aerosol retrieval (center pixel of NxN window)");
+                strcpy (bmeta[ib].bitmap_description[2], "water pixel (or "
+                    "water pixel was used in the fill-the-window "
+                    "interpolation)");
+                strcpy (bmeta[ib].bitmap_description[3], "cloud or cirrus");
+                strcpy (bmeta[ib].bitmap_description[4], "cloud shadow");
+                strcpy (bmeta[ib].bitmap_description[5], "non-center window "
+                    "pixel for which aerosol was interpolated from surrounding "
+                    "NxN center pixels");
+                strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
+                strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
+            }
+            else if (input->meta.sat == SAT_SENTINEL_2)
+            {
+                strcpy (bmeta[ib].bitmap_description[0], "fill");
+                strcpy (bmeta[ib].bitmap_description[1], "clear pixel");
+                strcpy (bmeta[ib].bitmap_description[2], "water pixel");
+                strcpy (bmeta[ib].bitmap_description[3], "urban/barren pixel");
+                strcpy (bmeta[ib].bitmap_description[4], "internal/temp mask");
+                strcpy (bmeta[ib].bitmap_description[5], "not used");
+                strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
+                strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
+            }
 
             strncpy (bmeta[ib].short_name,
                 in_meta->band[refl_indx].short_name, 4);
@@ -284,21 +319,23 @@ Output_t *open_output
             strcpy (bmeta[ib].category, "image");
             strcpy (bmeta[ib].data_units, "reflectance");
 
-            if (ib == SR_BAND10 || ib == SR_BAND11)  /* thermal bands */
-            {
+            if ((input->meta.sat == SAT_LANDSAT_8) &&
+                (ib == SR_L8_BAND10 || ib == SR_L8_BAND11))
+            {  /* L8 thermal bands */
                 bmeta[ib].scale_factor = SCALE_FACTOR_TH;
                 bmeta[ib].valid_range[0] = (float) MIN_VALID_TH;
                 bmeta[ib].valid_range[1] = (float) MAX_VALID_TH;
             }
             else
-            {
+            {  /* reflectance bands */
                 bmeta[ib].scale_factor = SCALE_FACTOR;
                 bmeta[ib].valid_range[0] = (float) MIN_VALID;
                 bmeta[ib].valid_range[1] = (float) MAX_VALID;
             }
 
-            if (ib >= SR_BAND1 && ib <= SR_BAND7)
-            {
+            if ((input->meta.sat == SAT_LANDSAT_8) &&
+                (ib >= SR_L8_BAND1 && ib <= SR_L8_BAND7))
+            {  /* L8 reflectance bands */
                 if (output_type == OUTPUT_TOA)
                 {
                     sprintf (bmeta[ib].name, "toa_band%d", ib+1);
@@ -312,14 +349,25 @@ Output_t *open_output
                         ib+1);
                 }
             }
-            else if (ib == SR_BAND9)  /* cirrus band */
-            {  /* band 9 is only atmospherically corrected */
+            else if ((input->meta.sat == SAT_SENTINEL_2) &&
+                (ib >= SR_S2_BAND1 && ib <= SR_S2_BAND12))
+            {  /* S2 reflectance bands */
+                if (output_type == OUTPUT_SR)
+                {
+                    sprintf (bmeta[ib].name, "sr_band%s", s2_bandname[ib]);
+                    sprintf (bmeta[ib].long_name, "band %s surface reflectance",
+                        s2_bandname[ib]);
+                }
+            }
+            else if ((input->meta.sat == SAT_LANDSAT_8) && (ib == SR_L8_BAND9))
+            {  /* L8 cirrus band; band 9 is only atmospherically corrected */
                 sprintf (bmeta[ib].name, "toa_band%d", ib+2);
                 sprintf (bmeta[ib].long_name, "band %d top-of-atmosphere "
                     "reflectance", ib+2);
             }
-            else if (ib == SR_BAND10 || ib == SR_BAND11)  /* thermal bands */
-            {
+            else if ((input->meta.sat == SAT_LANDSAT_8) &&
+                (ib == SR_L8_BAND10 || ib == SR_L8_BAND11))
+            {  /* L8 thermal bands */
                 sprintf (bmeta[ib].name, "bt_band%d", ib+2);
                 sprintf (bmeta[ib].long_name, "band %d top-of-atmosphere "
                     "brightness temperature", ib+2);
@@ -330,7 +378,9 @@ Output_t *open_output
         /* Set up the filename with the scene name and band name and open the
            file for read/write access.  Don't open if this is OLI-only and
            these are the thermal bands. */
-        if ((ib != SR_BAND10 && ib != SR_BAND11) || output->inst != INST_OLI)
+        if (((input->meta.sat == SAT_LANDSAT_8) &&
+            (ib != SR_L8_BAND10 && ib != SR_L8_BAND11)) ||
+             output->inst != INST_OLI)
         {
             sprintf (bmeta[ib].file_name, "%s_%s.img", scene_name,
                 bmeta[ib].name);
@@ -370,6 +420,7 @@ NOTES:
 ******************************************************************************/
 int close_output
 (
+    Sat_t sat,              /* I: satellite */
     Output_t *output,       /* I/O: Output data structure to close */
     Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
 )
@@ -388,16 +439,21 @@ int close_output
     /* Close raw binary products */
     for (ib = 0; ib < output->nband; ib++)
     {
-        if ((output_type == OUTPUT_TOA) && (ib == SR_AEROSOL))
+        /* No aerosol band with the output L8 TOA product */
+        if ((output_type == OUTPUT_TOA) && (sat == SAT_LANDSAT_8) &&
+            (ib == SR_L8_AEROSOL))
             continue;
-        else if ((output_type == OUTPUT_SR) &&
-            ((ib == SR_BAND9) || (ib == SR_BAND10) || (ib == SR_BAND11)))
+        else if ((sat == SAT_LANDSAT_8) && (output_type == OUTPUT_SR) &&
+            ((ib == SR_L8_BAND9) || (ib == SR_L8_BAND10) ||
+             (ib == SR_L8_BAND11)))
+            /* No cirrus or thermal with the output L8 SR products */
             continue;
         else
         {
             /* No thermal bands are open for OLI-only scenes */
-            if ((ib != SR_BAND10 && ib != SR_BAND11) ||
-                 output->inst != INST_OLI)
+            if ((sat == SAT_LANDSAT_8) &&
+                 ((ib != SR_L8_BAND10 && ib != SR_L8_BAND11) ||
+                  output->inst != INST_OLI))
                 close_raw_binary (output->fp_bin[ib]);
         }
     }
@@ -440,13 +496,13 @@ int free_output
   
     if (output != NULL)
     {
-        /* Free the bitmap data for the aerosol and radsat bands */
+        /* Free the bitmap data for the L8 aerosol and radsat bands */
         if (output_type == OUTPUT_SR &&
-            output->metadata.band[SR_AEROSOL].nbits > 0)
+            output->metadata.band[SR_L8_AEROSOL].nbits > 0)
         {
-            for (b = 0; b < output->metadata.band[SR_AEROSOL].nbits; b++)
-                free (output->metadata.band[SR_AEROSOL].bitmap_description[b]);
-            free (output->metadata.band[SR_AEROSOL].bitmap_description);
+            for (b = 0; b < output->metadata.band[SR_L8_AEROSOL].nbits; b++)
+               free(output->metadata.band[SR_L8_AEROSOL].bitmap_description[b]);
+            free (output->metadata.band[SR_L8_AEROSOL].bitmap_description);
         }
 
         if (output_type == OUTPUT_RADSAT &&
@@ -455,6 +511,15 @@ int free_output
             for (b = 0; b < output->metadata.band[SR_RADSAT].nbits; b++)
                 free (output->metadata.band[SR_RADSAT].bitmap_description[b]);
             free (output->metadata.band[SR_RADSAT].bitmap_description);
+        }
+
+        /* Free the bitmap data for the S2 aerosol band */
+        if (output_type == OUTPUT_SR &&
+            output->metadata.nbands == NBAND_S2_TTL_OUT)
+        {
+            for (b = 0; b < output->metadata.band[SR_S2_AEROSOL].nbits; b++)
+               free(output->metadata.band[SR_S2_AEROSOL].bitmap_description[b]);
+            free (output->metadata.band[SR_S2_AEROSOL].bitmap_description);
         }
 
         /* Free the band data */
