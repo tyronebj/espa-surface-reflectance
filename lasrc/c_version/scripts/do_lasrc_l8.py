@@ -18,7 +18,7 @@ SUCCESS = 0
 # auxiliary file needed for processing, based on the date of the Landsat 8
 # input file.
 #
-# Usage: do_lasrc.py --help prints the help message
+# Usage: do_lasrc_l8.py --help prints the help message
 ############################################################################
 class SurfaceReflectance():
 
@@ -90,7 +90,7 @@ class SurfaceReflectance():
 
         # get the logger
         logger = logging.getLogger(__name__)
-        msg = ('Surface reflectance processing of Landsat file: {}'
+        msg = ('Surface reflectance processing of Landsat-8 file: {}'
                .format(xml_infile))
         logger.info (msg)
         
@@ -141,7 +141,7 @@ class SurfaceReflectance():
             aux_doy = myday.strftime("%j")
             aux_file = 'L8ANC{}{}.hdf_fused'.format(aux_year, aux_doy)
         else:
-            msg = ('Base XML filename is not recognized as a valid Landsat8 '
+            msg = ('Base XML filename is not recognized as a valid Landsat-8 '
                    'scene name'.format(base_xmlfile))
             logger.error (msg)
             os.chdir (mydir)

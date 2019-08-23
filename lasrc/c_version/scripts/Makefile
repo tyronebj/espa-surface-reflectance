@@ -10,7 +10,7 @@ TOP = ../../..
 include $(TOP)/make.config
 
 # Define scripts
-SCRIPTS = do_lasrc.py
+SCRIPTS = do_lasrc_l8.py do_lasrc_s2.py
 
 #-----------------------------------------------------------------------------
 all:
