@@ -421,7 +421,6 @@ int main (int argc, char *argv[])
     /* Write the output TOA and BT bands for L8. Nothing is done for S2. */
     if (sat == SAT_LANDSAT_8)
     {
-/** GAIL maybe make this a subroutine **/
         /* Open the TOA output file, and set up the bands according to whether
            the TOA reflectance bands will be written. */
         toa_output = open_output (&xml_metadata, input, OUTPUT_TOA);

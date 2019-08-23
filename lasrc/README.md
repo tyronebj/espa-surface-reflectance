@@ -87,3 +87,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 
 ## Release Notes
 1. Modified the LaSRC executable to work with Sentinel-2 products.
+2. Added Sentinel-2 support to the do\_lasrc.py and surface\_reflectance.py scripts.
