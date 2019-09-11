@@ -1,5 +1,5 @@
-## Ledaps Version 3.3.1 Release Notes
-Release Date: March 2019
+## Ledaps Version 3.4.0 Release Notes
+Release Date: August 2019
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.3.1]
+See git tag [ledaps-version_3.4.0]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -19,7 +19,7 @@ See git tag [ledaps-version_3.3.1]
     export PREFIX="path_to_directory_for_ledaps_build_data"
 ```
 
-  * Install baseline auxiliary files.  Please note that the original ozone data has data gaps in 1978 (actual data starts on Nov. 1, 1978), 1979 (partial), 1993 (partial), 1994 (partial), 1995 (complete gap), 1996 (partial), 1997 (partial), 1998 (missing DOY 347+), 2008 (missing Sept. 28/29), ...  You will want to run the updatetoms script (described later) on this baseline set of data.  The NASA LEDAPS group has filled some of these larger data gaps by interpolating the missing data. If the ozone data is missing from the NASA ftp site, then the updatetoms script will not try to update that auxiliary file.
+  * Install baseline auxiliary files.  Please note that the original ozone data has data gaps in 1978 (actual data starts on Nov. 1, 1978), 1979 (partial), 1993 (partial), 1994 (partial), 1995 (complete gap), 1996 (partial), 1997 (partial), 1998 (missing DOY 347+), 2008 (missing Sept. 28/29), ...  You will want to run the updatetoms script (described later) on this baseline set of data.  The NASA LEDAPS group has filled some of these larger data gaps by interpolating the missing data. If the ozone data is missing from the NASA http site, then the updatetoms script will not try to update that auxiliary file.
 ```
     tar -xvzf ledaps_aux.1978-2017.tar.gz
 ```
@@ -92,10 +92,10 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. Fixed a bug introduced to the cloud shadow code when multi-threading was
-     added.  This bug only affects the cloud shadow computation when the band
-     6 clear temperature values are invalid, in which case the ancillary
-     airtemp_2m values are used from the cloud diagnostics.  The interpolation
-     of these ancillary values is where the bug resides and a value of -9999
-     is ultimately used, and therefore the cloud shadow is not computed for
-     the pixel.
+  1. The TOMS and OMI data are no longer available on the NASA ftp site.
+     Removed access to ftp://toms.gsfc.nasa.gov and changed the source to
+     https://acd-ext.gsfc.nasa.gov/anonftp/toms/. This site has the TOMS-line
+     OMI data as well as the archived NIMBUS7, METEOR3, and EP/TOMS data files
+     in the same text format and 1.0 x 1.0 degree resolution for the global
+     product. These changes were applied to updatetoms.py in the LEDAPS
+     auxiliary download scripts.

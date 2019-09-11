@@ -13,7 +13,6 @@
 import sys
 import os
 import fnmatch
-import ftplib
 import datetime
 import commands
 import re
@@ -26,7 +25,7 @@ from optparse import OptionParser
 ERROR = 1
 SUCCESS = 0
 START_YEAR = 1978      # quarterly processing will reprocess back to the
-                       # start of the EP/TOMS data to make sure all data is
+                       # start of the TOMS data to make sure all data is
                        # up to date
 
 ############################################################################
@@ -45,14 +44,14 @@ class Datasource:
 # DatasourceResolver class
 ############################################################################
 class DatasourceResolver:
-    # Specify the base location for the EP/TOMS data as well as the
+    # Specify the base location for the TOMS data as well as the
     # correct subdirectories for each of the instrument-specific ozone
     # products
-    SERVER_URL = 'ftp://toms.gsfc.nasa.gov'
-    NIMBUS = '/pub/nimbus7/data/ozone/Y'
-    EARTHPROBE = '/pub/eptoms/data/ozone/Y'
-    METEOR3 = '/pub/meteor3/data/ozone/Y'
-    OMI = '/pub/omi/data/ozone/Y'
+    SERVER_URL = 'https://acd-ext.gsfc.nasa.gov/anonftp/toms'
+    NIMBUS = '/nimbus7/data/ozone/Y'
+    EARTHPROBE = '/eptoms/data/ozone/Y'
+    METEOR3 = '/meteor3/data/ozone/Y'
+    OMI = '/omi/data/ozone/Y'
     
     def __init__(self):
         pass
@@ -64,111 +63,93 @@ class DatasourceResolver:
     #
     # Inputs:
     #   year - year of desired ozone data
+    #   DOY - download data up through the DOY
     #
     # Returns:
     #   None - error resolving the instrument and associated URL for
     #          the specified year
-    #   dsList - List of data source(s) (URL and instrument type) to pull
-    #         the ozone data from for the specified year.  The primary data
-    #         source is first, followed by the backup data source in the
-    #         event the desired date does not exist on the primary URL.
+    #   urlList - List of URL(s) to pull the ozone data from for the
+    #         specified year.  The primary data source is first, followed
+    #         by the backup data source in the event the desired date does
+    #         not exist on the primary URL.
     #
     # Notes:
     #######################################################################
-    def resolve(self, year):
-        dsList = []     # create empty data source list
-
+    def resolve(self, year, DOY):
         logger = logging.getLogger(__name__)  # Get logger for the module.
         # use NIMBUS data for 1978-1990
         if year in range(1978, 1991):
-            url = self.buildURL('NIMBUS', self.SERVER_URL, self.NIMBUS, year)
-            if url is not None:
-                ds = Datasource('NIMBUS', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('NIMBUS', self.SERVER_URL, self.NIMBUS, year,
+                                   DOY)
+            if dsList is None:
+                logger.warn('Could not resolve NIMBUS datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
         # use METEOR3 data for 1991-1993, with NIMBUS as the backup
         elif year in range(1991, 1994):
-            url = self.buildURL('METEOR3', self.SERVER_URL, self.METEOR3, year)
-            if url is not None:
-                ds = Datasource('METEOR3', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('METEOR3', self.SERVER_URL, self.METEOR3,
+                                   year, DOY)
+            if dsList is None:
+                logger.warn('Could not resolve METEOR3 datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
-            url2 = self.buildURL('NIMBUS', self.SERVER_URL, self.NIMBUS, year)
-            if url2 is not None:
-                ds2 = Datasource('NIMBUS', url2)
-                dsList.append(ds2)
+            dsList2 = self.buildURL('NIMBUS', self.SERVER_URL, self.NIMBUS,
+                                   year, DOY)
+            if dsList2 is None:
+                logger.warn('Could not resolve NIMBUS datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
             else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
-                return None
+                dsList.extend(dsList2)
+
 
         # use METEOR3 data for 1994
         elif year == 1994:
-            url = self.buildURL('METEOR3', self.SERVER_URL, self.METEOR3, year)
-            if url is not None:
-                ds = Datasource('METEOR3', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('METEOR3', self.SERVER_URL, self.METEOR3,
+                                   year, DOY)
+            if dsList is None:
+                logger.warn('Could not resolve METEOR3 datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
         # use EARTHPROBE data for 1996-2003
         elif year in range(1996, 2004):
-            url = self.buildURL('EARTHPROBE', self.SERVER_URL, self.EARTHPROBE,
-                year)
-            if url is not None:
-                ds = Datasource('EARTHPROBE', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('EARTHPROBE', self.SERVER_URL,
+                                   self.EARTHPROBE, year, DOY)
+            if dsList is None:
+                logger.warn('Could not resolve EARTHPROBE datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
         # use OMI data for 2004-2005, with EARTHPROBE as the backup
         elif year in range(2004, 2006):
-            url = self.buildURL('OMI', self.SERVER_URL, self.OMI, year)
-            if url is not None:
-                ds = Datasource('OMI', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('OMI', self.SERVER_URL, self.OMI, year, DOY)
+            if dsList is None:
+                logger.warn('Could not resolve EARTHPROBE datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
                 return None
 
-            url2 = self.buildURL('EARTHPROBE', self.SERVER_URL,
-                self.EARTHPROBE, year)
-            if url2 is not None:
-                ds2 = Datasource('EARTHPROBE', url2)
-                dsList.append(ds2)
+            dsList2 = self.buildURL('EARTHPROBE', self.SERVER_URL,
+                self.EARTHPROBE, year, DOY)
+            if dsList2 is None:
+                logger.warn('Could not resolve EARTHPROBE datasource for year, '
+                            'DOY: {0}/{1}'.format(year, DOY))
             else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
-                return None
+                dsList.extend(dsList2)
 
         # use OMI for any years beyond 2006
         elif year >= 2006:
-            url = self.buildURL('OMI', self.SERVER_URL, self.OMI, year)
-            if url is not None:
-                ds = Datasource('OMI', url)
-                dsList.append(ds)
-            else:
-                logger.warn('Could not resolve a datasource for year: {0}'
-                            .format(year))
+            dsList = self.buildURL('OMI', self.SERVER_URL, self.OMI, year, DOY)
+            if dsList is None:
+                logger.warn('Could not resolve OMI datasource for year, DOY: '
+                            '{0}/{1}'.format(year, DOY))
                 return None
 
-        # year requested does not have TOMS/EP ozone data
+        # year requested does not have TOMS ozone data
         else:
-            logger.warn('Could not resolve a datasource for year: {0}'
-                        .format(year))
+            logger.warn('Could not resolve a datasource for year, DOY: {0}/{1}'
+                        .format(year, DOY))
             return None
 
         return dsList
@@ -184,33 +165,45 @@ class DatasourceResolver:
     #   serverUrl - portion of the URL for the server location
     #   basePath - base portion of the URL that is instrument-specific
     #   year - year of desired ozone data
+    #   DOY - download data up through the DOY
     #
     # Returns:
     #   None - error resolving the instrument and associated URL for
     #          the specified year
-    #   URL - Final URL location, including filename, to download
+    #   urlList - Final list of URL locations to download
     #
     # Notes:
     #######################################################################
-    def buildURL (self, type, serverUrl, basePath, year):
-        # build the filename regular expression for the specified instrument
-        # type
-        if type == 'NIMBUS':
-            name = '*_n7t_%d*.txt' % year
-        elif type == 'EARTHPROBE':
-            name = '*_epc_%d*.txt' % year
-        elif type == 'METEOR3':
-            name = '*_m3t_%d*.txt' % year
-        elif type == 'OMI':
-            name = '*_omi_%d*.txt' % year
-        else:
-            logger.warn('Could not categorize datasource for: {0}'
-                        .format(type))
-            return None
+    def buildURL (self, type, serverUrl, basePath, year, DOY):
+        urlList = []     # create empty data source list
 
-        # build the URL with the information provided
-        url = serverUrl + basePath + str(year) + '/' + name
-        return url
+        # loop through each day in the year and download the TOMS data
+        for doy in range(1, DOY + 1):
+            # get the month/day for the current DOY
+            currday = datetime.datetime(year, 1, 1) + datetime.timedelta(doy-1)
+            datestr = currday.strftime("%Y%m%d")
+
+            # build the filename regular expression for the specified
+            # instrument type, year, and DOY
+            if type == 'NIMBUS':
+                name = 'L3_ozone_n7t_%s.txt' % datestr
+            elif type == 'EARTHPROBE':
+                name = 'L3_ozone_epc_%s.txt' % datestr
+            elif type == 'METEOR3':
+                name = 'L3_ozone_m3t_%s.txt' % datestr
+            elif type == 'OMI':
+                name = 'L3_ozone_omi_%s.txt' % datestr
+            else:
+                logger.warn('Could not categorize datasource for: {0}'
+                            .format(type))
+                return None
+
+            # build the URL with the information provided
+            url = serverUrl + basePath + str(year) + '/' + name
+            urlList.append(url)
+
+        # return the URL list
+        return urlList 
 ############################################################################
 # End DatasourceResolver class
 ############################################################################
@@ -242,13 +235,13 @@ def isLeapYear (year):
 
 
 ############################################################################
-# Description: cleanTomsTargetDir will regressively clean the EP/TOMS
-# HDF files from the EP/TOMS directory for the specified year.
+# Description: cleanTomsTargetDir will regressively clean the TOMS HDF files
+# from the TOMS directory for the specified year.
 #
 # Inputs:
 #   ancdir - name of the base LEDAPS ancillary directory which contains
-#            the EP/TOMS directory
-#   year - year of EP/TOMS ozone HDF data to be removed (integer)
+#            the TOMS directory
+#   year - year of TOMS ozone HDF data to be removed (integer)
 #
 # Returns: nothing
 #
@@ -257,12 +250,12 @@ def isLeapYear (year):
 ############################################################################
 def cleanTomsTargetDir (ancdir, year):
     mydir = "%s/EP_TOMS/ozone_%d" % (ancdir, year)
-    logger.info('Cleaning EP/TOMS target directory: {0}'.format(mydir))
+    logger.info('Cleaning TOMS target directory: {0}'.format(mydir))
     regex = re.compile('TOMS_' + str(year) + '\d*.hdf')
     if os.path.exists(mydir):
         # look at each file in the specified directory
         for myfile in os.listdir(mydir):
-            # if the file matches our regular expression for EP/TOMS ozone
+            # if the file matches our regular expression for TOMS ozone
             # HDF files then remove it
             if regex.search(myfile):
                 name = os.path.join(mydir, myfile)
@@ -275,7 +268,7 @@ def cleanTomsTargetDir (ancdir, year):
 
 ############################################################################
 # Description: getOzoneSource determines the source/instrument used to obtain
-# this EP/TOMS ozone data file.
+# this TOMS ozone data file.
 #
 # Inputs:
 #   filename - name of the ozone file
@@ -288,7 +281,7 @@ def cleanTomsTargetDir (ancdir, year):
 ############################################################################
 def getOzoneSource (filename):
     # Extract the instrument type from the filename.  Files look like
-    # L3_ozone_XXX_YYYYMMDD.txt where XXX = either ept (EARTHPROBE),
+    # L3_ozone_XXX_YYYYMMDD.txt where XXX = either epc (EARTHPROBE),
     # omi (OMI), n7t (NIMBUS7), or m3t (METEOR3).
     parts = filename.split('_')
     inst = parts[2]     # type of instrument
@@ -356,24 +349,23 @@ def resolveFile (fileList):
 
 ############################################################################
 # Description: downloadToms will retrieve the files for the specified year
-# from the EP/TOMS ftp site and download to the desired destination.  If the
+# from the TOMS http site and download to the desired destination.  If the
 # destination directory does not exist, then it is made before downloading.
 # Existing files in the download directory are removed/cleaned.
 #
 # Inputs:
 #   year - year of data to download (integer)
+#   DOY - download data up through the DOY (integer)
 #   destination - name of the directory on the local system to download the
-#                 EP/TOMS files
+#                 TOMS files
 #
 # Returns:
 #     ERROR - error occurred while processing
 #     SUCCESS - processing completed successfully
 #
 # Notes:
-#   We could use the Python ftplib or urllib modules, however the wget
-#   function is pretty short and sweet, so we'll stick with wget.
 ############################################################################
-def downloadToms (year, destination):
+def downloadToms (year, DOY, destination):
     logger = logging.getLogger(__name__)  # Get logger for the module.
     # make sure the download directory exists (and is cleaned up) or create
     # it recursively
@@ -389,11 +381,11 @@ def downloadToms (year, destination):
             if not os.path.isdir(name):
                 os.remove(name)
 
-    # obtain the list of URL(s) for our particular date
-    dsList = DatasourceResolver().resolve(year)
-    if dsList == None:
-        logger.warn('EP/TOMS URL could not be resolved for year {0}.'
-                    '  Processing will continue ...'.format(year))
+    # obtain the list of URL(s) for our particular date, up through the DOY
+    urlList = DatasourceResolver().resolve(year, DOY)
+    if urlList == None:
+        logger.warn('TOMS URL could not be resolved for year {0} up through '
+                    'DOY {1}. Processing will continue ...'.format(year, DOY))
         return ERROR
 
     # download the data for the current year from the list of URLs.
@@ -402,9 +394,10 @@ def downloadToms (year, destination):
     # the output info.  wget will return a nonzero value if there was a problem.
     logger.info('Downloading data for year {0} to: {1}'
                 .format(year, destination))
-    for ds in dsList:
-        logger.info('Retrieving {0} to {1}'.format(ds.url, destination))
-        cmd = 'wget --tries=5 %s' % ds.url
+
+    for url in urlList:
+        logger.info('Retrieving {0} to {1}'.format(url, destination))
+        cmd = 'wget --tries=5 %s' % url 
         retval = subprocess.call(cmd, shell=True, cwd=destination)
 
         # make sure the wget was successful or retry up to 5 more times and
@@ -414,13 +407,13 @@ def downloadToms (year, destination):
             while ((retry_count <= 5) and (retval)):
                 time.sleep(60)
                 logger.info('Retry {0} of wget for {1}'
-                            .format(retry_count, ds.url))
+                            .format(retry_count, url))
                 retval = subprocess.call(cmd, shell=True, cwd=destination)
                 retry_count += 1
     
             if retval:
                 logger.warn('unsuccessful download of {0} (retried 5 times)'
-                            .format(ds.url))
+                            .format(url))
 
     return SUCCESS
 
@@ -432,8 +425,8 @@ def downloadToms (year, destination):
 #
 # Inputs:
 #   ancdir - name of the base LEDAPS ancillary directory which contains
-#            the EP/TOMS directory
-#   year - year of EP/TOMS data to be downloaded and processed (integer)
+#            the TOMS directory
+#   year - year of TOMS data to be downloaded and processed (integer)
 #
 # Returns:
 #     ERROR - error occurred while processing
@@ -443,13 +436,6 @@ def downloadToms (year, destination):
 ############################################################################
 def getTomsData (ancdir, year):
     logger = logging.getLogger(__name__)  # Obtain logger for this module.
-
-    # download the daily ozone files for the specified year to /tmp/ep_toms
-    dloaddir = "/tmp/ep_toms/%d" % year
-    status = downloadToms (year, dloaddir)
-    if status == ERROR:
-        # warning message already printed
-        return ERROR
 
     # if the specified year is the current year, only process up through
     # today otherwise process through all the days in the year
@@ -462,6 +448,13 @@ def getTomsData (ancdir, year):
         else:
             day_of_year = 365
 
+    # download the daily ozone files for the specified year to /tmp/ep_toms
+    dloaddir = "/tmp/ep_toms/%d" % year
+    status = downloadToms (year, day_of_year, dloaddir)
+    if status == ERROR:
+        # warning message already printed
+        return ERROR
+
     # determine the directory for the output ancillary data files to be
     # processed.  create the directory if it doesn't exist.
     outputDir = "%s/EP_TOMS/ozone_%d" % (ancdir, year)
@@ -469,7 +462,7 @@ def getTomsData (ancdir, year):
         logger.info('{0} does not exist... creating'.format(outputDir))
         os.makedirs(outputDir, 0777)
 
-    # loop through each day in the year and process the EP/TOMS data
+    # loop through each day in the year and process the TOMS data
     for doy in range(1, day_of_year + 1):
         # get the month/day for the current DOY
         currday = datetime.datetime (year, 1, 1) + datetime.timedelta (doy-1)
@@ -484,7 +477,7 @@ def getTomsData (ancdir, year):
         # make sure files were found or print a warning
         nfiles = len(fileList)
         if nfiles == 0:
-            logger.warn('no EP/TOMS data available for doy {0} year'
+            logger.warn('no TOMS data available for doy {0} year'
                         ' {1} ({2}). processing will continue ...'
                         .format(doy, year, datestr))
             continue
@@ -497,7 +490,7 @@ def getTomsData (ancdir, year):
             else:
                 tomsfile = resolveFile (fileList)
                 if tomsfile == None:
-                    logger.warn('error resolving the list of EP/TOMS'
+                    logger.warn('error resolving the list of TOMS'
                                 ' files to process. processing will continue ...')
                     continue
 
@@ -539,7 +532,7 @@ def getTomsData (ancdir, year):
 ############################################################################
 # Description: Main routine which grabs the command-line arguments, determines
 # which years/days of data need to be processed, then processes the user-
-# specified dates of EP/TOMS data.
+# specified dates of TOMS data.
 #
 # Developer(s):
 #     David Hill, USGS EROS - Original development
@@ -556,9 +549,9 @@ def getTomsData (ancdir, year):
 # 2. --today will process the data for the most recent year (including the
 #    previous year if the DOY is within the first month of the year)
 # 3. --quarterly will process the data for today all the way back to the
-#    earliest year so that any updated EP/TOMS files are picked up and
+#    earliest year so that any updated TOMS files are picked up and
 #    processed.
-# 4. Existing EP/TOMS HDF files are removed before processing data for that
+# 4. Existing TOMS HDF files are removed before processing data for that
 #    year and DOY, but only if the downloaded ancillary data exists for that
 #    date.
 ############################################################################
@@ -566,19 +559,19 @@ def main ():
     # get the command line arguments
     parser = OptionParser()
     parser.add_option ("-s", "--start_year", type="int", dest="syear",
-        default=0, help="year for which to start pulling EP/TOMS data")
+        default=0, help="year for which to start pulling TOMS data")
     parser.add_option ("-e", "--end_year", type="int", dest="eyear",
-        default=0, help="last year for which to pull EP/TOMS data")
+        default=0, help="last year for which to pull TOMS data")
     parser.add_option ("--today", dest="today", default=False,
         action="store_true",
-        help="process EP/TOMS data for the most recent year")
-    msg = "reprocess all EP/TOMS data from today back to %d" % START_YEAR
+        help="process TOMS data for the most recent year")
+    msg = "reprocess all TOMS data from today back to %d" % START_YEAR
     parser.add_option ("--quarterly", dest="quarterly", default=False,
         action="store_true", help=msg)
 
     (options, args) = parser.parse_args()
-    syear = options.syear           # starting year
-    eyear = options.eyear           # ending year
+    syear = int(options.syear)      # starting year
+    eyear = int(options.eyear)      # ending year
     today = options.today           # process most recent year of data
     quarterly = options.quarterly   # process today back to START_YEAR
 
@@ -601,7 +594,7 @@ def main ():
     # DOY is within the first month, then process the previous year as well
     # to make sure we have all the recently available data processed.
     if today:
-        logger.info('Processing EP/TOMS data for the most recent year')
+        logger.info('Processing TOMS data for the most recent year')
         now = datetime.datetime.now()
         day_of_year = now.timetuple().tm_yday
         eyear = now.year
@@ -611,22 +604,22 @@ def main ():
             syear = now.year
 
     elif quarterly:
-        logger.info('Processing EP/TOMS data back to {0}'.format(START_YEAR))
+        logger.info('Processing TOMS data back to {0}'.format(START_YEAR))
         now = datetime.datetime.now()
         day_of_year = now.timetuple().tm_yday
         eyear = now.year
         syear = START_YEAR
 
-    logger.info('Processing EP/TOMS data for {0} - {1}'.format(syear, eyear))
+    logger.info('Processing TOMS data for {0} - {1}'.format(syear, eyear))
     for yr in range(syear, eyear+1):
         logger.info('Processing year: {0}'.format(yr))
         status = getTomsData(ancdir, yr)
         if status == ERROR:
-            logger.warn('Problems occurred while processing EP/TOMS'
-                        ' data for year {0}.  Processing will continue.'
+            logger.warn('Problems occurred while processing TOMS data for'
+                        ' year {0}.  Processing will continue.'
                         .format(yr))
 
-    logger.info('EP/TOMS processing complete.')
+    logger.info('TOMS processing complete.')
     return SUCCESS
 
 if __name__ == "__main__":
