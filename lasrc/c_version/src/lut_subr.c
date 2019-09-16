@@ -15,6 +15,10 @@ NOTES:
 #include "hdf.h"
 #include "mfhdf.h"
 
+float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783,
+                     0.842, 0.865, 0.945, 1.375, 1.61, 2.19};
+
 /******************************************************************************
 MODULE:  atmcorlamb2_new
 
@@ -50,9 +54,6 @@ void atmcorlamb2_new
     float mraot550nm_cube; /* mraot550nm cubed */
     int max_band_indx = 0; /* maximum band index for L8 or S2 */
     float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
-    float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-    float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842,
-                         0.865, 0.945, 1.375, 1.61, 2.19};
     float roatm;           /* intrinsic atmospheric reflectance */
     float ttatmg;          /* total atmospheric transmission */
     float satm;            /* spherical albedo */
@@ -221,9 +222,6 @@ int atmcorlamb2
     int indx;           /* index for normext array */
     int max_band_indx = 0; /* maximum band index for L8 or S2 */
     float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
-    float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-    float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842,
-                         0.865, 0.945, 1.375, 1.61, 2.19};
 
     /* Setup L8 or S2 variables */
     if (sat == SAT_LANDSAT_8)

@@ -15,6 +15,14 @@
 #define WRS_FILL (-1)
 #define GAIN_BIAS_FILL (-999.0)
 
+#define WRS1_NPATH 251
+#define WRS1_NROW 248
+#define WRS2_NPATH 233
+#define WRS2_NROW 248
+
+/* band indices which aren't defined */
+#define NA -9
+
 /* Structure for the input metadata */
 typedef struct {
     Sat_t sat;               /* satellite */

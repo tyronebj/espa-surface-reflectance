@@ -13,12 +13,12 @@ SUCCESS = 0
 
 #############################################################################
 # Created on August 26, 2014 by Gail Schmidt, USGS/EROS
-# Created Python script to run the Landsat 8 surface reflectance code based
+# Created Python script to run the Landsat surface reflectance code based
 # on the inputs specified by the user.  This script will determine the input
-# auxiliary file needed for processing, based on the date of the Landsat 8
+# auxiliary file needed for processing, based on the date of the Landsat
 # input file.
 #
-# Usage: do_lasrc_l8.py --help prints the help message
+# Usage: do_lasrc_landsat.py --help prints the help message
 ############################################################################
 class SurfaceReflectance():
 
@@ -36,7 +36,7 @@ class SurfaceReflectance():
     #
     # Inputs:
     #   xml_infile - name of the input XML file
-    #   process_sr - specifies whether the surface reflectance processing,
+    #   process_sr - specifies whether the surface reflectance processing
     #       should be completed.  True or False.  Default is True, otherwise
     #       the processing will halt after the TOA reflectance products are
     #       complete.

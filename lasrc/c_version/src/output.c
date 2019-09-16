@@ -66,10 +66,7 @@ Output_t *open_output
     }
   
     /* Use band 1 band-related metadata for the reflectance information for
-       Landsat (Level 1 products).  Use band 2 band-related metadata for the
-       reflectance information (Level-1 products).  Sentinel-2 bands have
-       different resolutions and we want a band which represents the 10m
-       resolution. */
+       Landsat (Level 1 products) */
     for (ib = 0; ib < in_meta->nbands; ib++)
     {
         if ((!strcmp (in_meta->band[ib].name, "b1") &&
@@ -86,8 +83,8 @@ Output_t *open_output
     /* Make sure we found the Level-1 band 1 */
     if (refl_indx == -1)
     {
-        sprintf (errmsg, "Unable to find the Level-1 band 1 bands in the XML "
-            "file for initializing the output metadata.");
+        sprintf (errmsg, "Unable to find Level-1 band 1 in the XML file for "
+            "initializing the output metadata.");
         error_handler (true, FUNC_NAME, errmsg);
         return (NULL);
     }

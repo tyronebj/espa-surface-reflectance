@@ -58,7 +58,7 @@ void subaeroret_new
     int end_band = 0;       /* ending band index for the loop */
     float raot550nm=0.0;    /* nearest input value of AOT */
     float roslamb;          /* lambertian surface reflectance */
-    double ros1, ros3;      /* surface reflectance for bands */
+    double ros1;            /* surface reflectance for bands */
     double raot1, raot2;    /* AOT ratios that bracket the predicted ratio */
     float raotsaved;        /* save the raot value */
     double residual1, residual2;  /* residuals for storing and comparing */
@@ -106,7 +106,6 @@ void subaeroret_new
     raot2 = 1.0e-06;
     raot1 = 0.0001;
     ros1 = 1.0;
-    ros3 = 1.0;
     raot550nm = aot550nm[iaot];
     testth = false;
 

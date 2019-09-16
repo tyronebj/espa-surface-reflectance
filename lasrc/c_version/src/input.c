@@ -76,10 +76,8 @@ Input_t *open_input
     }
 
     /* Open files for access */
-printf ("Number of bands to open for access: %d\n", this->nband);
     for (ib = 0; ib < this->nband; ib++)
     {
-printf ("Opening raw binary file %d: %s\n", ib, this->file_name[ib]);
         this->fp_bin[ib] = open_raw_binary (this->file_name[ib], "rb");
         if (this->fp_bin[ib] == NULL)
         {
@@ -732,11 +730,11 @@ int get_xml_input
     char acq_time[TIME_STRING_LEN+1];    /* acquisition time */
     char temp[STR_SIZE]; /* temporary string */
     int i;               /* looping variable */
-    int refl_indx = -9;  /* band index in XML file for the reflectance band */
-    int th_indx = -9;    /* band index in XML file for the thermal band */
-    int pan_indx = -9;   /* band index in XML file for the pan band */
-    int qa_indx = -9;    /* band index in XML file for the QA band */
-    int sza_indx = -9;   /* band index in XML file for the solar zenith band */
+    int refl_indx = NA;  /* band index in XML file for the reflectance band */
+    int th_indx = NA;    /* band index in XML file for the thermal band */
+    int pan_indx = NA;   /* band index in XML file for the pan band */
+    int qa_indx = NA;    /* band index in XML file for the QA band */
+    int sza_indx = NA;   /* band index in XML file for the solar zenith band */
     Espa_global_meta_t *gmeta = &metadata->global; /* pointer to global meta */
 
     /* Initialize the input fields */
@@ -847,7 +845,7 @@ int get_xml_input
         sprintf (&acq_time[15], "Z");
 
     this->meta.sun_zen = gmeta->solar_zenith;
-    if (this->meta.sun_zen < -90.0 || this->meta.sun_zen > 90.0)
+    if (this->meta.sun_zen < -180.0 || this->meta.sun_zen > 180.0)
     {
         sprintf (errmsg, "Solar zenith angle is out of range: %f",
             this->meta.sun_zen);
@@ -869,7 +867,7 @@ int get_xml_input
         /* S2 currently is the only satellite that has the view angles in
            the metadata */
         this->meta.view_zen = gmeta->view_zenith;
-        if (this->meta.view_zen < -90.0 || this->meta.view_zen > 90.0)
+        if (this->meta.view_zen < -180.0 || this->meta.view_zen > 180.0)
         {
             sprintf (errmsg, "View zenith angle is out of range: %f",
                 this->meta.view_zen);
@@ -905,7 +903,7 @@ int get_xml_input
 
     if (this->meta.inst == INST_OLI_TIRS)
     {
-        this->nband = 8;        /* number of reflectance bands */
+        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
         for (ib = 0; ib < this->nband-1; ib++)
             this->meta.iband[ib] = ib+1;
         this->meta.iband[7] = 9;  /* skip pan band */
@@ -922,7 +920,7 @@ int get_xml_input
     }
     else if (this->meta.inst == INST_OLI)
     {
-        this->nband = 8;        /* number of reflectance bands */
+        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
         for (ib = 0; ib < this->nband-1; ib++)
             this->meta.iband[ib] = ib+1;
         this->meta.iband[7] = 9;  /* skip pan band */
@@ -937,7 +935,7 @@ int get_xml_input
     }
     else if (this->meta.inst == INST_MSI)
     {
-        this->nband = 13;        /* number of reflectance bands */
+        this->nband = NBAND_S2_REFL_MAX;     /* number of reflectance bands */
         for (ib = 0; ib < this->nband-1; ib++)
             this->meta.iband[ib] = ib+1;
 
@@ -960,7 +958,7 @@ int get_xml_input
             }
         }
 
-        if (refl_indx == -9)
+        if (refl_indx == NA)
         {
             sprintf (errmsg, "Band 1 not found in the input L8 XML metadata "
                 "file to be used as the representative band.");
@@ -1089,28 +1087,28 @@ int get_xml_input
         }  /* for i */
 
         /* Make sure the expected files were found */
-        if (this->meta.inst == INST_OLI_TIRS && th_indx == -9)
+        if (this->meta.inst == INST_OLI_TIRS && th_indx == NA)
         {
             sprintf (errmsg, "Band 10 (b10) was not found in the XML file");
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
     
-        if (pan_indx == -9)
+        if (pan_indx == NA)
         {
             sprintf (errmsg, "Band 8 (b8) was not found in the XML file");
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
     
-        if (qa_indx == -9)
+        if (qa_indx == NA)
         {
             sprintf (errmsg, "QA band (bqa) was not found in the XML file");
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
     
-        if (sza_indx == -9)
+        if (sza_indx == NA)
         {
             sprintf (errmsg, "Solar zenith band not found in the XML file");
             error_handler (true, FUNC_NAME, errmsg);
@@ -1160,7 +1158,7 @@ int get_xml_input
                 this->file_name[12] = strdup (metadata->band[i].file_name);
         }
 
-        if (refl_indx == -9)
+        if (refl_indx == NA)
         {
             sprintf (errmsg, "Band 2 not found in the input S2 XML metadata "
                 "file to be used as the representative band.");
@@ -1218,14 +1216,14 @@ int get_xml_input
         /* Check WRS path/rows */
         if (this->meta.wrs_sys == WRS_1)
         {
-            if (this->meta.ipath > 251)
+            if (this->meta.ipath > WRS1_NPATH)
             {
                 sprintf (errmsg, "WRS path number out of range: %d",
                     this->meta.ipath);
                 error_handler (true, FUNC_NAME, errmsg);
                 return (ERROR);
             }
-            else if (this->meta.irow > 248)
+            else if (this->meta.irow > WRS1_NROW)
             {
                 sprintf (errmsg, "WRS row number out of range: %d",
                     this->meta.irow);
@@ -1235,14 +1233,14 @@ int get_xml_input
         }
         else if (this->meta.wrs_sys == WRS_2)
         {
-            if (this->meta.ipath > 233)
+            if (this->meta.ipath > WRS2_NPATH)
             {
                 sprintf (errmsg, "WRS path number out of range: %d",
                     this->meta.ipath);
                 error_handler (true, FUNC_NAME, errmsg);
                 return (ERROR);
             }
-            else if (this->meta.irow > 248)
+            else if (this->meta.irow > WRS2_NROW)
             {
                 sprintf (errmsg, "WRS row number out of range: %d",
                     this->meta.irow);
@@ -1372,7 +1370,7 @@ int convert_to_10m
         return (ERROR);
     }
 
-    /* Determine the multipler from the input number of lines/samps to the
+    /* Determine the multiplier from the input number of lines/samps to the
        output number of lines/samps */
     lmult = out_nlines / in_nlines;
     smult = out_nsamps / in_nsamps;

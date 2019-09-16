@@ -194,18 +194,6 @@ int init_sr_refl
     printf ("Scene center line/sample: %f, %f\n", img.l, img.s);
     printf ("Scene center lat/long: %f, %f\n", center_lat, center_lon);
 
-
-/*    if (utmtodeg (&space->def, (int)img.l, (int)img.s, &center_lat,
-        &center_lon) != SUCCESS)
-    {
-        sprintf (errmsg, "Mapping UTM scene center to lat/long coords");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("LOCAL: Scene center line/sample: %f, %f\n", img.l, img.s);
-    printf ("LOCAL: Scene center lat/long: %f, %f\n", center_lat, center_lon);
-*/
-
     /* Use the scene center lat/long to determine the line/sample in the
        CMG-related lookup tables, using the center of the UL pixel.
        Negative latitude values should be the largest line values in the CMG

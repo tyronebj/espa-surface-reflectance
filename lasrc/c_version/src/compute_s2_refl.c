@@ -37,7 +37,7 @@ NOTES:
 ******************************************************************************/
 int read_s2_toa_refl
 (
-    Input_t *input,     /* I: input structure for the Landsat product */
+    Input_t *input,     /* I: input structure for the Sentinel product */
     Espa_internal_meta_t *xml_metadata,
                         /* I: XML metadata structure */
     uint16 **toaband    /* O: output TOA reflectance values (scaled) */
@@ -282,14 +282,9 @@ int compute_s2_sr_refl
     float next;
     float erelc[NSR_BANDS];   /* band ratio variable for refl bands */
     float troatm[NSR_BANDS];  /* atmospheric reflectance table for refl bands */
-    float btgo[NSR_BANDS];    /* other gaseous transmittance for refl bands */
-    float broatm[NSR_BANDS];  /* atmospheric reflectance for refl bands */
-    float bttatmg[NSR_BANDS]; /* ttatmg for refl bands */
-    float bsatm[NSR_BANDS];   /* atmosphere spherical albedo for refl bands */
 
     int iband1, iband3; /* band indices (zero-based) */
     float raot;         /* AOT reflectance */
-    float sraot1, sraot2, sraot3;
                         /* raot values for three different eps values */
     float residual;     /* model residual */
     float residual1, residual2, residual3;
@@ -305,7 +300,7 @@ int compute_s2_sr_refl
 
     float lat, lon;       /* pixel lat, long location */
     int lcmg, scmg;       /* line/sample index for the CMG */
-    int lcmg1, scmg1;     /* line+1/sample+1 index for the CMG */
+    int lcmg1;            /* line+1 index for the CMG */
     float u, v;           /* line/sample index for the CMG */
     float one_minus_u;    /* 1.0 - u */
     float one_minus_v;    /* 1.0 - v */
@@ -329,7 +324,6 @@ int compute_s2_sr_refl
     Geo_coord_t geo;              /* coordinate in lat/long space */
 
     /* Lookup table variables */
-    int nsr_bands;       /* number of input SR bands */
     float eps;           /* angstrom coefficient */
     float eps1, eps2, eps3;  /* eps values for three runs */
     float xtv;           /* observation zenith angle (deg) */
@@ -375,7 +369,7 @@ int compute_s2_sr_refl
     float ttatmg_coef[NREFL_BANDS][NCOEF]; /* per band poly coeffs for ttatmg */
     float satm_coef[NREFL_BANDS][NCOEF];   /* per band poly coeffs for satm */
     float normext_p0a3_arr[NREFL_BANDS];   /* per band normext[iband][0][3] */
-    int roatm_iaMax[NREFL_BANDS];          /* ??? */
+    int roatm_iaMax[NREFL_BANDS];
     int ia;                                /* looping variable for AOTs */
     int iaMaxTemp;                         /* max temp for current AOT level */
     float arr1[NAOT_VALS], coef1[NCOEF];   /* temporary arrays */
@@ -476,9 +470,6 @@ int compute_s2_sr_refl
     FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
 #endif
 
-    /* Set the S2 variables */
-    nsr_bands = NSR_S2_BANDS;
-
     /* Start processing */
     mytime = time(NULL);
     printf ("Start surface reflectance corrections: %s", ctime(&mytime));
@@ -576,12 +567,6 @@ int compute_s2_sr_refl
             ttatmg = 1.0;
             satm = 0.0;
         }
-
-        /* Save these band-related parameters for later */
-        btgo[ib] = tgo;
-        broatm[ib] = roatm;
-        bttatmg[ib] = ttatmg;
-        bsatm[ib] = satm;
 
         /* Perform atmospheric corrections for reflectance bands */
 #ifdef _OPENMP
@@ -707,13 +692,22 @@ int compute_s2_sr_refl
             satm_coef[ib][ia] = coef1[ia];
     }
 
+    /* Compute some EPS values */
+    eps1 = LOW_EPS;
+    eps2 = MOD_EPS;
+    eps3 = HIGH_EPS;
+    xa = (eps1 * eps1) - (eps3 * eps3);
+    xd = (eps2 * eps2) - (eps3 * eps3);
+    xb = eps1 - eps3;
+    xe = eps2 - eps3;
+
     /* Start the aerosol inversion */
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         S2_AERO_WINDOW, S2_AERO_WINDOW, ctime(&mytime)); fflush(stdout);
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iband3, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros4, ros5, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iband3, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros4, ros5, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i+=S2_AERO_WINDOW)
     {
@@ -792,11 +786,6 @@ int compute_s2_sr_refl
             /* If the current CMG pixel is at the edge of the CMG array, then
                allow the next pixel for interpolation to wrap around the
                array */
-            if (scmg >= CMG_NBLON-1)  /* 180 degrees so wrap around */
-                scmg1 = 0;
-            else
-                scmg1 = scmg + 1;
-
             if (lcmg >= CMG_NBLAT-1)  /* -90 degrees so wrap around */
                 lcmg1 = 0;
             else
@@ -1012,47 +1001,37 @@ int compute_s2_sr_refl
             troatm[DN_S2_BAND4] = troatm[DN_S2_BAND4] / pix_count;
             troatm[DN_S2_BAND12] = troatm[DN_S2_BAND12] / pix_count;
 
-            /* Retrieve the aerosol information for eps 1.0 */
+            /* Retrieve the aerosol information for low eps 1.0 */
             iband1 = DN_S2_BAND4;  /* red band */
             iband3 = DN_S2_BAND1;  /* coastal aerosol */
-            eps = 1.0;
+            eps = LOW_EPS;
             iaots = 0;
             subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
                 tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
                 satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
-            eps1 = eps;
             residual1 = residual;
-            sraot1 = raot;
 
-            /* Retrieve the aerosol information for eps 1.75 */
-            eps = 1.75;
+            /* Retrieve the aerosol information for moderate eps 1.75 */
+            eps = MOD_EPS;
             subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
                 tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
                 satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
-            eps2 = eps;
             residual2 = residual;
-            sraot2 = raot;
 
-            /* Retrieve the aerosol information for eps 2.5 */
-            eps = 2.5;
+            /* Retrieve the aerosol information for high eps 2.5 */
+            eps = HIGH_EPS;
             subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
                 tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
                 satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
-            eps3 = eps;
             residual3 = residual;
-            sraot3 = raot;
 
             /* Find the eps that minimizes the residual */
-            xa = (eps1 * eps1) - (eps3 * eps3);
-            xd = (eps2 * eps2) - (eps3 * eps3);
-            xb = eps1 - eps3;
-            xe = eps2 - eps3;
             xc = residual1 - residual3;
             xf = residual2 - residual3;
             coefa = (xc*xe - xb*xf) / (xa*xe - xb*xd);
@@ -1061,7 +1040,7 @@ int compute_s2_sr_refl
             /* Local extremum */
             epsmin = -coefb / (2.0 * coefa);
             resepsmin = xa*epsmin*epsmin + xb*epsmin + xc;
-            if ((epsmin < 1.0) || (epsmin > 2.5))
+            if ((epsmin < LOW_EPS) || (epsmin > HIGH_EPS))
             {
                 if (residual1 < residual3)
                     epsmin = eps1;

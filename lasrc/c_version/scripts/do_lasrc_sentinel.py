@@ -13,12 +13,12 @@ SUCCESS = 0
 
 #############################################################################
 # Created on August 23, 2019 by Gail Schmidt, USGS/EROS
-# Created Python script to run the Sentinel-2 surface reflectance code based
+# Created Python script to run the Sentinel surface reflectance code based
 # on the inputs specified by the user.  This script will determine the input
-# auxiliary file needed for processing, based on the date of the Sentinel-2
+# auxiliary file needed for processing, based on the date of the Sentinel
 # input file.
 #
-# Usage: do_lasrc_s2.py --help prints the help message
+# Usage: do_lasrc_sentinel.py --help prints the help message
 ############################################################################
 class SurfaceReflectance():
 
@@ -36,7 +36,7 @@ class SurfaceReflectance():
     #
     # Inputs:
     #   xml_infile - name of the input XML file
-    #   process_sr - specifies whether the surface reflectance processing,
+    #   process_sr - specifies whether the surface reflectance processing
     #       should be completed.  True or False.  Default is True, otherwise
     #       the processing will halt after the TOA reflectance products are
     #       complete.
