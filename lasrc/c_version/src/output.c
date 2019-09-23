@@ -48,6 +48,7 @@ Output_t *open_output
     struct tm *tm = NULL;        /* time structure for UTC time */
     int nband = 0;               /* number of output bands to be created */
     int ib;                      /* looping variable for bands */
+    int n_keep_sname;            /* number of short_name chars to keep */
     int refl_indx = -1;          /* band index in XML file for the reflectance
                                     band */
     Output_t *output = NULL;     /* output data structure to be returned */
@@ -152,8 +153,18 @@ Output_t *open_output
  
     for (ib = 0; ib < nband; ib++)
     {
-        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 4);
-        bmeta[ib].short_name[4] = '\0';
+        if (input->meta.sat == SAT_LANDSAT_8)
+        {  /* L8 has 4 characters in the short_name */
+            n_keep_sname = 4;
+        }
+        else if (input->meta.sat == SAT_SENTINEL_2)
+        {  /* S2 has 7 characters in the short_name */
+            n_keep_sname = 7;
+        }
+        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name,
+            n_keep_sname);
+        bmeta[ib].short_name[n_keep_sname] = '\0';
+
         if (output_type == OUTPUT_TOA)
         {  /* Only applies to the L8 product */
             if ((ib == SR_L8_BAND10) || (ib == SR_L8_BAND11))
@@ -253,9 +264,18 @@ Output_t *open_output
                 strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
             }
 
-            strncpy (bmeta[ib].short_name,
-                in_meta->band[refl_indx].short_name, 4);
-            bmeta[ib].short_name[4] = '\0';
+            if (input->meta.sat == SAT_LANDSAT_8)
+            {  /* L8 has 4 characters in the short_name */
+                n_keep_sname = 4;
+            }
+            else if (input->meta.sat == SAT_SENTINEL_2)
+            {  /* S2 has 7 characters in the short_name */
+                n_keep_sname = 7;
+            }
+
+            strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name,
+                n_keep_sname);
+            bmeta[ib].short_name[n_keep_sname] = '\0';
             strcat (bmeta[ib].short_name, "AERO");
         }
         else if (output_type == OUTPUT_RADSAT)
