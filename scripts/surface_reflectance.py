@@ -97,7 +97,7 @@ def parse_cmd_line():
 def get_science_application_name(satellite_sensor_code):
     '''Returns name of executable that needs to be called'''
 
-    s2_prefixes_collection = ['L1C_']
+    s2_prefixes_collection = ['S2A', 'S2B']
     l8_prefixes_collection = ['LC08', 'LO08', 'LT08']
     other_prefixes_collection = ['LT04', 'LT05', 'LE07']
 

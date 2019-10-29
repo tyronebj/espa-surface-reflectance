@@ -113,14 +113,14 @@ class SurfaceReflectance():
 
         # pull the date from the XML filename to determine which auxiliary
         # file should be used for input.
-        # Example: L1C_T10TFR_A016455_20180816T190038.xml uses the
+        # Example: S2A_MSI_L1C_T10TFR_20180816_20180903.xml uses the
         # L8ANC2018228.hdf_fused HDF file.
-        s2_prefixes_collection = ['L1C']
+        s2_prefixes_collection = ['S2A', 'S2B']
         if base_xmlfile[0:3] in s2_prefixes_collection:
             # Collection naming convention. Pull the year, month, day from the
             # XML filename. It should be the 4th group, separated by
             # underscores. Then convert month, day to DOY.
-            aux_date = base_xmlfile.split('_')[3]
+            aux_date = base_xmlfile.split('_')[4]
             aux_year = aux_date[0:4]
             aux_month = aux_date[4:6]
             aux_day = aux_date[6:8]

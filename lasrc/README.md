@@ -1,5 +1,5 @@
 ## LaSRC Version 2.0.0 Release Notes
-Release Date: Sept. 2018
+Release Date: Sept. 2019
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
