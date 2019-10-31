@@ -377,6 +377,11 @@ Output_t *open_output
                     sprintf (bmeta[ib].long_name, "band %s surface reflectance",
                         s2_bandname[ib]);
                 }
+
+                /* Copy the Level-1 filename from the reference band, since we
+                   want to carry this to the Level-2 bands */
+                strcpy (bmeta[ib].l1_filename,
+                    in_meta->band[refl_indx].l1_filename);
             }
             else if ((input->meta.sat == SAT_LANDSAT_8) && (ib == SR_L8_BAND9))
             {  /* L8 cirrus band; band 9 is only atmospherically corrected */
