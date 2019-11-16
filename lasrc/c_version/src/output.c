@@ -15,6 +15,8 @@ NOTES:
 #include <time.h>
 #include <ctype.h>
 #include "output.h"
+char S2_BANDNAME[NREFL_S2_BANDS][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "11", "12"};
 
 /******************************************************************************
 MODULE:  open_output
@@ -54,8 +56,6 @@ Output_t *open_output
     Output_t *output = NULL;     /* output data structure to be returned */
     Espa_band_meta_t *bmeta = NULL;  /* pointer to the band metadata array
                                         within the output structure */
-    char s2_bandname[][3] = {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9",
-                             "10", "11", "12"};
 
     /* Create the Output data structure */
     output = (Output_t *) malloc (sizeof (Output_t));
@@ -373,9 +373,9 @@ Output_t *open_output
             {  /* S2 reflectance bands */
                 if (output_type == OUTPUT_SR)
                 {
-                    sprintf (bmeta[ib].name, "sr_band%s", s2_bandname[ib]);
+                    sprintf (bmeta[ib].name, "sr_band%s", S2_BANDNAME[ib]);
                     sprintf (bmeta[ib].long_name, "band %s surface reflectance",
-                        s2_bandname[ib]);
+                        S2_BANDNAME[ib]);
                 }
 
                 /* Copy the Level-1 filename from the reference band, since we

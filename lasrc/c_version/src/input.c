@@ -752,11 +752,9 @@ int get_xml_input
     this->size.nsamps = this->size.nlines = -1;
     this->meta.gain_set = false;
 
-    /* use S2 refl band count as it's the largest */
     this->nband = 0;
-    for (ib = 0; ib < NBAND_S2_REFL_MAX; ib++)
+    for (ib = 0; ib < NBAND_REFL_MAX; ib++)
     {
-        this->meta.iband[ib] = -1;
         this->meta.gain[ib] = GAIN_BIAS_FILL;
         this->meta.bias[ib] = GAIN_BIAS_FILL;
         this->file_name[ib] = NULL;
@@ -764,11 +762,10 @@ int get_xml_input
         this->fp_bin[ib] = NULL;
     }
 
-    /* use L8 thermal band count as it's the largest */
+    /* use L8 thermal band count since S2 doesn't have thermal */
     this->nband_th = 0;
     for (ib = 0; ib < NBAND_L8_THM_MAX; ib++)
     {
-        this->meta.iband_th[ib] = -1;
         this->meta.gain_th[ib] = GAIN_BIAS_FILL;
         this->meta.bias_th[ib] = GAIN_BIAS_FILL;
         this->file_name_th[ib] = NULL;
@@ -776,11 +773,10 @@ int get_xml_input
         this->fp_bin_th[ib] = NULL;
     }
 
-    /* use L8 pan band count as it's the largest */
+    /* use L8 pan band count as S2 doesn't have pan */
     this->nband_pan = 0;
     for (ib = 0; ib < NBAND_L8_PAN_MAX; ib++)
     {
-        this->meta.iband_pan[ib] = -1;
         this->meta.gain_pan[ib] = GAIN_BIAS_FILL;
         this->meta.bias_pan[ib] = GAIN_BIAS_FILL;
         this->file_name_pan[ib] = NULL;
@@ -788,11 +784,10 @@ int get_xml_input
         this->fp_bin_pan[ib] = NULL;
     }
 
-    /* use L8 QA band count as it's the same as S2 */
+    /* use L8 QA band count as S2 doesn't have an input QA band */
     this->nband_qa = 0;
     for (ib = 0; ib < NBAND_L8_QA_MAX; ib++)
     {
-        this->meta.iband_qa[ib] = -1;
         this->file_name_qa[ib] = NULL;
         this->open_qa[ib] = false;
         this->fp_bin_qa[ib] = NULL;
@@ -904,41 +899,20 @@ int get_xml_input
     if (this->meta.inst == INST_OLI_TIRS)
     {
         this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
-        for (ib = 0; ib < this->nband-1; ib++)
-            this->meta.iband[ib] = ib+1;
-        this->meta.iband[7] = 9;  /* skip pan band */
-
-        this->nband_th = 2;     /* number of thermal bands */
-        this->meta.iband_th[0] = 10;
-        this->meta.iband_th[1] = 11;
-
-        this->nband_pan = 1;    /* number of pan bands */
-        this->meta.iband_pan[0] = 8;
-
-        this->nband_qa = 1;     /* number of QA bands */
-        this->meta.iband_qa[0] = 12;
+        this->nband_th = NBAND_L8_THM_MAX;   /* number of thermal bands */
+        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
     }
     else if (this->meta.inst == INST_OLI)
-    {
+    {  /* No TIRS band */
         this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
-        for (ib = 0; ib < this->nband-1; ib++)
-            this->meta.iband[ib] = ib+1;
-        this->meta.iband[7] = 9;  /* skip pan band */
-
-        this->nband_th = 0;     /* number of thermal bands */
-
-        this->nband_pan = 1;    /* number of pan bands */
-        this->meta.iband_pan[0] = 8;
-
-        this->nband_qa = 1;     /* number of QA bands */
-        this->meta.iband_qa[0] = 10;
+        this->nband_th = 0;                  /* number of thermal bands */
+        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
     }
     else if (this->meta.inst == INST_MSI)
     {
         this->nband = NBAND_S2_REFL_MAX;     /* number of reflectance bands */
-        for (ib = 0; ib < this->nband-1; ib++)
-            this->meta.iband[ib] = ib+1;
-
         this->nband_th = 0;     /* number of thermal bands */
         this->nband_pan = 0;    /* number of pan bands */
         this->nband_qa = 0;     /* number of QA bands */
@@ -973,9 +947,10 @@ int get_xml_input
             if (!strcmp (metadata->band[i].name, "b1"))
             {
                 /* get the band1 info */
-                this->meta.gain[0] = metadata->band[i].refl_gain;
-                this->meta.bias[0] = metadata->band[i].refl_bias;
-                this->file_name[0] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND1] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND1] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND1] =
+                    strdup (metadata->band[i].file_name);
     
                 /* get the production date but only the date portion
                    (yyyy-mm-dd) */
@@ -985,51 +960,59 @@ int get_xml_input
             else if (!strcmp (metadata->band[i].name, "b2"))
             {
                 /* get the band2 info */
-                this->meta.gain[1] = metadata->band[i].refl_gain;
-                this->meta.bias[1] = metadata->band[i].refl_bias;
-                this->file_name[1] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND2] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND2] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND2] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b3"))
             {
                 /* get the band3 info */
-                this->meta.gain[2] = metadata->band[i].refl_gain;
-                this->meta.bias[2] = metadata->band[i].refl_bias;
-                this->file_name[2] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND3] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND3] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND3] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b4"))
             {
                 /* get the band4 info */
-                this->meta.gain[3] = metadata->band[i].refl_gain;
-                this->meta.bias[3] = metadata->band[i].refl_bias;
-                this->file_name[3] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND4] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND4] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND4] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b5"))
             {
                 /* get the band5 info */
-                this->meta.gain[4] = metadata->band[i].refl_gain;
-                this->meta.bias[4] = metadata->band[i].refl_bias;
-                this->file_name[4] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND5] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND5] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND5] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b6"))
             {
                 /* get the band6 info */
-                this->meta.gain[5] = metadata->band[i].refl_gain;
-                this->meta.bias[5] = metadata->band[i].refl_bias;
-                this->file_name[5] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND6] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND6] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND6] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b7"))
             {
                 /* get the band7 info */
-                this->meta.gain[6] = metadata->band[i].refl_gain;
-                this->meta.bias[6] = metadata->band[i].refl_bias;
-                this->file_name[6] = strdup (metadata->band[i].file_name);
+                this->meta.gain[DN_L8_BAND7] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND7] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND7] =
+                    strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b9"))
             {
-                /* get the band9 info */
-                this->meta.gain[7] = metadata->band[i].refl_gain;
-                this->meta.bias[7] = metadata->band[i].refl_bias;
-                this->file_name[7] = strdup (metadata->band[i].file_name);
+                /* get the band9 info - store in the reflectance array
+                   skipping band 8*/
+                this->meta.gain[DN_L8_BAND9-1] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND9-1] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND9-1] =
+                    strdup (metadata->band[i].file_name);
             }
     
             else if (!strcmp (metadata->band[i].name, "b8"))
@@ -1118,44 +1101,52 @@ int get_xml_input
     else if (this->meta.sat == SAT_SENTINEL_2)
     {
         /* Store the band-related information. Use band 2 for the
-           representative band */
+           representative band. Skip bands 9 and 10, as they won't be
+           processed. */
         for (i = 0; i < metadata->nbands; i++)
         {
             if (!strcmp (metadata->band[i].name, "B01"))
-                this->file_name[0] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND1] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B02"))
             {
                 /* This is the index we'll use for reflectance band info,
                    since it is a 30m band. */
                 refl_indx = i;
-                this->file_name[1] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND2] =
+                    strdup (metadata->band[i].file_name);
 
                 /* Get the production date of the level-1 data */
                 strncpy (prod_date, metadata->band[i].production_date, 10);
                 prod_date[10] = '\0';
             }
             else if (!strcmp (metadata->band[i].name, "B03"))
-                this->file_name[2] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND3] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B04"))
-                this->file_name[3] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND4] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B05"))
-                this->file_name[4] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND5] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B06"))
-                this->file_name[5] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND6] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B07"))
-                this->file_name[6] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND7] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B08"))
-                this->file_name[7] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND8] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B8A"))
-                this->file_name[8] = strdup (metadata->band[i].file_name);
-            else if (!strcmp (metadata->band[i].name, "B09"))
-                this->file_name[9] = strdup (metadata->band[i].file_name);
-            else if (!strcmp (metadata->band[i].name, "B10"))
-                this->file_name[10] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND8A] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B11"))
-                this->file_name[11] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND11] =
+                    strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B12"))
-                this->file_name[12] = strdup (metadata->band[i].file_name);
+                this->file_name[DN_S2_BAND12] =
+                    strdup (metadata->band[i].file_name);
         }
 
         if (refl_indx == NA)
@@ -1169,12 +1160,14 @@ int get_xml_input
 
     /* Get the size of the reflectance, thermal, pan, etc. bands by using
        the representative band in the XML file */
+    /* reflectance */
     this->size.nsamps = metadata->band[refl_indx].nsamps;
     this->size.nlines = metadata->band[refl_indx].nlines;
     this->size.pixsize[0] = metadata->band[refl_indx].pixel_size[0];
     this->size.pixsize[1] = metadata->band[refl_indx].pixel_size[1];
     this->scale_factor = metadata->band[refl_indx].scale_factor;
 
+    /* thermal */
     if (this->meta.inst == INST_OLI_TIRS)
     {  /* skip for OLI */
         this->size_th.nsamps = metadata->band[th_indx].nsamps;
@@ -1192,7 +1185,7 @@ int get_xml_input
         this->scale_factor_th = 0;
     }
 
-    /* L8-specific input params */
+    /* L8-specific input params -- including pan and QA bands */
     if (this->meta.sat == SAT_LANDSAT_8)
     {
         this->size_pan.nsamps = metadata->band[pan_indx].nsamps;
@@ -1250,7 +1243,7 @@ int get_xml_input
         }
     }
     else if (this->meta.sat == SAT_SENTINEL_2)
-    {
+    { /* setup output QA */
         this->size_qa.nsamps = this->size.nsamps;
         this->size_qa.nlines = this->size.nlines;
         this->size_qa.pixsize[0] = this->size.pixsize[0];

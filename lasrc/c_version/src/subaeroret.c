@@ -70,14 +70,14 @@ void subaeroret_new
     double raotmin;         /* minimum AOT ratio */
     int iaot1, iaot2;       /* AOT indices (0-based) */
     float *tth = NULL;      /* pointer to the L8 or Sentinel tth array */
-    float l8_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
-                               1.0e-04, 0.0};
+    float l8_tth[NSR_L8_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                  1.0e-04, 0.0};
                             /* constant values for comparing against the
                                L8 surface reflectance */
-    float s2_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
+    float s2_tth[NSR_S2_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 1.0e-04};
                             /* constant values for comparing against the
-                               Sentinel surface reflectance */
+                               S2 surface reflectance (removed band 9&10) */
     float aot550nm[NAOT_VALS] = {0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.6,
                                  0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6,
                                  3.0, 3.5, 4.0, 4.5, 5.0}; /* AOT values */
