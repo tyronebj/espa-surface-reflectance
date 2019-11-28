@@ -20,6 +20,9 @@
 
 /* Defines */
 #define ESPA_EPSILON 0.00001
+#define LOW_EPS 1.0
+#define MOD_EPS 1.75
+#define HIGH_EPS 2.5
 
 /* Prototypes */
 void usage ();

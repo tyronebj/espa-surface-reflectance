@@ -15,6 +15,8 @@ NOTES:
 #include <time.h>
 #include <ctype.h>
 #include "output.h"
+char S2_BANDNAME[NREFL_S2_BANDS][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "11", "12"};
 
 /******************************************************************************
 MODULE:  open_output
@@ -48,13 +50,12 @@ Output_t *open_output
     struct tm *tm = NULL;        /* time structure for UTC time */
     int nband = 0;               /* number of output bands to be created */
     int ib;                      /* looping variable for bands */
+    int n_keep_sname;            /* number of short_name chars to keep */
     int refl_indx = -1;          /* band index in XML file for the reflectance
                                     band */
     Output_t *output = NULL;     /* output data structure to be returned */
     Espa_band_meta_t *bmeta = NULL;  /* pointer to the band metadata array
                                         within the output structure */
-    char s2_bandname[][3] = {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9",
-                             "10", "11", "12"};
 
     /* Create the Output data structure */
     output = (Output_t *) malloc (sizeof (Output_t));
@@ -66,10 +67,7 @@ Output_t *open_output
     }
   
     /* Use band 1 band-related metadata for the reflectance information for
-       Landsat (Level 1 products).  Use band 2 band-related metadata for the
-       reflectance information (Level-1 products).  Sentinel-2 bands have
-       different resolutions and we want a band which represents the 10m
-       resolution. */
+       Landsat (Level 1 products) */
     for (ib = 0; ib < in_meta->nbands; ib++)
     {
         if ((!strcmp (in_meta->band[ib].name, "b1") &&
@@ -86,8 +84,8 @@ Output_t *open_output
     /* Make sure we found the Level-1 band 1 */
     if (refl_indx == -1)
     {
-        sprintf (errmsg, "Unable to find the Level-1 band 1 bands in the XML "
-            "file for initializing the output metadata.");
+        sprintf (errmsg, "Unable to find Level-1 band 1 in the XML file for "
+            "initializing the output metadata.");
         error_handler (true, FUNC_NAME, errmsg);
         return (NULL);
     }
@@ -155,8 +153,18 @@ Output_t *open_output
  
     for (ib = 0; ib < nband; ib++)
     {
-        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name, 4);
-        bmeta[ib].short_name[4] = '\0';
+        if (input->meta.sat == SAT_LANDSAT_8)
+        {  /* L8 has 4 characters in the short_name */
+            n_keep_sname = 4;
+        }
+        else if (input->meta.sat == SAT_SENTINEL_2)
+        {  /* S2 has 7 characters in the short_name */
+            n_keep_sname = 7;
+        }
+        strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name,
+            n_keep_sname);
+        bmeta[ib].short_name[n_keep_sname] = '\0';
+
         if (output_type == OUTPUT_TOA)
         {  /* Only applies to the L8 product */
             if ((ib == SR_L8_BAND10) || (ib == SR_L8_BAND11))
@@ -256,9 +264,18 @@ Output_t *open_output
                 strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
             }
 
-            strncpy (bmeta[ib].short_name,
-                in_meta->band[refl_indx].short_name, 4);
-            bmeta[ib].short_name[4] = '\0';
+            if (input->meta.sat == SAT_LANDSAT_8)
+            {  /* L8 has 4 characters in the short_name */
+                n_keep_sname = 4;
+            }
+            else if (input->meta.sat == SAT_SENTINEL_2)
+            {  /* S2 has 7 characters in the short_name */
+                n_keep_sname = 7;
+            }
+
+            strncpy (bmeta[ib].short_name, in_meta->band[refl_indx].short_name,
+                n_keep_sname);
+            bmeta[ib].short_name[n_keep_sname] = '\0';
             strcat (bmeta[ib].short_name, "AERO");
         }
         else if (output_type == OUTPUT_RADSAT)
@@ -356,10 +373,15 @@ Output_t *open_output
             {  /* S2 reflectance bands */
                 if (output_type == OUTPUT_SR)
                 {
-                    sprintf (bmeta[ib].name, "sr_band%s", s2_bandname[ib]);
+                    sprintf (bmeta[ib].name, "sr_band%s", S2_BANDNAME[ib]);
                     sprintf (bmeta[ib].long_name, "band %s surface reflectance",
-                        s2_bandname[ib]);
+                        S2_BANDNAME[ib]);
                 }
+
+                /* Copy the Level-1 filename from the reference band, since we
+                   want to carry this to the Level-2 bands */
+                strcpy (bmeta[ib].l1_filename,
+                    in_meta->band[refl_indx].l1_filename);
             }
             else if ((input->meta.sat == SAT_LANDSAT_8) && (ib == SR_L8_BAND9))
             {  /* L8 cirrus band; band 9 is only atmospherically corrected */

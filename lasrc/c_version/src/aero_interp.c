@@ -59,8 +59,6 @@ void aerosol_interp_l8
                               [lcmg2][scmg2] */
     float xaero, yaero;    /* x/y location for aerosol pixel within the overall
                               larger aerosol window grid */
-    float pixel_size_x;    /* x pixel size */
-    float pixel_size_y;    /* y pixel size */
     float aero11;          /* aerosol value at window line, samp */
     float aero12;          /* aerosol value at window line, samp+1 */
     float aero21;          /* aerosol value at window line+1, samp */
@@ -79,8 +77,8 @@ void aerosol_interp_l8
     nir_band = SR_L8_BAND5;
 
     /* Use band 1 band-related metadata for the reflectance information for
-       Landsat (Level 1 products).  Use band 2 band-related metadata for the
-       reflectance information (Level-1 products). */
+       Landsat (Level 1 products). If band 1 isn't available then just use the
+       first band in the XML file. */
     for (i = 0; i < xml_metadata->nbands; i++)
     {
         if (!strcmp (xml_metadata->band[i].name, "b1") &&
@@ -92,10 +90,6 @@ void aerosol_interp_l8
     }
     if (refl_indx == -99)
         refl_indx = 1;   /* default use second band in XML file */
-
-    /* Copy the information from the XML file */
-    pixel_size_x = xml_metadata->band[refl_indx].pixel_size[0];
-    pixel_size_y = xml_metadata->band[refl_indx].pixel_size[1];
 
     /* Interpolate the aerosol data for each pixel location */
     tmp_percent = 0;
@@ -167,9 +161,8 @@ void aerosol_interp_l8
                 continue;
             }
 
-            /* If this pixel is water and L8, then don't process. Use default
-               aerosol values. Right now, for Sentinel pixels, water will be
-               treated as a normal pixel. */
+            /* If this pixel is water, then don't process. Use median aerosol
+               values. */
             else if (is_water (sband[red_band][curr_pix],
                                sband[nir_band][curr_pix]))
             {
@@ -316,16 +309,27 @@ void aerosol_interp_s2
     int iline, isamp;  /* looping variable for lines and samples in the
                           aerosol window */
     int curr_pix;      /* current pixel in 1D arrays of nlines * nsamps */
-    int curr_win_pix;  /* current pixel in the 6x6 window for atm corr */
+    int curr_win_pix;  /* current pixel in the nxn window for atm corr */
     int next_samp_pix; /* pixel location of the next sample */
     int next_line_pix; /* pixel location of the next line */
     int next_line_samp_pix; /* pixel location of next line and next sample */
+    int awline;        /* line for the next aerosol window */
+    int awsamp;        /* sample for the next aerosol window */
+    int sq_aero_win;   /* square of the aerosol window */
+    int awline_iline;  /* awline - iline */
+    int iline_line;    /* iline - line */
 
     /* Use the UL corner of the aerosol windows to interpolate the remaining
        pixels in the window */
+    sq_aero_win = aero_window * aero_window;
     for (line = 0; line < nlines; line++)
     {
+        /* Determine the current pixel */
         curr_pix = line * nsamps;
+
+        /* Determine the line for the next aerosol window */
+        awline = line + aero_window;
+
         for (samp = 0; samp < nsamps; samp++, curr_pix++)
         {
             /* Determine the next line and next sample to be used for
@@ -335,61 +339,54 @@ void aerosol_interp_s2
             next_line_samp_pix = (line + aero_window) * nsamps +
                 (samp + aero_window);
 
+            /* Determine the sample for the next aerosol window */
+            awsamp = samp + aero_window;
+
             /* Loop through an NxN window with the current pixel being the UL
                corner of the window */
-            for (iline = line; iline < line+aero_window; iline++)
+            for (iline = line; iline < awline; iline++)
             {
                 /* Skip if this isn't a valid line */
                 if (iline >= nlines) continue;
 
-                for (isamp = samp; isamp < samp+aero_window; isamp++)
+                awline_iline = awline - iline;
+                iline_line = iline - line;
+                for (isamp = samp; isamp < awsamp; isamp++)
                 {
                     /* Skip if this isn't a valid sample */
                     if (isamp >= nsamps) continue;
 
                     curr_win_pix = iline * nsamps + isamp;
                     taero[curr_win_pix] = taero[curr_pix] *
-                        (line+aero_window-iline) * (samp+aero_window-isamp);
+                        (awline_iline) * (awsamp-isamp);
 
-                    if ((line+aero_window < nlines) &&
-                        (samp+aero_window < nsamps))
+                    if ((awline < nlines) && (awsamp < nsamps))
                         taero[curr_win_pix] +=
-                            (isamp-samp)*(line+aero_window-iline) *
-                             taero[next_samp_pix] +
-                            (samp+aero_window-isamp)*(iline-line) *
-                             taero[next_line_pix] +
-                            (isamp-samp)*(iline-line) *
+                            (isamp-samp)*(awline_iline) * taero[next_samp_pix] +
+                            (awsamp-isamp)*(iline_line) * taero[next_line_pix] +
+                            (isamp-samp)*(iline_line) *
                              taero[next_line_samp_pix];
 
-                    if ((line+aero_window >= nlines) &&
-                        (samp+aero_window < nsamps))
+                    else if ((awline >= nlines) && (awsamp < nsamps))
                         taero[curr_win_pix] +=
-                            (isamp-samp)*(line+aero_window-iline) *
-                             taero[next_samp_pix] +
-                            (samp+aero_window-isamp)*(iline-line) *
-                             taero[curr_pix] +
-                            (isamp-samp)*(iline-line) * taero[next_samp_pix];
+                            (isamp-samp)*(awline_iline) * taero[next_samp_pix] +
+                            (awsamp-isamp)*(iline_line) * taero[curr_pix] +
+                            (isamp-samp)*(iline_line) * taero[next_samp_pix];
 
-                    if ((line+aero_window < nlines) &&
-                        (samp+aero_window >= nsamps))
+                    else if ((awline < nlines) && (awsamp >= nsamps))
                         taero[curr_win_pix] +=
-                            (isamp-samp)*(line+aero_window-iline) *
-                             taero[curr_pix] +
-                            (samp+aero_window-isamp)*(iline-line) *
-                             taero[next_line_pix] +
-                            (isamp-samp)*(iline-line) * taero[next_line_pix];
+                            (isamp-samp)*(awline_iline) * taero[curr_pix] +
+                            (awsamp-isamp)*(iline_line) * taero[next_line_pix] +
+                            (isamp-samp)*(iline_line) * taero[next_line_pix];
 
-                    if ((line+aero_window >= nlines) &&
-                        (samp+aero_window >= nsamps))
+                    else if ((awline >= nlines) && (awsamp >= nsamps))
                         taero[curr_win_pix] +=
-                            (isamp-samp)*(line+aero_window-iline) *
-                             taero[curr_pix] +
-                            (samp+aero_window-isamp)*(iline-line) *
-                             taero[curr_pix] +
-                            (isamp-samp)*(iline-line) * taero[curr_pix];
+                            (isamp-samp)*(awline_iline) * taero[curr_pix] +
+                            (awsamp-isamp)*(iline_line) * taero[curr_pix] +
+                            (isamp-samp)*(iline_line) * taero[curr_pix];
 
                     /* Compute the average */
-                    taero[curr_win_pix] /= (aero_window * aero_window);
+                    taero[curr_win_pix] /= sq_aero_win;
                 }
             }
 

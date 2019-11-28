@@ -15,6 +15,14 @@
 #define WRS_FILL (-1)
 #define GAIN_BIAS_FILL (-999.0)
 
+#define WRS1_NPATH 251
+#define WRS1_NROW 248
+#define WRS2_NPATH 233
+#define WRS2_NROW 248
+
+/* band indices which aren't defined */
+#define NA -9
+
 /* Structure for the input metadata */
 typedef struct {
     Sat_t sat;               /* satellite */
@@ -30,10 +38,6 @@ typedef struct {
     int ipath;               /* WRS path number */
     int irow;                /* WRS row number */
     uint16 fill;             /* fill value */
-    int iband[NBAND_REFL_MAX];     /* reflectance band numbers */
-    int iband_th[NBAND_L8_THM_MAX];   /* thermal band numbers (L8 only) */
-    int iband_pan[NBAND_L8_PAN_MAX];  /* pan band numbers (L8 only) */
-    int iband_qa[NBAND_L8_QA_MAX];    /* QA band numbers (L8 only) */
     bool gain_set;                 /* are the gains and biases set? */
     float gain[NBAND_REFL_MAX];    /* reflectance band TOA refl gain */
     float gain_th[NBAND_L8_THM_MAX];  /* therm band brightness temp gain (L8)*/

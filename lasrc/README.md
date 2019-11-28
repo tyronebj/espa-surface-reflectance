@@ -1,5 +1,5 @@
 ## LaSRC Version 2.0.0 Release Notes
-Release Date: Sept. 2018
+Release Date: Sept. 2019
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -88,3 +88,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ## Release Notes
 1. Modified the LaSRC executable to work with Sentinel-2 products.
 2. Added Sentinel-2 support to the do\_lasrc.py and surface\_reflectance.py scripts.
+3. Fixed a bug in the lat/long code when identifying the center of the pixel. This may have a slight affect on the Landsat-8 results.
+4. Copy the level-1 filenames for each of the reflectance bands to the level-2 bands for provenance of the old filenames, given that Sentinel-2 files are renamed in ESPA.

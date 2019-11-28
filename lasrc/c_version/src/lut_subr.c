@@ -15,6 +15,16 @@ NOTES:
 #include "hdf.h"
 #include "mfhdf.h"
 
+/* Define the full list of band names for Sentinel-2 for the input files */
+char S2_FULL_BANDNAME[S2_TTL][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9", "10", "11", "12"};
+
+/* Removed bands 9 and 10 from the Sentinel array */
+float l8_lambda[NREFL_L8_BANDS] =
+    {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+float s2_lambda[NREFL_S2_BANDS] =
+    {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 1.61, 2.19};
+
 /******************************************************************************
 MODULE:  atmcorlamb2_new
 
@@ -50,9 +60,6 @@ void atmcorlamb2_new
     float mraot550nm_cube; /* mraot550nm cubed */
     int max_band_indx = 0; /* maximum band index for L8 or S2 */
     float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
-    float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-    float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842,
-                         0.865, 0.945, 1.375, 1.61, 2.19};
     float roatm;           /* intrinsic atmospheric reflectance */
     float ttatmg;          /* total atmospheric transmission */
     float satm;            /* spherical albedo */
@@ -221,9 +228,6 @@ int atmcorlamb2
     int indx;           /* index for normext array */
     int max_band_indx = 0; /* maximum band index for L8 or S2 */
     float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
-    float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-    float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842,
-                         0.865, 0.945, 1.375, 1.61, 2.19};
 
     /* Setup L8 or S2 variables */
     if (sat == SAT_LANDSAT_8)
@@ -1444,12 +1448,19 @@ int readluts
     char errmsg[STR_SIZE];  /* error message */
     char tmpstr[STR_SIZE];  /* temporary string variable, not use */
     int i, j;               /* looping variables */
-    int nsr_bands = 0;      /* number of SR bands - L8 or S2 */
+    int nsr_bands = 0;      /* number of SR bands in the input file (L8 or S2);
+                               for S2 the number of bands in the input file
+                               might be different than the number of bands we
+                               want to store in the array, since we are
+                               skipping bands 9 and 10 */
     int iband;              /* band looping variable */
+    int ibndx;              /* index of the current band for writing to array */
     int iaot;               /* aerosol optical thickness (AOT) index */
     int ipres;              /* looping variable for pressure */
     int itau;               /* looping variable for molecular optical thick */
     int ival;               /* looping variable for LUT */
+    int iline;              /* current line for consuming, but ignoring, lines
+                               in the input ASCII file for Sentinel-2 */
     int status;             /* return status of the HDF function */
     int start[3];           /* starting point to read SDS data */
     int edges[3];           /* number of values to read in SDS data */
@@ -1461,19 +1472,19 @@ int readluts
     int sd_id;              /* file ID for the HDF file */
     int sds_id;             /* ID for the current SDS */
     int sds_index;          /* index for the current SDS */
-    int iband_indx;         /* index of the current iband */
+    int iband_indx;         /* index of current location in the overall array */
     int ipres_indx;         /* index of current pressure (without the band) */
     int itau_indx;          /* index of current itau (without the band & ip */
     int curr_indx;          /* index of current pixel */
     FILE *fp = NULL;        /* file pointer for reading ascii files */
-    char s2_bandname[][3] = {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9",
-                             "10", "11", "12"};
 
-    /* Setup L8 or S2 number of SR bands */
+    /* Setup L8 or S2 number of SR bands to be read from the input LUT files;
+       number of input bands for S2 is more than we will actually store since
+       we are skipping bands 9 and 10 */
     if (sat == SAT_LANDSAT_8)
         nsr_bands = NSR_L8_BANDS;
     else if (sat == SAT_SENTINEL_2)
-        nsr_bands = NSR_S2_BANDS;
+        nsr_bands = S2_TTL;
 
     /* Initialize some variables */
     for (i = 0; i < NVIEW_ZEN_VALS * NSOLAR_ZEN_VALS; i++)
@@ -1807,19 +1818,33 @@ int readluts
         return (ERROR);
     }
 
+    /* Loop through all the bands in the input HDF file */
     start[0] = 0;  /* left-most dimension */
     start[1] = 0;
     start[2] = 0;  /* right-most dimension */
     edges[0] = NSOLAR_VALS;
     edges[1] = NAOT_VALS;
     edges[2] = NPRES_VALS;
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
-        /* Get the sds name */
+        /* Get the sds name and band index of this band in the rolut array */
         if (sat == SAT_LANDSAT_8)
+        {
             sprintf (fname, "NRLUT_BAND_%d", iband+1);
+            ibndx = iband;
+        }
         else if (sat == SAT_SENTINEL_2)
-            sprintf (fname, "NRLUT_BAND_%s", s2_bandname[iband]);
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the rolutt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+                continue;
+
+            /* Read this band */
+            ibndx++;
+            sprintf (fname, "NRLUT_BAND_%s", S2_FULL_BANDNAME[iband]);
+        }
 
         /* Find the SDS */
         sds_index = SDnametoindex (sd_id, fname);
@@ -1863,7 +1888,7 @@ int readluts
            slowest-changing dimension.  This allows the access for the data
            in the application to be most efficient.  rolut is read from the
            HDF file (per band) as 8000 x 22 x 7. */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             ipres_indx = ipres * NAOT_VALS * NSOLAR_VALS;
@@ -1902,8 +1927,44 @@ int readluts
     }
 
     /* Loop through bands of data */
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the transt array */
+        if (sat == SAT_LANDSAT_8)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+            {
+                /* Given that this is an ASCII file, we need to consume the
+                   data for this band even though we aren't using it. Each
+                   pressure level has a line for each sunangle. There is a
+                   single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * NSUNANGLE_VALS + 1;
+                     iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in transmission "
+                            "coefficient file: %s", S2_FULL_BANDNAME[iband],
+                            transmnm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the band and source of
            the data; ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -1915,7 +1976,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -1992,8 +2053,42 @@ int readluts
     }
 
     /* Loop through bands of data */
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the sphalbt/normext array */
+        if (sat == SAT_LANDSAT_8)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+            {
+               /* Given that this is an ASCII file, we need to consume the
+                  data for this band even though we aren't using it. Each
+                  pressure level has a line for each AOT. There is a
+                  single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * (NAOT_VALS+1) + 1; iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in spherical albedo "
+                            "file: %s", S2_FULL_BANDNAME[iband], spheranm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the source of the data;
            ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -2006,7 +2101,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -2560,8 +2655,8 @@ int s2_memory_allocation_sr
 )
 {
     char FUNC_NAME[] = "s2_memory_allocation_sr"; /* function name */
-    char errmsg[STR_SIZE];   /* error message */
-    int nsr_bands = 0;       /* number of SR bands - L8 or S2 */
+    char errmsg[STR_SIZE];         /* error message */
+    int nsr_bands = NSR_S2_BANDS;  /* number of SR bands */
 
     /* Setup S2 number of SR bands */
     nsr_bands = NSR_S2_BANDS;
