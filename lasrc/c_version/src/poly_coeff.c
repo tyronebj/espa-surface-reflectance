@@ -15,6 +15,7 @@ void get_3rd_order_poly_coeff
     float x[NAOT_VALS][NCOEF];
     float z[NCOEF][NCOEF], z1[NCOEF*NCOEF], zinv[NCOEF][NCOEF], zinv1[16];
     int i,j,k;
+    bool tf;
   
     for (i=0; i<nAtm; i++)
     {
@@ -33,7 +34,7 @@ void get_3rd_order_poly_coeff
            z1[NCOEF*i + j] = z[i][j];
         }
   
-    inverseMatrix4x4 (z1, zinv1);
+    tf = inverseMatrix4x4 (z1, zinv1);
   
     for (i=0; i<NCOEF; i++)
         for (j=0; j<NCOEF; j++)
