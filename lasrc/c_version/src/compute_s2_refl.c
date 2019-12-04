@@ -190,6 +190,48 @@ int read_s2_toa_refl
                 }
 
                 break;
+
+          case DN_S2_BAND9:
+                /* Read the input band data */
+                if (get_input_refl_lines (input, ib, 0, nlines60, nsamps60,
+                    tmp60_band) != SUCCESS)
+                {
+                    sprintf (errmsg, "Error reading S2 TOA 60m band %d", ib+1);
+                    error_handler (true, FUNC_NAME, errmsg);
+                    return (ERROR);
+                }
+
+                /* Convert to 10m */
+                if (convert_to_10m (nlines60, nsamps60, nlines10, nsamps10,
+                    tmp60_band, &toaband[ib][0]) != SUCCESS)
+                {
+                    sprintf (errmsg, "Error converting 60m band %d", ib+1);
+                    error_handler (true, FUNC_NAME, errmsg);
+                    return (ERROR);
+                }
+
+                break;
+
+          case DN_S2_BAND10:
+                /* Read the input band data */
+                if (get_input_refl_lines (input, ib, 0, nlines60, nsamps60,
+                    tmp60_band) != SUCCESS)
+                {
+                    sprintf (errmsg, "Error reading S2 TOA 60m band %d", ib+1);
+                    error_handler (true, FUNC_NAME, errmsg);
+                    return (ERROR);
+                }
+
+                /* Convert to 10m */
+                if (convert_to_10m (nlines60, nsamps60, nlines10, nsamps10,
+                    tmp60_band, &toaband[ib][0]) != SUCCESS)
+                {
+                    sprintf (errmsg, "Error converting 60m band %d", ib+1);
+                    error_handler (true, FUNC_NAME, errmsg);
+                    return (ERROR);
+                }
+
+                break;
         }
     }
 
