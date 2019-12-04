@@ -138,7 +138,7 @@ typedef enum {DN_L8_BAND1=0, DN_L8_BAND2, DN_L8_BAND3, DN_L8_BAND4,
     DN_L8_BAND10, DN_L8_BAND11, DN_L8_QA, DN_L8_TTL} Mydn_l8_band_t;
 typedef enum {DN_S2_BAND1=0, DN_S2_BAND2, DN_S2_BAND3, DN_S2_BAND4,
     DN_S2_BAND5, DN_S2_BAND6, DN_S2_BAND7, DN_S2_BAND8, DN_S2_BAND8A,
-    DN_S2_BAND9, DN_S2_BAND10, DN_S2_BAND11, DN_S2_BAND12, DN_S2_QA, DN_S2_TTL} Mydn_s2_band_t;
+    DN_S2_BAND11, DN_S2_BAND12, DN_S2_QA, DN_S2_TTL} Mydn_s2_band_t;
 
 /* Define the output products to be processed */
 typedef enum {SR_L8_BAND1=0, SR_L8_BAND2, SR_L8_BAND3, SR_L8_BAND4, SR_L8_BAND5,
