@@ -20,6 +20,9 @@
 
 /* Defines */
 #define ESPA_EPSILON 0.00001
+#define LOW_EPS 1.0
+#define MOD_EPS 1.75
+#define HIGH_EPS 2.5
 
 /* Prototypes */
 void usage ();
@@ -44,7 +47,7 @@ bool btest
     byte n            /* I: bit number to be tested (0 is rightmost bit) */
 );
 
-int compute_toa_refl
+int compute_l8_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -62,7 +65,15 @@ int compute_toa_refl
                               routine*/
 );
 
-int compute_sr_refl
+int read_s2_toa_refl
+(
+    Input_t *input,     /* I: input structure for the Landsat product */
+    Espa_internal_meta_t *xml_metadata,
+                        /* I: XML metadata structure */
+    uint16 **toaband    /* O: output TOA reflectance values (scaled) */
+);
+
+int compute_l8_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -73,11 +84,30 @@ int compute_sr_refl
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
     int16 **sband,      /* I/O: input TOA and output surface reflectance */
-    int16 *sza,         /* I: per-pixel solar zenith angles, nlines x nsamps */
-    int16 *saa,         /* I: per-pixel solar azimuth angles, nlines x nsamps */
-    int16 *vza,         /* I: per-pixel view zenith angles, nlines x nsamps */
-    int16 *vaa,         /* I: per-pixel view azimuth angles, nlines x nsamps */
     float xts,          /* I: solar zenith angle (deg) */
+    float xmus,         /* I: cosine of solar zenith angle */
+    char *anglehdf,     /* I: angle HDF filename */
+    char *intrefnm,     /* I: intrinsic reflectance filename */
+    char *transmnm,     /* I: transmission filename */
+    char *spheranm,     /* I: spherical albedo filename */
+    char *cmgdemnm,     /* I: climate modeling grid DEM filename */
+    char *rationm,      /* I: ratio averages filename */
+    char *auxnm         /* I: auxiliary filename for ozone and water vapor */
+);
+
+int compute_s2_sr_refl
+(
+    Input_t *input,     /* I: input structure for the Landsat product */
+    Espa_internal_meta_t *xml_metadata,
+                        /* I: XML metadata structure */
+    char *xml_infile,   /* I: input XML filename */
+    uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
+    int nlines,         /* I: number of lines in reflectance, thermal bands */
+    int nsamps,         /* I: number of samps in reflectance, thermal bands */
+    float pixsize,      /* I: pixel size for the reflectance bands */
+    uint16 **toaband,   /* I: input TOA reflectance bands, nlines x nsamps */
+    int16 **sband,      /* O: output SR bands, nlines x nsamps */
+    float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
     char *intrefnm,     /* I: intrinsic reflectance filename */
@@ -101,14 +131,11 @@ int init_sr_refl
     char *cmgdemnm,     /* I: climate modeling grid DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
-    float *eps,         /* O: angstrom coefficient */
-    int *iaots,         /* O: index for AOTs */
     float *xtv,         /* O: observation zenith angle (deg) */
     float *xmuv,        /* O: cosine of observation zenith angle */
     float *xfi,         /* O: azimuthal difference between sun and
                               observation (deg) */
     float *cosxfi,      /* O: cosine of azimuthal difference */
-    float *raot550nm,   /* O: nearest value of AOT */
     float *pres,        /* O: surface pressure */
     float *uoz,         /* O: total column ozone */
     float *uwv,         /* O: total column water vapor (precipital water
@@ -182,6 +209,7 @@ bool find_closest_non_fill
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
     int *nearest_line, /* O: line for nearest non-fill pix in aerosol window */
     int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
 );
@@ -190,10 +218,13 @@ bool find_closest_non_cloud_shadow_water
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     int16 **sband,     /* I: input surface reflectance, nlines x nsamps */
+    int red_indx,      /* I: red band index for sband */
+    int nir_indx,      /* I: NIR band index for sband */
     int nlines,        /* I: number of lines in QA band */
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
     int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
     int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
 );
@@ -202,10 +233,13 @@ bool find_closest_non_water
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     int16 **sband,     /* I: input surface reflectance */
+    int red_indx,      /* I: red band index for sband */
+    int nir_indx,      /* I: NIR band index for sband */
     int nlines,        /* I: number of lines in QA band */
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
+    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
     int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
     int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
 );
@@ -214,10 +248,14 @@ void mask_aero_window
 (
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     int16 **sband,     /* I: input surface reflectance */
+    int red_indx,      /* I: red band index for sband */
+    int nir_indx,      /* I: NIR band index for sband */
     int nlines,        /* I: number of lines in QA band */
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
+    int aero_window,   /* I: size of aerosol window (S2 or L8) */
+    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
     bool *quick_qa     /* O: quick QA for the current aerosol window,
                              AERO_WINDOW x AERO_WINDOW
                              (true=not clear, false=clear) */

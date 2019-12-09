@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------
 # Makefile
 #
-# Simple makefile for building and installing Landsat SR Code (LaSRC).
+# Simple makefile for building and installing Land SR Code (LaSRC).
 #-----------------------------------------------------------------------------
 .PHONY: all install clean
 
@@ -10,7 +10,7 @@ TOP = ../../..
 include $(TOP)/make.config
 
 # Define scripts
-SCRIPTS = do_lasrc.py
+SCRIPTS = do_lasrc_landsat.py do_lasrc_sentinel.py
 
 #-----------------------------------------------------------------------------
 all:

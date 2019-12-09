@@ -65,6 +65,16 @@ Input_t *open_input
         return (NULL);
     }
 
+    /* Make sure the metadata satellite is either L8 or S2 */
+    if (this->meta.sat != SAT_LANDSAT_8 && this->meta.sat != SAT_SENTINEL_2)
+    {
+        strcpy (errmsg, "Error getting satellite information from the input "
+            "metadata file. Only Landsat 8 and Sentinel 2 are supported.");
+        free (this);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (NULL);
+    }
+
     /* Open files for access */
     for (ib = 0; ib < this->nband; ib++)
     {
@@ -122,46 +132,20 @@ Input_t *open_input
         this->open_qa[ib] = true;
     }
 
-    this->fp_bin_sza = open_raw_binary (this->file_name_sza, "rb");
-    if (this->fp_bin_sza == NULL)
+    /* Open the per-pixel solar zenith angle bands for L8 */
+    if (this->meta.sat == SAT_LANDSAT_8)
     {
-        sprintf (errmsg, "Opening solar zenith raw binary file: %s",
-            this->file_name_sza);
-        error_handler (true, FUNC_NAME, errmsg);
-        free_input (this);
-        return (NULL);
+        this->fp_bin_sza = open_raw_binary (this->file_name_sza, "rb");
+        if (this->fp_bin_sza == NULL)
+        {
+            sprintf (errmsg, "Opening solar zenith raw binary file: %s",
+                this->file_name_sza);
+            error_handler (true, FUNC_NAME, errmsg);
+            free_input (this);
+            return (NULL);
+        }
+        this->open_ppa = true;
     }
-
-    this->fp_bin_saa = open_raw_binary (this->file_name_saa, "rb");
-    if (this->fp_bin_saa == NULL)
-    {
-        sprintf (errmsg, "Opening solar zenith raw binary file: %s",
-            this->file_name_saa);
-        error_handler (true, FUNC_NAME, errmsg);
-        free_input (this);
-        return (NULL);
-    }
-
-    this->fp_bin_vza = open_raw_binary (this->file_name_vza, "rb");
-    if (this->fp_bin_vza == NULL)
-    {
-        sprintf (errmsg, "Opening view zenith raw binary file: %s",
-            this->file_name_vza);
-        error_handler (true, FUNC_NAME, errmsg);
-        free_input (this);
-        return (NULL);
-    }
-
-    this->fp_bin_vaa = open_raw_binary (this->file_name_vaa, "rb");
-    if (this->fp_bin_vaa == NULL)
-    {
-        sprintf (errmsg, "Opening view zenith raw binary file: %s",
-            this->file_name_vaa);
-        error_handler (true, FUNC_NAME, errmsg);
-        free_input (this);
-        return (NULL);
-    }
-    this->open_ppa = true;
 
     /* Do a cursory check to make sure the bands and QA band exist and have
        been opened */
@@ -181,17 +165,19 @@ Input_t *open_input
         return (NULL);
     }
 
-    if (!this->open_qa[0])
+    /* L8 should have a QA input band */
+    if (this->meta.sat == SAT_LANDSAT_8 && !this->open_qa[0])
     {
-        sprintf (errmsg, "QA band is not open.");
+        sprintf (errmsg, "L8 QA band is not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
     }
 
-    if (!this->open_ppa)
+    /* L8 should have a per-pixel angle input bands */
+    if (this->meta.sat == SAT_LANDSAT_8 && !this->open_ppa)
     {
-        sprintf (errmsg, "Per-pixel angle bands are not open.");
+        sprintf (errmsg, "L8 per-pixel angle bands are not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
@@ -228,44 +214,45 @@ void close_input
         }
     }
 
-    /* Close the thermal files */
-    for (ib = 0; ib < this->nband_th; ib++)
+    /* L8 has thermal, pan, QA, and per-pixel angle bands to close */
+    if (this->meta.sat == SAT_LANDSAT_8)
     {
-        if (this->open_th[ib])
+        /* Close the thermal files */
+        for (ib = 0; ib < this->nband_th; ib++)
         {
-            close_raw_binary (this->fp_bin_th[ib]);
-            this->open_th[ib] = false;
+            if (this->open_th[ib])
+            {
+                close_raw_binary (this->fp_bin_th[ib]);
+                this->open_th[ib] = false;
+            }
         }
-    }
-
-    /* Close the pan files */
-    for (ib = 0; ib < this->nband_pan; ib++)
-    {
-        if (this->open_pan[ib])
+    
+        /* Close the pan files */
+        for (ib = 0; ib < this->nband_pan; ib++)
         {
-            close_raw_binary (this->fp_bin_pan[ib]);
-            this->open_pan[ib] = false;
+            if (this->open_pan[ib])
+            {
+                close_raw_binary (this->fp_bin_pan[ib]);
+                this->open_pan[ib] = false;
+            }
         }
-    }
-
-    /* Close the QA files */
-    for (ib = 0; ib < this->nband_qa; ib++)
-    {
-        if (this->open_qa[ib])
+    
+        /* Close the QA files */
+        for (ib = 0; ib < this->nband_qa; ib++)
         {
-            close_raw_binary (this->fp_bin_qa[ib]);
-            this->open_qa[ib] = false;
+            if (this->open_qa[ib])
+            {
+                close_raw_binary (this->fp_bin_qa[ib]);
+                this->open_qa[ib] = false;
+            }
         }
-    }
-
-    /* Close the per-pixel angle band files */
-    if (this->open_ppa)
-    {
-        close_raw_binary (this->fp_bin_sza);
-        close_raw_binary (this->fp_bin_saa);
-        close_raw_binary (this->fp_bin_vza);
-        close_raw_binary (this->fp_bin_vaa);
-        this->open_ppa = false;
+    
+        /* Close the per-pixel angle band files */
+        if (this->open_ppa)
+        {
+            close_raw_binary (this->fp_bin_sza);
+            this->open_ppa = false;
+        }
     }
 }
 
@@ -302,12 +289,18 @@ void free_input
         /* Free image band pointers */
         for (ib = 0; ib < this->nband; ib++)
             free (this->file_name[ib]);
-        for (ib = 0; ib < this->nband_th; ib++)
-            free (this->file_name_th[ib]);
-        for (ib = 0; ib < this->nband_pan; ib++)
-            free (this->file_name_pan[ib]);
-        for (ib = 0; ib < this->nband_qa; ib++)
-            free (this->file_name_qa[ib]);
+
+        /* L8 has thermal, pan, QA, and per-pixel angle bands to close */
+        if (this->meta.sat == SAT_LANDSAT_8)
+        {
+            for (ib = 0; ib < this->nband_th; ib++)
+                free (this->file_name_th[ib]);
+            for (ib = 0; ib < this->nband_pan; ib++)
+                free (this->file_name_pan[ib]);
+            for (ib = 0; ib < this->nband_qa; ib++)
+                free (this->file_name_qa[ib]);
+            free(this->file_name_sza);
+        }
 
         /* Free the data structure */
         free (this);
@@ -338,6 +331,9 @@ int get_input_refl_lines
     int iband,       /* I: current refl band to read (0-based) */
     int iline,       /* I: current line to read (0-based) */
     int nlines,      /* I: number of lines to read */
+    int nsamps,      /* I: number of samples to read (S2 nsamps vary depending
+                           on the band); if -99 then use the nsamps in the
+                           input structure */
     uint16 *out_arr  /* O: output array to populate */
 )
 {
@@ -370,9 +366,13 @@ int get_input_refl_lines
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
+
+    /* Check the number of lines */
+    if (nsamps == -99)
+        nsamps = this->size.nsamps;
   
     /* Read the data, but first seek to the correct line */
-    loc = (long) iline * this->size.nsamps * sizeof (uint16);
+    loc = (long) iline * nsamps * sizeof (uint16);
     if (fseek (this->fp_bin[iband], loc, SEEK_SET))
     {
         strcpy (errmsg, "Seeking to the current line in the input file");
@@ -380,8 +380,8 @@ int get_input_refl_lines
         return (ERROR);
     }
 
-    if (read_raw_binary (this->fp_bin[iband], nlines, this->size.nsamps,
-        sizeof (uint16), out_arr) != SUCCESS)
+    if (read_raw_binary (this->fp_bin[iband], nlines, nsamps, sizeof (uint16),
+        out_arr) != SUCCESS)
     {
         sprintf (errmsg, "Reading %d lines from reflectance band %d starting "
             "at line %d", nlines, iband, iline);
@@ -649,10 +649,7 @@ int get_input_ppa_lines
     Input_t *this,   /* I: pointer to input data structure */
     int iline,       /* I: current line to read (0-based) */
     int nlines,      /* I: number of lines to read */
-    int16 *sza_arr, /* O: output solar zenith array to populate */
-    int16 *saa_arr, /* O: output solar azimuth array to populate */
-    int16 *vza_arr, /* O: output view zenith array to populate */
-    int16 *vaa_arr  /* O: output view azimuth array to populate */
+    int16 *sza_arr /* O: output solar zenith array to populate */
 )
 {
     char FUNC_NAME[] = "get_input_ppa_lines";   /* function name */
@@ -697,57 +694,6 @@ int get_input_ppa_lines
         return (ERROR);
     }
   
-    /* Read the solar azimuth data, but first seek to the correct line */
-    if (fseek (this->fp_bin_saa, loc, SEEK_SET))
-    {
-        strcpy (errmsg, "Seeking to the current line in the saa input file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    if (read_raw_binary (this->fp_bin_saa, nlines, this->size_ppa.nsamps,
-        sizeof (int16), saa_arr) != SUCCESS)
-    {
-        sprintf (errmsg, "Reading %d lines from solar azimuth band starting "
-            "at line %d", nlines, iline);
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-  
-    /* Read the view zenith data, but first seek to the correct line */
-    if (fseek (this->fp_bin_vza, loc, SEEK_SET))
-    {
-        strcpy (errmsg, "Seeking to the current line in the vza input file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    if (read_raw_binary (this->fp_bin_vza, nlines, this->size_ppa.nsamps,
-        sizeof (int16), vza_arr) != SUCCESS)
-    {
-        sprintf (errmsg, "Reading %d lines from view zenith band starting "
-            "at line %d", nlines, iline);
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Read the view azimuth data, but first seek to the correct line */
-    if (fseek (this->fp_bin_vaa, loc, SEEK_SET))
-    {
-        strcpy (errmsg, "Seeking to the current line in the vaa input file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    if (read_raw_binary (this->fp_bin_vaa, nlines, this->size_ppa.nsamps,
-        sizeof (int16), vaa_arr) != SUCCESS)
-    {
-        sprintf (errmsg, "Reading %d lines from view azimuth band starting "
-            "at line %d", nlines, iline);
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
     return (SUCCESS);
 }
 
@@ -779,19 +725,16 @@ int get_xml_input
     char FUNC_NAME[] = "get_xml_input";   /* function name */
     char errmsg[STR_SIZE];    /* error message */
     int ib;                   /* looping variable for bands */
-    char acq_date[DATE_STRING_LEN + 1];    /* acquisition date */
-    char prod_date[DATE_STRING_LEN + 1];   /* production date */
-    char acq_time[TIME_STRING_LEN + 1];    /* acquisition time */
+    char acq_date[DATE_STRING_LEN+1];    /* acquisition date */
+    char prod_date[DATE_STRING_LEN+1];   /* production date */
+    char acq_time[TIME_STRING_LEN+1];    /* acquisition time */
     char temp[STR_SIZE]; /* temporary string */
     int i;               /* looping variable */
-    int refl_indx=-9;    /* band index in XML file for the reflectance band */
-    int th_indx=-9;      /* band index in XML file for the thermal band */
-    int pan_indx=-9;     /* band index in XML file for the pan band */
-    int qa_indx=-9;      /* band index in XML file for the QA band */
-    int sza_indx=-9;     /* band index in XML file for the solar zenith band */
-    int saa_indx=-9;     /* band index in XML file for the solar azimuth band */
-    int vza_indx=-9;     /* band index in XML file for the view zenith band */
-    int vaa_indx=-9;     /* band index in XML file for the view azimuth band */
+    int refl_indx = NA;  /* band index in XML file for the reflectance band */
+    int th_indx = NA;    /* band index in XML file for the thermal band */
+    int pan_indx = NA;   /* band index in XML file for the pan band */
+    int qa_indx = NA;    /* band index in XML file for the QA band */
+    int sza_indx = NA;   /* band index in XML file for the solar zenith band */
     Espa_global_meta_t *gmeta = &metadata->global; /* pointer to global meta */
 
     /* Initialize the input fields */
@@ -812,7 +755,6 @@ int get_xml_input
     this->nband = 0;
     for (ib = 0; ib < NBAND_REFL_MAX; ib++)
     {
-        this->meta.iband[ib] = -1;
         this->meta.gain[ib] = GAIN_BIAS_FILL;
         this->meta.bias[ib] = GAIN_BIAS_FILL;
         this->file_name[ib] = NULL;
@@ -820,10 +762,10 @@ int get_xml_input
         this->fp_bin[ib] = NULL;
     }
 
+    /* use L8 thermal band count since S2 doesn't have thermal */
     this->nband_th = 0;
-    for (ib = 0; ib < NBAND_THM_MAX; ib++)
+    for (ib = 0; ib < NBAND_L8_THM_MAX; ib++)
     {
-        this->meta.iband_th[ib] = -1;
         this->meta.gain_th[ib] = GAIN_BIAS_FILL;
         this->meta.bias_th[ib] = GAIN_BIAS_FILL;
         this->file_name_th[ib] = NULL;
@@ -831,10 +773,10 @@ int get_xml_input
         this->fp_bin_th[ib] = NULL;
     }
 
+    /* use L8 pan band count as S2 doesn't have pan */
     this->nband_pan = 0;
-    for (ib = 0; ib < NBAND_PAN_MAX; ib++)
+    for (ib = 0; ib < NBAND_L8_PAN_MAX; ib++)
     {
-        this->meta.iband_pan[ib] = -1;
         this->meta.gain_pan[ib] = GAIN_BIAS_FILL;
         this->meta.bias_pan[ib] = GAIN_BIAS_FILL;
         this->file_name_pan[ib] = NULL;
@@ -842,47 +784,49 @@ int get_xml_input
         this->fp_bin_pan[ib] = NULL;
     }
 
+    /* use L8 QA band count as S2 doesn't have an input QA band */
     this->nband_qa = 0;
-    for (ib = 0; ib < NBAND_QA_MAX; ib++)
+    for (ib = 0; ib < NBAND_L8_QA_MAX; ib++)
     {
-        this->meta.iband_qa[ib] = -1;
         this->file_name_qa[ib] = NULL;
         this->open_qa[ib] = false;
         this->fp_bin_qa[ib] = NULL;
     }
 
     this->file_name_sza = NULL;
-    this->file_name_saa = NULL;
-    this->file_name_vza = NULL;
-    this->file_name_vaa = NULL;
     this->open_ppa = NULL;
     this->fp_bin_sza = NULL;
-    this->fp_bin_saa = NULL;
-    this->fp_bin_vza = NULL;
-    this->fp_bin_vaa = NULL;
 
     /* Pull the appropriate data from the XML file */
     acq_date[0] = acq_time[0] = '\0';
     prod_date[0] = '\0';
     if (!strcmp (gmeta->satellite, "LANDSAT_8"))
         this->meta.sat = SAT_LANDSAT_8;
+    else if (!strncmp (gmeta->satellite, "Sentinel-2", 10))
+        this->meta.sat = SAT_SENTINEL_2;
     else
     {
         sprintf (errmsg, "Unsupported satellite: %s", gmeta->satellite);
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
+    printf ("Metadata satellite: %s\n", gmeta->satellite);
+    printf ("         satellite (L8=0, S2=1): %d\n", this->meta.sat);
 
     if (!strcmp (gmeta->instrument, "OLI_TIRS"))
         this->meta.inst = INST_OLI_TIRS;
     else if (!strcmp (gmeta->instrument, "OLI"))
         this->meta.inst = INST_OLI;
+    else if (!strcmp (gmeta->instrument, "MSI"))
+        this->meta.inst = INST_MSI;
     else
     {
         sprintf (errmsg, "Unsupported instrument: %s", gmeta->instrument);
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
+    printf ("         instrument (OLI/TIRS=0, OLI=1, MSI=2): %d\n",
+        this->meta.inst);
 
     strcpy (acq_date, gmeta->acquisition_date);
     strcpy (acq_time, gmeta->scene_center_time);
@@ -896,7 +840,7 @@ int get_xml_input
         sprintf (&acq_time[15], "Z");
 
     this->meta.sun_zen = gmeta->solar_zenith;
-    if (this->meta.sun_zen < -90.0 || this->meta.sun_zen > 90.0)
+    if (this->meta.sun_zen < -180.0 || this->meta.sun_zen > 180.0)
     {
         sprintf (errmsg, "Solar zenith angle is out of range: %f",
             this->meta.sun_zen);
@@ -913,260 +857,317 @@ int get_xml_input
         return (ERROR);
     }
 
-    switch (gmeta->wrs_system)
+    if (this->meta.sat == SAT_SENTINEL_2)
     {
-        case 1: this->meta.wrs_sys = WRS_1; break;
-        case 2: this->meta.wrs_sys = WRS_2; break;
-        default:
-            sprintf (errmsg, "Invalid WRS system: %d", gmeta->wrs_system);
+        /* S2 currently is the only satellite that has the view angles in
+           the metadata */
+        this->meta.view_zen = gmeta->view_zenith;
+        if (this->meta.view_zen < -180.0 || this->meta.view_zen > 180.0)
+        {
+            sprintf (errmsg, "View zenith angle is out of range: %f",
+                this->meta.view_zen);
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
+        }
+
+        this->meta.view_az = gmeta->view_azimuth;
+        if (this->meta.view_az < -360.0 || this->meta.view_az > 360.0)
+        {
+            sprintf (errmsg, "View azimuth angle is out of range: %f",
+                this->meta.view_az);
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
     }
-    this->meta.ipath = gmeta->wrs_path;
-    this->meta.irow = gmeta->wrs_row;
+
+    if (this->meta.sat == SAT_LANDSAT_8)
+    {
+        switch (gmeta->wrs_system)
+        {
+            case 1: this->meta.wrs_sys = WRS_1; break;
+            case 2: this->meta.wrs_sys = WRS_2; break;
+            default:
+                sprintf (errmsg, "Invalid WRS system: %d", gmeta->wrs_system);
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+        }
+
+        this->meta.ipath = gmeta->wrs_path;
+        this->meta.irow = gmeta->wrs_row;
+    }
 
     if (this->meta.inst == INST_OLI_TIRS)
     {
-        this->nband = 8;        /* number of reflectance bands */
-        for (ib = 0; ib < this->nband-1; ib++)
-            this->meta.iband[ib] = ib+1;
-        this->meta.iband[7] = 9;  /* skip pan band */
-
-        this->nband_th = 2;     /* number of thermal bands */
-        this->meta.iband_th[0] = 10;
-        this->meta.iband_th[1] = 11;
-
-        this->nband_pan = 1;    /* number of pan bands */
-        this->meta.iband_pan[0] = 8;
-
-        this->nband_qa = 1;     /* number of QA bands */
-        this->meta.iband_qa[0] = 12;
+        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
+        this->nband_th = NBAND_L8_THM_MAX;   /* number of thermal bands */
+        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
     }
     else if (this->meta.inst == INST_OLI)
+    {  /* No TIRS band */
+        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
+        this->nband_th = 0;                  /* number of thermal bands */
+        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
+    }
+    else if (this->meta.inst == INST_MSI)
     {
-        this->nband = 8;        /* number of reflectance bands */
-        for (ib = 0; ib < this->nband-1; ib++)
-            this->meta.iband[ib] = ib+1;
-        this->meta.iband[7] = 9;  /* skip pan band */
-
+        this->nband = NBAND_S2_REFL_MAX;     /* number of reflectance bands */
         this->nband_th = 0;     /* number of thermal bands */
-
-        this->nband_pan = 1;    /* number of pan bands */
-        this->meta.iband_pan[0] = 8;
-
-        this->nband_qa = 1;     /* number of QA bands */
-        this->meta.iband_qa[0] = 10;
+        this->nband_pan = 0;    /* number of pan bands */
+        this->nband_qa = 0;     /* number of QA bands */
     }
 
-    /* Find band 1, band 10, and band 8 in the input XML file to obtain
-       band-related information for the reflectance, thermal, and pan bands */
-    for (i = 0; i < metadata->nbands; i++)
+    /* Band differences between L8 and S2 */
+    if (this->meta.sat == SAT_LANDSAT_8)
     {
-        if (!strcmp (metadata->band[i].name, "b1"))
+        /* Use band 1 for the representative band */
+        for (i = 0; i < metadata->nbands; i++)
         {
-            /* this is the index we'll use for reflectance band info */
-            refl_indx = i;
-
-            /* get the band1 info */
-            this->meta.gain[0] = metadata->band[i].refl_gain;
-            this->meta.bias[0] = metadata->band[i].refl_bias;
-            this->file_name[0] = strdup (metadata->band[i].file_name);
-
-            /* get the production date but only the date portion
-               (yyyy-mm-dd) */
-            strncpy (prod_date, metadata->band[i].production_date, 10);
-            prod_date[10] = '\0';
-        }
-        else if (!strcmp (metadata->band[i].name, "b2"))
-        {
-            /* get the band2 info */
-            this->meta.gain[1] = metadata->band[i].refl_gain;
-            this->meta.bias[1] = metadata->band[i].refl_bias;
-            this->file_name[1] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b3"))
-        {
-            /* get the band3 info */
-            this->meta.gain[2] = metadata->band[i].refl_gain;
-            this->meta.bias[2] = metadata->band[i].refl_bias;
-            this->file_name[2] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b4"))
-        {
-            /* get the band4 info */
-            this->meta.gain[3] = metadata->band[i].refl_gain;
-            this->meta.bias[3] = metadata->band[i].refl_bias;
-            this->file_name[3] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b5"))
-        {
-            /* get the band5 info */
-            this->meta.gain[4] = metadata->band[i].refl_gain;
-            this->meta.bias[4] = metadata->band[i].refl_bias;
-            this->file_name[4] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b6"))
-        {
-            /* get the band6 info */
-            this->meta.gain[5] = metadata->band[i].refl_gain;
-            this->meta.bias[5] = metadata->band[i].refl_bias;
-            this->file_name[5] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b7"))
-        {
-            /* get the band7 info */
-            this->meta.gain[6] = metadata->band[i].refl_gain;
-            this->meta.bias[6] = metadata->band[i].refl_bias;
-            this->file_name[6] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b9"))
-        {
-            /* get the band9 info */
-            this->meta.gain[7] = metadata->band[i].refl_gain;
-            this->meta.bias[7] = metadata->band[i].refl_bias;
-            this->file_name[7] = strdup (metadata->band[i].file_name);
+            if (!strcmp (metadata->band[i].name, "b1"))
+            {
+                /* this is the index we'll use for reflectance band info */
+                refl_indx = i;
+                break;
+            }
         }
 
-        else if (!strcmp (metadata->band[i].name, "b8"))
+        if (refl_indx == NA)
         {
-            /* this is the index we'll use for pan band info */
-            pan_indx = i;
-
-            /* get the band8 info */
-            this->meta.gain_pan[0] = metadata->band[i].refl_gain;
-            this->meta.bias_pan[0] = metadata->band[i].refl_bias;
-            this->file_name_pan[0] = strdup (metadata->band[i].file_name);
+            sprintf (errmsg, "Band 1 not found in the input L8 XML metadata "
+                "file to be used as the representative band.");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
         }
 
-        /* NOTE: band10 and band11 won't exist in the input XML file
-           for OLI-only products */
-        else if (!strcmp (metadata->band[i].name, "b10"))
+        /* Find band 1, band 10, and band 8 in the input XML file to obtain
+           band-related information for reflectance, thermal, and pan bands */
+        for (i = 0; i < metadata->nbands; i++)
         {
-            /* this is the index we'll use for thermal band info */
-            th_indx = i;
+            if (!strcmp (metadata->band[i].name, "b1"))
+            {
+                /* get the band1 info */
+                this->meta.gain[DN_L8_BAND1] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND1] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND1] =
+                    strdup (metadata->band[i].file_name);
+    
+                /* get the production date but only the date portion
+                   (yyyy-mm-dd) */
+                strncpy (prod_date, metadata->band[i].production_date, 10);
+                prod_date[10] = '\0';
+            }
+            else if (!strcmp (metadata->band[i].name, "b2"))
+            {
+                /* get the band2 info */
+                this->meta.gain[DN_L8_BAND2] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND2] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND2] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b3"))
+            {
+                /* get the band3 info */
+                this->meta.gain[DN_L8_BAND3] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND3] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND3] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b4"))
+            {
+                /* get the band4 info */
+                this->meta.gain[DN_L8_BAND4] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND4] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND4] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b5"))
+            {
+                /* get the band5 info */
+                this->meta.gain[DN_L8_BAND5] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND5] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND5] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b6"))
+            {
+                /* get the band6 info */
+                this->meta.gain[DN_L8_BAND6] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND6] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND6] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b7"))
+            {
+                /* get the band7 info */
+                this->meta.gain[DN_L8_BAND7] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND7] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND7] =
+                    strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b9"))
+            {
+                /* get the band9 info - store in the reflectance array
+                   skipping band 8*/
+                this->meta.gain[DN_L8_BAND9-1] = metadata->band[i].refl_gain;
+                this->meta.bias[DN_L8_BAND9-1] = metadata->band[i].refl_bias;
+                this->file_name[DN_L8_BAND9-1] =
+                    strdup (metadata->band[i].file_name);
+            }
+    
+            else if (!strcmp (metadata->band[i].name, "b8"))
+            {
+                /* this is the index we'll use for pan band info */
+                pan_indx = i;
+    
+                /* get the band8 info */
+                this->meta.gain_pan[0] = metadata->band[i].refl_gain;
+                this->meta.bias_pan[0] = metadata->band[i].refl_bias;
+                this->file_name_pan[0] = strdup (metadata->band[i].file_name);
+            }
+    
+            /* NOTE: band10 and band11 won't exist in the input XML file
+               for OLI-only products */
+            else if (!strcmp (metadata->band[i].name, "b10"))
+            {
+                /* this is the index we'll use for thermal band info */
+                th_indx = i;
+    
+                /* get the band10 info */
+                this->meta.gain_th[0] = metadata->band[i].rad_gain;
+                this->meta.bias_th[0] = metadata->band[i].rad_bias;
+                this->meta.k1_const[0] = metadata->band[i].k1_const;
+                this->meta.k2_const[0] = metadata->band[i].k2_const;
+                this->file_name_th[0] = strdup (metadata->band[i].file_name);
+            }
+            else if (!strcmp (metadata->band[i].name, "b11"))
+            {
+                /* get the band11 info */
+                this->meta.gain_th[1] = metadata->band[i].rad_gain;
+                this->meta.bias_th[1] = metadata->band[i].rad_bias;
+                this->meta.k1_const[1] = metadata->band[i].k1_const;
+                this->meta.k2_const[1] = metadata->band[i].k2_const;
+                this->file_name_th[1] = strdup (metadata->band[i].file_name);
+            }
+    
+            else if (!strcmp (metadata->band[i].name, "bqa"))
+            {
+                /* this is the index we'll use for qa band info */
+                qa_indx = i;
+    
+                /* get the QA band info */
+                this->file_name_qa[0] = strdup (metadata->band[i].file_name);
+            }
+    
+            else if (!strcmp (metadata->band[i].name, "solar_zenith_band4"))
+            {
+                /* this is the index we'll use for sza band info */
+                sza_indx = i;
+    
+                /* get the solar zenith band info */
+                this->file_name_sza = strdup (metadata->band[i].file_name);
+            }
+        }  /* for i */
 
-            /* get the band10 info */
-            this->meta.gain_th[0] = metadata->band[i].rad_gain;
-            this->meta.bias_th[0] = metadata->band[i].rad_bias;
-            this->meta.k1_const[0] = metadata->band[i].k1_const;
-            this->meta.k2_const[0] = metadata->band[i].k2_const;
-            this->file_name_th[0] = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "b11"))
+        /* Make sure the expected files were found */
+        if (this->meta.inst == INST_OLI_TIRS && th_indx == NA)
         {
-            /* get the band11 info */
-            this->meta.gain_th[1] = metadata->band[i].rad_gain;
-            this->meta.bias_th[1] = metadata->band[i].rad_bias;
-            this->meta.k1_const[1] = metadata->band[i].k1_const;
-            this->meta.k2_const[1] = metadata->band[i].k2_const;
-            this->file_name_th[1] = strdup (metadata->band[i].file_name);
+            sprintf (errmsg, "Band 10 (b10) was not found in the XML file");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
         }
-
-        else if (!strcmp (metadata->band[i].name, "bqa"))
+    
+        if (pan_indx == NA)
         {
-            /* this is the index we'll use for qa band info */
-            qa_indx = i;
-
-            /* get the QA band info */
-            this->file_name_qa[0] = strdup (metadata->band[i].file_name);
+            sprintf (errmsg, "Band 8 (b8) was not found in the XML file");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
         }
-
-        else if (!strcmp (metadata->band[i].name, "solar_zenith_band4"))
+    
+        if (qa_indx == NA)
         {
-            /* this is the index we'll use for sza band info */
-            sza_indx = i;
-
-            /* get the solar zenith band info */
-            this->file_name_sza = strdup (metadata->band[i].file_name);
+            sprintf (errmsg, "QA band (bqa) was not found in the XML file");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
         }
-        else if (!strcmp (metadata->band[i].name, "solar_azimuth_band4"))
+    
+        if (sza_indx == NA)
         {
-            /* this is the index we'll use for saa band info */
-            saa_indx = i;
-
-            /* get the solar azimuth band info */
-            this->file_name_saa = strdup (metadata->band[i].file_name);
+            sprintf (errmsg, "Solar zenith band not found in the XML file");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
         }
-        else if (!strcmp (metadata->band[i].name, "sensor_zenith_band4"))
-        {
-            /* this is the index we'll use for vza band info */
-            vza_indx = i;
-
-            /* get the view zenith band info */
-            this->file_name_vza = strdup (metadata->band[i].file_name);
-        }
-        else if (!strcmp (metadata->band[i].name, "sensor_azimuth_band4"))
-        {
-            /* this is the index we'll use for vaa band info */
-            vaa_indx = i;
-
-            /* get the view azimuth band info */
-            this->file_name_vaa = strdup (metadata->band[i].file_name);
-        }
-    }  /* for i */
-
-    /* Make sure the bands were found in the XML file */
-    if (refl_indx == -9)
-    {
-        sprintf (errmsg, "Band 1 (b1) was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
     }
+    else if (this->meta.sat == SAT_SENTINEL_2)
+    {
+        /* Store the band-related information. Use band 2 for the
+           representative band. Skip bands 9 and 10, as they won't be
+           processed. */
+        for (i = 0; i < metadata->nbands; i++)
+        {
+            if (!strcmp (metadata->band[i].name, "B01"))
+                this->file_name[DN_S2_BAND1] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B02"))
+            {
+                /* This is the index we'll use for reflectance band info,
+                   since it is a 30m band. */
+                refl_indx = i;
+                this->file_name[DN_S2_BAND2] =
+                    strdup (metadata->band[i].file_name);
 
-    if (this->meta.inst == INST_OLI_TIRS && th_indx == -9)
-    {
-        sprintf (errmsg, "Band 10 (b10) was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
+                /* Get the production date of the level-1 data */
+                strncpy (prod_date, metadata->band[i].production_date, 10);
+                prod_date[10] = '\0';
+            }
+            else if (!strcmp (metadata->band[i].name, "B03"))
+                this->file_name[DN_S2_BAND3] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B04"))
+                this->file_name[DN_S2_BAND4] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B05"))
+                this->file_name[DN_S2_BAND5] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B06"))
+                this->file_name[DN_S2_BAND6] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B07"))
+                this->file_name[DN_S2_BAND7] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B08"))
+                this->file_name[DN_S2_BAND8] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B8A"))
+                this->file_name[DN_S2_BAND8A] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B11"))
+                this->file_name[DN_S2_BAND11] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B12"))
+                this->file_name[DN_S2_BAND12] =
+                    strdup (metadata->band[i].file_name);
+        }
 
-    if (pan_indx == -9)
-    {
-        sprintf (errmsg, "Band 8 (b8) was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    if (qa_indx == -9)
-    {
-        sprintf (errmsg, "QA band (bqa) was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    if (sza_indx == -9)
-    {
-        sprintf (errmsg, "Solar zenith band was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    if (saa_indx == -9)
-    {
-        sprintf (errmsg, "Solar azimuth band was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    if (vza_indx == -9)
-    {
-        sprintf (errmsg, "View zenith band was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    if (vaa_indx == -9)
-    {
-        sprintf (errmsg, "View azimuth band was not found in the XML file");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
+        if (refl_indx == NA)
+        {
+            sprintf (errmsg, "Band 2 not found in the input S2 XML metadata "
+                "file to be used as the representative band.");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
     }
 
     /* Get the size of the reflectance, thermal, pan, etc. bands by using
        the representative band in the XML file */
+    /* reflectance */
     this->size.nsamps = metadata->band[refl_indx].nsamps;
     this->size.nlines = metadata->band[refl_indx].nlines;
     this->size.pixsize[0] = metadata->band[refl_indx].pixel_size[0];
     this->size.pixsize[1] = metadata->band[refl_indx].pixel_size[1];
     this->scale_factor = metadata->band[refl_indx].scale_factor;
 
+    /* thermal */
     if (this->meta.inst == INST_OLI_TIRS)
     {  /* skip for OLI */
         this->size_th.nsamps = metadata->band[th_indx].nsamps;
@@ -1184,60 +1185,72 @@ int get_xml_input
         this->scale_factor_th = 0;
     }
 
-    this->size_pan.nsamps = metadata->band[pan_indx].nsamps;
-    this->size_pan.nlines = metadata->band[pan_indx].nlines;
-    this->size_pan.pixsize[0] = metadata->band[pan_indx].pixel_size[0];
-    this->size_pan.pixsize[1] = metadata->band[pan_indx].pixel_size[1];
-    this->scale_factor_pan = metadata->band[pan_indx].scale_factor;
-
-    this->size_qa.nsamps = metadata->band[qa_indx].nsamps;
-    this->size_qa.nlines = metadata->band[qa_indx].nlines;
-    this->size_qa.pixsize[0] = metadata->band[qa_indx].pixel_size[0];
-    this->size_qa.pixsize[1] = metadata->band[qa_indx].pixel_size[1];
-
-    /* Assume the per-pixel angle bands all have the same size and resolution */
-    this->size_ppa.nsamps = metadata->band[sza_indx].nsamps;
-    this->size_ppa.nlines = metadata->band[sza_indx].nlines;
-    this->size_ppa.pixsize[0] = metadata->band[sza_indx].pixel_size[0];
-    this->size_ppa.pixsize[1] = metadata->band[sza_indx].pixel_size[1];
-
-    /* Check WRS path/rows */
-    if (this->meta.wrs_sys == WRS_1)
+    /* L8-specific input params -- including pan and QA bands */
+    if (this->meta.sat == SAT_LANDSAT_8)
     {
-        if (this->meta.ipath > 251)
+        this->size_pan.nsamps = metadata->band[pan_indx].nsamps;
+        this->size_pan.nlines = metadata->band[pan_indx].nlines;
+        this->size_pan.pixsize[0] = metadata->band[pan_indx].pixel_size[0];
+        this->size_pan.pixsize[1] = metadata->band[pan_indx].pixel_size[1];
+        this->scale_factor_pan = metadata->band[pan_indx].scale_factor;
+    
+        this->size_qa.nsamps = metadata->band[qa_indx].nsamps;
+        this->size_qa.nlines = metadata->band[qa_indx].nlines;
+        this->size_qa.pixsize[0] = metadata->band[qa_indx].pixel_size[0];
+        this->size_qa.pixsize[1] = metadata->band[qa_indx].pixel_size[1];
+    
+        /* Assume the per-pixel angle bands all have the same size and
+           resolution */
+        this->size_ppa.nsamps = metadata->band[sza_indx].nsamps;
+        this->size_ppa.nlines = metadata->band[sza_indx].nlines;
+        this->size_ppa.pixsize[0] = metadata->band[sza_indx].pixel_size[0];
+        this->size_ppa.pixsize[1] = metadata->band[sza_indx].pixel_size[1];
+    
+        /* Check WRS path/rows */
+        if (this->meta.wrs_sys == WRS_1)
         {
-            sprintf (errmsg, "WRS path number out of range: %d",
-                this->meta.ipath);
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
+            if (this->meta.ipath > WRS1_NPATH)
+            {
+                sprintf (errmsg, "WRS path number out of range: %d",
+                    this->meta.ipath);
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
+            else if (this->meta.irow > WRS1_NROW)
+            {
+                sprintf (errmsg, "WRS row number out of range: %d",
+                    this->meta.irow);
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
         }
-        else if (this->meta.irow > 248)
+        else if (this->meta.wrs_sys == WRS_2)
         {
-            sprintf (errmsg, "WRS row number out of range: %d",
-                this->meta.irow);
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
+            if (this->meta.ipath > WRS2_NPATH)
+            {
+                sprintf (errmsg, "WRS path number out of range: %d",
+                    this->meta.ipath);
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
+            else if (this->meta.irow > WRS2_NROW)
+            {
+                sprintf (errmsg, "WRS row number out of range: %d",
+                    this->meta.irow);
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
         }
     }
-    else if (this->meta.wrs_sys == WRS_2)
-    {
-        if (this->meta.ipath > 233)
-        {
-            sprintf (errmsg, "WRS path number out of range: %d",
-                this->meta.ipath);
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-        else if (this->meta.irow > 248)
-        {
-            sprintf (errmsg, "WRS row number out of range: %d",
-                this->meta.irow);
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
+    else if (this->meta.sat == SAT_SENTINEL_2)
+    { /* setup output QA */
+        this->size_qa.nsamps = this->size.nsamps;
+        this->size_qa.nlines = this->size.nlines;
+        this->size_qa.pixsize[0] = this->size.pixsize[0];
+        this->size_qa.pixsize[1] = this->size.pixsize[1];
     }
 
-    /* Check satellite/instrument combination */
+    /* Check satellite/instrument combinations */
     if (this->meta.inst == INST_OLI_TIRS ||
         this->meta.inst == INST_OLI)
     {
@@ -1249,13 +1262,36 @@ int get_xml_input
         }
     }
 
-    /* Convert the acquisition date/time values from string to date struct */
-    sprintf (temp, "%sT%s", acq_date, acq_time);
-    if (!date_init (&this->meta.acq_date, temp, DATE_FORMAT_DATEA_TIME))
+    if (this->meta.inst == INST_MSI)
     {
-        sprintf (errmsg, "Converting the acquisition date and time");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
+        if (this->meta.sat != SAT_SENTINEL_2)
+        {
+            sprintf (errmsg, "Invalid instrument/satellite combination");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
+    }
+
+    /* Convert the acquisition date/time values from string to date struct */
+    if (this->meta.inst != INST_MSI)
+    {
+        sprintf (temp, "%sT%s", acq_date, acq_time);
+        if (!date_init (&this->meta.acq_date, temp, DATE_FORMAT_DATEA_TIME))
+        {
+            sprintf (errmsg, "Converting the acquisition date and time");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
+    }
+    else
+    {
+        sprintf (temp, "%sT00:00:00.00000Z", acq_date);
+        if (!date_init (&this->meta.acq_date, temp, DATE_FORMAT_DATEA_TIME))
+        {
+            sprintf (errmsg, "Converting the acquisition date and time");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
     }
 
     /* Convert the production date value from string to date struct */
@@ -1269,3 +1305,87 @@ int get_xml_input
     return (SUCCESS);
 }
 
+
+/******************************************************************************
+MODULE:  convert_to_10m
+
+PURPOSE:  Converts the input band to a 10m band.
+
+RETURN VALUE:
+Type = int
+Value      Description
+-----      -----------
+ERROR      Error occurred converting the band
+SUCCESS    Successful completion
+
+NOTES:
+  1. The assumption is that the input resolution is lower than the output
+     resolution and therefore we are converting to a higher resolution.
+  2. The resolution of the input band must be an even multiple of the output
+     10m band.
+  3. It is assumed the output array is of the correct size for this resolution.
+******************************************************************************/
+int convert_to_10m
+(
+    int in_nlines,   /* I: number of lines in the input product */
+    int in_nsamps,   /* I: number of samples in the input product */
+    int out_nlines,  /* I: number of lines in the output 10m product */
+    int out_nsamps,  /* I: number of samples in the output 10m product */
+    uint16 *in_arr,  /* I: input array */
+    uint16 *out_arr  /* O: output 10m array */
+)
+{
+    char FUNC_NAME[] = "convert_to_10m";   /* function name */
+    char errmsg[STR_SIZE];    /* error message */
+    int oline, osamp;  /* line/sample indices for the output array */
+    int iline, isamp;  /* line/sample indices for the input array */
+    int lmult;         /* line multiplier from input to output resolution */
+    int smult;         /* sample multiplier from input to output resolution */
+    int in_indx;       /* pixel index of input array */
+    int out_indx;      /* pixel index of output array */
+
+    /* Make sure the output number of lines and samples is an exact multiple
+       of the input number of lines and samples */
+    if (out_nlines % in_nlines != 0)
+    {
+        sprintf (errmsg, "Output number of lines (%d) is not an exact multiple "
+            "of the input number of lines (%d)\n", out_nlines, in_nlines);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    if (out_nsamps % in_nsamps != 0)
+    {
+        sprintf (errmsg, "Output number of samples (%d) is not an exact "
+            "multiple of the input number of samples (%d)\n", out_nsamps,
+            in_nsamps);
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Determine the multiplier from the input number of lines/samps to the
+       output number of lines/samps */
+    lmult = out_nlines / in_nlines;
+    smult = out_nsamps / in_nsamps;
+
+    /* Loop through the lines in the output array */
+    out_indx = 0;
+    for (oline = 0; oline < out_nlines; oline++)
+    {
+        /* Determine the representative line in the input array */
+        iline = oline / lmult;
+
+        /* Loop through the samples in the output array */
+        for (osamp = 0; osamp < out_nsamps; osamp++, out_indx++)
+        {
+            /* Determine the representative sample in the input array */
+            isamp = osamp / smult;
+            in_indx = iline * in_nsamps + isamp;
+
+            /* Copy the input pixel to the output array */
+            out_arr[out_indx] = in_arr[in_indx];
+        }
+    }
+
+    return (SUCCESS);
+}

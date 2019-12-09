@@ -12,13 +12,13 @@ SUCCESS = 0
 
 
 #############################################################################
-# Created on August 26, 2014 by Gail Schmidt, USGS/EROS
-# Created Python script to run the Landsat 8 surface reflectance code based
+# Created on August 23, 2019 by Gail Schmidt, USGS/EROS
+# Created Python script to run the Sentinel surface reflectance code based
 # on the inputs specified by the user.  This script will determine the input
-# auxiliary file needed for processing, based on the date of the Landsat 8
+# auxiliary file needed for processing, based on the date of the Sentinel
 # input file.
 #
-# Usage: do_lasrc.py --help prints the help message
+# Usage: do_lasrc_sentinel.py --help prints the help message
 ############################################################################
 class SurfaceReflectance():
 
@@ -36,7 +36,7 @@ class SurfaceReflectance():
     #
     # Inputs:
     #   xml_infile - name of the input XML file
-    #   process_sr - specifies whether the surface reflectance processing,
+    #   process_sr - specifies whether the surface reflectance processing
     #       should be completed.  True or False.  Default is True, otherwise
     #       the processing will halt after the TOA reflectance products are
     #       complete.
@@ -54,7 +54,7 @@ class SurfaceReflectance():
     #      going to be grabbed from the command line, then it's assumed all
     #      the parameters will be pulled from the command line.
     #######################################################################
-    def runSr (self, xml_infile=None, process_sr=None, write_toa=False):
+    def runSr (self, xml_infile=None):
         # if no parameters were passed then get the info from the
         # command line
         if xml_infile == None:
@@ -67,15 +67,6 @@ class SurfaceReflectance():
             parser.add_option ("-i", "--xml", type="string",
                 dest="xml",
                 help="name of XML file", metavar="FILE")
-            parser.add_option ("-s", "--process_sr", type="string",
-                dest="process_sr",
-                help="process the surface reflectance products; " + \
-                     "True or False (default is True)  If False, then " + \
-                     "processing will halt after the TOA reflectance " + \
-                     "products are complete.")
-            parser.add_option ("--write_toa", dest="write_toa", default=False,
-                action="store_true",
-                help="write the intermediate TOA reflectance products")
             (options, args) = parser.parse_args()
     
             # XML input file
@@ -84,13 +75,9 @@ class SurfaceReflectance():
                 parser.error ('missing input XML file command-line argument');
                 return ERROR
 
-            # surface reflectance options
-            process_sr = options.process_sr
-            write_toa = options.write_toa
-
         # get the logger
         logger = logging.getLogger(__name__)
-        msg = ('Surface reflectance processing of Landsat file: {}'
+        msg = ('Surface reflectance processing of Sentinel-2 file: {}'
                .format(xml_infile))
         logger.info (msg)
         
@@ -126,14 +113,14 @@ class SurfaceReflectance():
 
         # pull the date from the XML filename to determine which auxiliary
         # file should be used for input.
-        # Example: LC08_L1TP_041027_20130630_20140312_01_T1.xml uses the
-        # L8ANC2013181.hdf_fused HDF file.
-        l8_prefixes_collection = ['LC08', 'LO08']
-        if base_xmlfile[0:4] in l8_prefixes_collection:
+        # Example: S2A_MSI_L1C_T10TFR_20180816_20180903.xml uses the
+        # L8ANC2018228.hdf_fused HDF file.
+        s2_prefixes_collection = ['S2A', 'S2B']
+        if base_xmlfile[0:3] in s2_prefixes_collection:
             # Collection naming convention. Pull the year, month, day from the
             # XML filename. It should be the 4th group, separated by
             # underscores. Then convert month, day to DOY.
-            aux_date = base_xmlfile.split('_')[3]
+            aux_date = base_xmlfile.split('_')[4]
             aux_year = aux_date[0:4]
             aux_month = aux_date[4:6]
             aux_day = aux_date[6:8]
@@ -141,48 +128,16 @@ class SurfaceReflectance():
             aux_doy = myday.strftime("%j")
             aux_file = 'L8ANC{}{}.hdf_fused'.format(aux_year, aux_doy)
         else:
-            msg = ('Base XML filename is not recognized as a valid Landsat8 '
+            msg = ('Base XML filename is not recognized as a valid Sentinel-2 '
                    'scene name'.format(base_xmlfile))
             logger.error (msg)
             os.chdir (mydir)
             return ERROR
 
-        # generate per-pixel angle bands for band 4 (representative band)
-        cmdstr = 'create_l8_angle_bands --xml {}'.format(base_xmlfile)
-        logger.debug('per-pixel angles command: {0}'.format(cmdstr))
-        (status, output) = commands.getstatusoutput(cmdstr)
-        logger.info(output)
-        exit_code = status >> 8
-        if exit_code != 0:
-            logger.error('Error running create_l8_angle_bands. Processing '
-                         'will terminate.')
-            os.chdir(mydir)
-            return ERROR
-
-        # Mask the angle bands to match the band quality band
-        cmdstr = ('mask_per_pixel_angles.py --xml {}'
-                  .format(base_xmlfile))
-        (status, output) = commands.getstatusoutput(cmdstr)
-        logger.info(output)
-        exit_code = status >> 8
-        if exit_code != 0:
-            logger.error('Error masking angle bands with the band '
-                         'quality band. Processing will terminate.')
-            return ERROR
-
         # run surface reflectance algorithm, checking the return status.  exit
         # if any errors occur.
-        process_sr_opt_str = '--process_sr=true '
-        write_toa_opt_str = ''
-
-        if process_sr == 'False':
-            process_sr_opt_str = '--process_sr=false '
-        if write_toa:
-            write_toa_opt_str = '--write_toa '
-
-        cmdstr = ('lasrc --xml={} --aux={} {}{}--verbose'
-                  .format(xml_infile, aux_file, process_sr_opt_str,
-                          write_toa_opt_str))
+        cmdstr = ('lasrc --xml={} --aux={} --verbose'
+                  .format(xml_infile, aux_file))
         msg = 'Executing lasrc command: {}'.format(cmdstr)
         logger.debug (msg)
         (status, output) = commands.getstatusoutput (cmdstr)

@@ -1,0 +1,1 @@
+gfortran -ffixed-line-length-132 -O -o jdoy jdoy.f

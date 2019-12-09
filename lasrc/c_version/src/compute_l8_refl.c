@@ -1,10 +1,24 @@
+/******************************************************************************
+FILE: compute_l8_refl.c
+
+PURPOSE: Contains functions for handling the L8 TOA reflectance and surface
+reflectance corrections.
+
+PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
+at the USGS EROS
+
+LICENSE TYPE:  NASA Open Source Agreement Version 1.3
+
+NOTES:
+******************************************************************************/
+
 #include "lasrc.h"
 #include "time.h"
 #include "aero_interp.h"
 #include "poly_coeff.h"
 
 /******************************************************************************
-MODULE:  compute_toa_refl
+MODULE:  compute_l8_toa_refl
 
 PURPOSE:  Computes the TOA reflectance and TOA brightness temps for all
 the bands except the pan band. Uses a per-pixel solar zenith angle for the
@@ -25,7 +39,7 @@ NOTES:
   1. These TOA and BT algorithms match those as published by the USGS Landsat
      team in http://landsat.usgs.gov/Landsat8_Using_Product.php
 ******************************************************************************/
-int compute_toa_refl
+int compute_l8_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -44,7 +58,7 @@ int compute_toa_refl
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
-    char FUNC_NAME[] = "compute_toa_refl";   /* function name */
+    char FUNC_NAME[] = "compute_l8_toa_refl";   /* function name */
     int i;               /* looping variable for pixels */
     int line, samp;      /* looping variables for lines and samples */
     int ib;              /* looping variable for input bands */
@@ -80,19 +94,19 @@ int compute_toa_refl
 
     /* Loop through all the bands (except the pan band) and compute the TOA
        reflectance and TOA brightness temp */
-    for (ib = DN_BAND1; ib <= DN_BAND11; ib++)
+    for (ib = DN_L8_BAND1; ib <= DN_L8_BAND11; ib++)
     {
         /* Don't process the pan band */
-        if (ib == DN_BAND8)
+        if (ib == DN_L8_BAND8)
             continue;
         printf ("%d ... ", ib+1);
 
         /* Read the current band and calibrate bands 1-9 (except pan) to
            obtain TOA reflectance. Bands are corrected for the sun angle at
            the center of the scene. */
-        if (ib <= DN_BAND9)
+        if (ib <= DN_L8_BAND9)
         {
-            if (ib <= DN_BAND7)
+            if (ib <= DN_L8_BAND7)
             {
                 iband = ib;
                 sband_ib = ib;
@@ -103,10 +117,10 @@ int compute_toa_refl
                 sband_ib = ib - 1;
             }
 
-            if (get_input_refl_lines (input, iband, 0, nlines, uband) !=
+            if (get_input_refl_lines (input, iband, 0, nlines, -99, uband) !=
                 SUCCESS)
             {
-                sprintf (errmsg, "Reading band %d", ib+1);
+                sprintf (errmsg, "Error reading L8 band %d", ib+1);
                 error_handler (true, FUNC_NAME, errmsg);
                 return (ERROR);
             }
@@ -159,7 +173,7 @@ int compute_toa_refl
 
         /* Read the current band and calibrate thermal bands.  Not available
            for OLI-only scenes. */
-        else if (ib == DN_BAND10 && strcmp (instrument, "OLI"))
+        else if (ib == DN_L8_BAND10 && strcmp (instrument, "OLI"))
         {
             if (get_input_th_lines (input, 0, 0, nlines, uband) != SUCCESS)
             {
@@ -194,11 +208,11 @@ int compute_toa_refl
                     /* Make sure the brightness temp falls within the specified
                        range */
                     if (tmpf < MIN_VALID_TH)
-                        sband[SR_BAND10][i] = MIN_VALID_TH;
+                        sband[SR_L8_BAND10][i] = MIN_VALID_TH;
                     else if (tmpf > MAX_VALID_TH)
-                        sband[SR_BAND10][i] = MAX_VALID_TH;
+                        sband[SR_L8_BAND10][i] = MAX_VALID_TH;
                     else
-                        sband[SR_BAND10][i] = (int) (roundf (tmpf));
+                        sband[SR_L8_BAND10][i] = (int) (roundf (tmpf));
 
                     /* Check for saturation */
                     if (uband[i] == L1_SATURATED)
@@ -206,13 +220,13 @@ int compute_toa_refl
                 }
                 else
                 {
-                    sband[SR_BAND10][i] = FILL_VALUE;
+                    sband[SR_L8_BAND10][i] = FILL_VALUE;
                     radsat[i] = RADSAT_FILL_VALUE;
                 }
             }
         }  /* end if band 10 */
 
-        else if (ib == DN_BAND11 && strcmp (instrument, "OLI"))
+        else if (ib == DN_L8_BAND11 && strcmp (instrument, "OLI"))
         {
             if (get_input_th_lines (input, 1, 0, nlines, uband) != SUCCESS)
             {
@@ -247,11 +261,11 @@ int compute_toa_refl
                     /* Make sure the brightness temp falls within the specified
                        range */
                     if (tmpf < MIN_VALID_TH)
-                        sband[SR_BAND11][i] = MIN_VALID_TH;
+                        sband[SR_L8_BAND11][i] = MIN_VALID_TH;
                     else if (tmpf > MAX_VALID_TH)
-                        sband[SR_BAND11][i] = MAX_VALID_TH;
+                        sband[SR_L8_BAND11][i] = MAX_VALID_TH;
                     else
-                        sband[SR_BAND11][i] = (int) (roundf (tmpf));
+                        sband[SR_L8_BAND11][i] = (int) (roundf (tmpf));
 
                     /* Check for saturation only */
                     if (uband[i] == L1_SATURATED)
@@ -259,7 +273,7 @@ int compute_toa_refl
                 }
                 else
                 {
-                    sband[SR_BAND11][i] = FILL_VALUE;
+                    sband[SR_L8_BAND11][i] = FILL_VALUE;
                     radsat[i] = RADSAT_FILL_VALUE;
                 }
             }
@@ -278,9 +292,10 @@ int compute_toa_refl
 
 
 /******************************************************************************
-MODULE:  compute_sr_refl
+MODULE:  compute_l8_sr_refl
 
-PURPOSE:  Computes the surfance reflectance for all the reflectance bands.
+PURPOSE:  Computes the surface reflectance for all the Landsat 8 reflectance
+bands.
 
 RETURN VALUE:
 Type = int
@@ -308,7 +323,7 @@ NOTES:
    Those final aerosol values are used for the surface reflectance corrections.
 5. Cloud-based QA information is not processed in this algorithm.
 ******************************************************************************/
-int compute_sr_refl
+int compute_l8_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -319,14 +334,6 @@ int compute_sr_refl
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
     int16 **sband,      /* I/O: input TOA and output surface reflectance */
-    int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
-                              nlines x nsamps */
-    int16 *saa,         /* I: scaled per-pixel solar azimuth angles (degrees),
-                              nlines x nsamps */
-    int16 *vza,         /* I: scaled per-pixel view zenith angles (degrees),
-                              nlines x nsamps */
-    int16 *vaa,         /* I: scaled per-pixel view azimuth angles (degrees),
-                              nlines x nsamps */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
@@ -338,8 +345,9 @@ int compute_sr_refl
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 )
 {
-    char errmsg[STR_SIZE];                   /* error message */
-    char FUNC_NAME[] = "compute_sr_refl";   /* function name */
+    char errmsg[STR_SIZE];                     /* error message */
+    char FUNC_NAME[] = "compute_l8_sr_refl";   /* function name */
+    Sat_t sat = input->meta.sat;               /* satellite */
     int retval;          /* return status */
     int i, j;            /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
@@ -363,16 +371,16 @@ int compute_sr_refl
     float xrorayp;       /* reflectance of the atmosphere due to molecular
                             (Rayleigh) scattering */
     float next;
-    float erelc[NSR_BANDS];    /* band ratio variable for bands 1-7 */
-    float troatm[NSR_BANDS];   /* atmospheric reflectance table for bands 1-7 */
-    float btgo[NSR_BANDS];     /* other gaseous transmittance for bands 1-7 */
-    float broatm[NSR_BANDS];   /* atmospheric reflectance for bands 1-7 */
-    float bttatmg[NSR_BANDS];  /* ttatmg for bands 1-7 */
-    float bsatm[NSR_BANDS];    /* atmosphere spherical albedo for bands 1-7 */
+    float erelc[NSR_BANDS];   /* band ratio variable for refl bands */
+    float troatm[NSR_BANDS];  /* atmospheric reflectance table for refl bands */
+    float btgo[NSR_BANDS];    /* other gaseous transmittance for refl bands */
+    float broatm[NSR_BANDS];  /* atmospheric reflectance for refl bands */
+    float bttatmg[NSR_BANDS]; /* ttatmg for refl bands */
+    float bsatm[NSR_BANDS];   /* atmosphere spherical albedo for refl bands */
 
     int iband1, iband3; /* band indices (zero-based) */
     float raot;         /* AOT reflectance */
-    float sraot1, sraot2, sraot3;
+    float sraot1, sraot3;
                         /* raot values for three different eps values */
     float residual;     /* model residual */
     float residual1, residual2, residual3;
@@ -388,7 +396,7 @@ int compute_sr_refl
 
     float lat, lon;       /* pixel lat, long location */
     int lcmg, scmg;       /* line/sample index for the CMG */
-    int lcmg1, scmg1;     /* line+1/sample+1 index for the CMG */
+    int lcmg1;            /* line+1 index for the CMG */
     float u, v;           /* line/sample index for the CMG */
     float one_minus_u;    /* 1.0 - u */
     float one_minus_v;    /* 1.0 - v */
@@ -399,32 +407,20 @@ int compute_sr_refl
     float ndwi_th1, ndwi_th2; /* values for NDWI calculations */
     float xcmg, ycmg;     /* x/y location for CMG */
     float xndwi;          /* calculated NDWI value */
-#ifdef INTERP_AUX
-    int uoz11, uoz21, uoz12, uoz22;  /* ozone at line,samp; line, samp+1;
-                                        line+1, samp; and line+1, samp+1 */
-    float pres11, pres12, pres21, pres22;  /* pressure at line,samp;
-                             line, samp+1; line+1, samp; and line+1, samp+1 */
-    float wv11, wv12, wv21, wv22;  /* water vapor at line,samp;
-                             line, samp+1; line+1, samp; and line+1, samp+1 */
-#endif
     float median_aerosol; /* median aerosol value for clear pixels */
     uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
-    float *twvi = NULL;   /* interpolated water vapor value,
-                             nlines x nsamps */
-    float *tozi = NULL;   /* interpolated ozone value, nlines x nsamps */
-    float *tp = NULL;     /* interpolated pressure value, nlines x nsamps */
     float *taero = NULL;  /* aerosol values for each pixel, nlines x nsamps */
     float *teps = NULL;   /* angstrom coeff for each pixel, nlines x nsamps */
-    int16 *aerob1 = NULL; /* atmospherically corrected band 1 data
+    int16 *aerob1 = NULL; /* L8 atmospherically corrected band 1 data
                              (TOA refl), nlines x nsamps */
-    int16 *aerob2 = NULL; /* atmospherically corrected band 2 data
+    int16 *aerob2 = NULL; /* L8 atmospherically corrected band 2 data
                              (TOA refl), nlines x nsamps */
-    int16 *aerob4 = NULL; /* atmospherically corrected band 4 data
+    int16 *aerob4 = NULL; /* L8 atmospherically corrected band 4 data
                              (TOA refl), nlines x nsamps */
-    int16 *aerob5 = NULL; /* atmospherically corrected band 5 data
+    int16 *aerob5 = NULL; /* L8 atmospherically corrected band 5 data
                              (TOA refl), nlines x nsamps */
-    int16 *aerob7 = NULL; /* atmospherically corrected band 7 data
+    int16 *aerob7 = NULL; /* L8 atmospherically corrected band 7 data
                              (TOA refl), nlines x nsamps */
 
     /* Vars for forward/inverse mapping space */
@@ -523,12 +519,6 @@ int compute_sr_refl
     int ratio_pix12;  /* pixel location for ratio products [lcmg][scmg+1] */
     int ratio_pix21;  /* pixel location for ratio products [lcmg+1][scmg] */
     int ratio_pix22;  /* pixel location for ratio products [lcmg+1][scmg+1] */
-#ifdef INTERP_AUX
-    int cmg_pix11;    /* pixel location for CMG/DEM products [lcmg][scmg] */
-    int cmg_pix12;    /* pixel location for CMG/DEM products [lcmg][scmg+1] */
-    int cmg_pix21;    /* pixel location for CMG/DEM products [lcmg+1][scmg] */
-    int cmg_pix22;    /* pixel location for CMG/DEM products [lcmg+1][scmg+1] */
-#endif
 
     /* Variables for finding the eps that minimizes the residual */
     double xa, xb, xc, xd, xe, xf;  /* coefficients */
@@ -551,27 +541,29 @@ int compute_sr_refl
         {1050.0, 1013.0, 900.0, 800.0, 700.0, 600.0, 500.0};
 
     /* Atmospheric correction variables */
-    /* Look up table for atmospheric and geometric quantities */
-    float tauray[NSR_BANDS] =  /* molecular optical thickness coefficients --
-        produced by running 6S */
+    /* Look up table for atmospheric and geometric quantities.  Taurary comes
+       from tauray-ldcm/msi.ASC and the oz, wv, og variables come from
+       gascoef-modis/msi.ASC. */
+    float tauray[NSR_L8_BANDS] =  /* molecular optical thickness
+                                     coefficients -- produced by running 6S */
         {0.23638, 0.16933, 0.09070, 0.04827, 0.01563, 0.00129, 0.00037,
          0.07984};
-    double oztransa[NSR_BANDS] =   /* ozone transmission coeff */
+    double oztransa[NSR_L8_BANDS] =   /* ozone transmission coeff */
         {-0.00255649, -0.0177861, -0.0969872, -0.0611428, 0.0001, 0.0001,
           0.0001, -0.0834061};
-    double wvtransa[NSR_BANDS] =   /* water vapor transmission coeff */
+    double wvtransa[NSR_L8_BANDS] =   /* water vapor transmission coeff */
         {2.29849e-27, 2.29849e-27, 0.00194772, 0.00404159, 0.000729136,
          0.00067324, 0.0177533, 0.00279738};
-    double wvtransb[NSR_BANDS] =   /* water vapor transmission coeff */
+    double wvtransb[NSR_L8_BANDS] =   /* water vapor transmission coeff */
         {0.999742, 0.999742, 0.775024, 0.774482, 0.893085, 0.939669, 0.65094,
          0.759952};
-    double ogtransa1[NSR_BANDS] =  /* other gases transmission coeff */
+    double ogtransa1[NSR_L8_BANDS] =  /* other gases transmission coeff */
         {4.91586e-20, 4.91586e-20, 4.91586e-20, 1.04801e-05, 1.35216e-05,
          0.0205425, 0.0256526, 0.000214329};
-    double ogtransb0[NSR_BANDS] =  /* other gases transmission coeff */
+    double ogtransb0[NSR_L8_BANDS] =  /* other gases transmission coeff */
         {0.000197019, 0.000197019, 0.000197019, 0.640215, -0.195998, 0.326577,
          0.243961, 0.396322};
-    double ogtransb1[NSR_BANDS] =  /* other gases transmission coeff */
+    double ogtransb1[NSR_L8_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
@@ -585,11 +577,11 @@ int compute_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
-    retval = memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2, &aerob4,
-        &aerob5, &aerob7, &ipflag, &twvi, &tozi, &tp, &taero, &teps, &dem,
-        &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2,
-        &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt,
-        &transt, &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
+    retval = l8_memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2, &aerob4,
+        &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi, &sndwi,
+        &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2, &intratiob7,
+        &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt, &transt,
+        &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
@@ -614,7 +606,7 @@ int compute_sr_refl
         return (ERROR);
     }
 
-    /* Initialize the look up tables and atmospheric correction variables
+    /* Initialize the look up tables and atmospheric correction variables.
        view zenith initialized to 0.0 (xtv)
        azimuthal difference between sun and obs angle initialize to 0.0 (xfi)
        surface pressure is initialized to the pressure at the center of the
@@ -622,12 +614,11 @@ int compute_sr_refl
        water vapor is initialized to the value at the center of the scene (uwv)
        ozone is initialized to the value at the center of the scene (uoz) */
     retval = init_sr_refl (nlines, nsamps, input, space, anglehdf, intrefnm,
-        transmnm, spheranm, cmgdemnm, rationm, auxnm, &eps, &iaots, &xtv,
-        &xmuv, &xfi, &cosxfi, &raot550nm, &pres, &uoz, &uwv, &xtsstep,
-        &xtsmin, &xtvstep, &xtvmin, tsmax, tsmin, tts, ttv, indts, rolutt,
-        transt, sphalbt, normext, nbfic, nbfi, dem, andwi, sndwi, ratiob1,
-        ratiob2, ratiob7, intratiob1, intratiob2, intratiob7, slpratiob1,
-        slpratiob2, slpratiob7, wv, oz);
+        transmnm, spheranm, cmgdemnm, rationm, auxnm, &xtv, &xmuv, &xfi,
+        &cosxfi, &pres, &uoz, &uwv, &xtsstep, &xtsmin, &xtvstep, &xtvmin,
+        tsmax, tsmin, tts, ttv, indts, rolutt, transt, sphalbt, normext,
+        nbfic, nbfi, dem, andwi, sndwi, ratiob1, ratiob2, ratiob7, intratiob1,
+        intratiob2, intratiob7, slpratiob1, slpratiob2, slpratiob7, wv, oz);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error initializing the lookup tables and "
@@ -639,9 +630,9 @@ int compute_sr_refl
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
     mytime = time(NULL);
-    printf ("Performing atmospheric corrections for each reflectance "
+    printf ("Performing atmospheric corrections for each L8 reflectance "
         "band ... %s", ctime(&mytime));
-    for (ib = 0; ib <= SR_BAND7; ib++)
+    for (ib = 0; ib <= SR_L8_BAND7; ib++)
     {
         printf (" %d ...", ib+1);
 
@@ -652,12 +643,12 @@ int compute_sr_refl
         rotoa = 0.0;
         raot550nm = aot550nm[1];
         eps = 2.5;
-        retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi,
-            raot550nm, ib, pres, tpres, aot550nm, rolutt, transt, xtsstep,
-            xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic,
-            nbfi, tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-            ogtransb1, wvtransa, wvtransb, oztransa, rotoa, &roslamb,
-            &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
+        retval = atmcorlamb2 (input->meta.sat, xts, xtv, xmus, xmuv, xfi,
+            cosxfi, raot550nm, ib, pres, tpres, aot550nm, rolutt, transt,
+            xtsstep, xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin,
+            nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray, ogtransa1,
+            ogtransb0, ogtransb1, wvtransa, wvtransb, oztransa, rotoa,
+            &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
         if (retval != SUCCESS)
         {
             sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -687,15 +678,15 @@ int compute_sr_refl
                 {
                     /* Store the TOA scaled TOA reflectance values for later
                        use before completing atmospheric corrections */
-                    if (ib == DN_BAND1)
+                    if (ib == DN_L8_BAND1)
                         aerob1[curr_pix] = sband[ib][curr_pix];
-                    else if (ib == DN_BAND2)
+                    else if (ib == DN_L8_BAND2)
                         aerob2[curr_pix] = sband[ib][curr_pix];
-                    else if (ib == DN_BAND4)
+                    else if (ib == DN_L8_BAND4)
                         aerob4[curr_pix] = sband[ib][curr_pix];
-                    else if (ib == DN_BAND5)
+                    else if (ib == DN_L8_BAND5)
                         aerob5[curr_pix] = sband[ib][curr_pix];
-                    else if (ib == DN_BAND7)
+                    else if (ib == DN_L8_BAND7)
                         aerob7[curr_pix] = sband[ib][curr_pix];
     
                     /* Apply the atmospheric corrections (ignoring the Rayleigh
@@ -718,7 +709,7 @@ int compute_sr_refl
     mytime = time(NULL);
     printf ("Starting retrieval of atmospheric correction parameters ... %s",
         ctime(&mytime));
-    for (ib = 0; ib <= SR_BAND7; ib++)
+    for (ib = 0; ib <= SR_L8_BAND7; ib++)
     {
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
@@ -731,12 +722,13 @@ int compute_sr_refl
         for (ia = 0; ia < NAOT_VALS; ia++)
         {
             raot550nm = aot550nm[ia];
-            retval = atmcorlamb2 (xts, xtv, xmus, xmuv, xfi, cosxfi, raot550nm,
-                ib, pres, tpres, aot550nm, rolutt, transt, xtsstep, xtsmin,
-                xtvstep, xtvmin, sphalbt, normext, tsmax, tsmin, nbfic, nbfi,
-                tts, indts, ttv, uoz, uwv, tauray, ogtransa1, ogtransb0,
-                ogtransb1, wvtransa, wvtransb, oztransa, rotoa, &roslamb, &tgo,
-                &roatm, &ttatmg, &satm, &xrorayp, &next, eps);
+            retval = atmcorlamb2 (input->meta.sat, xts, xtv, xmus, xmuv, xfi,
+                cosxfi, raot550nm, ib, pres, tpres, aot550nm, rolutt, transt,
+                xtsstep, xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax,
+                tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
+                ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb, oztransa,
+                rotoa, &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next,
+                eps);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Performing lambertian atmospheric correction "
@@ -759,7 +751,7 @@ int compute_sr_refl
         xrorayp_arr[ib] = xrorayp;
     }
 
-    for (ib = 0; ib <= SR_BAND7; ib++)
+    for (ib = 0; ib <= SR_L8_BAND7; ib++)
     {
         /* Get the polynomial coefficients for roatm */
         for (ia = 0; ia < NAOT_VALS; ia++)
@@ -800,214 +792,24 @@ int compute_sr_refl
             satm_coef[ib][ia] = coef1[ia];
     }
 
-#ifdef INTERP_AUX
-/* TODO -- if the auxiliary data interpolation is taken out, then these
-   variables can be removed from the memory initialization as well - tozi,
-   twvi, tp */
-    /* Interpolate the auxiliary data for each pixel location */
-    mytime = time(NULL);
-    printf ("Interpolating the auxiliary data ... %s", ctime(&mytime));
-    tmp_percent = 0;
-#ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, cmg_pix11, cmg_pix12, cmg_pix21, cmg_pix22, wv11, wv12, wv21, wv22, uoz11, uoz12, uoz21, uoz22, pres11, pres12, pres21, pres22)
-#endif
-
-    for (i = 0; i < nlines; i++)
-    {
-#ifndef _OPENMP
-        /* update status, but not if multi-threaded */
-        curr_tmp_percent = 100 * i / nlines;
-        if (curr_tmp_percent > tmp_percent)
-        {
-            tmp_percent = curr_tmp_percent;
-            if (tmp_percent % 10 == 0)
-            {
-                printf ("%d%% ", tmp_percent);
-                fflush (stdout);
-            }
-        }
-#endif
-
-        curr_pix = i * nsamps;
-        for (j = 0; j < nsamps; j++, curr_pix++)
-        {
-            /* If this pixel is fill, do not process */
-            if (qaband[curr_pix] == 1)
-            {
-                ipflag[curr_pix] |= (1 << IPFLAG_FILL);
-                continue;
-            }
-
-            /* Get the lat/long for the current pixel */
-            img.l = i - 0.5;
-            img.s = j + 0.5;
-            img.is_fill = false;
-            if (!from_space (space, &img, &geo))
-            {
-                sprintf (errmsg, "Mapping line/sample (%d, %d) to "
-                    "geolocation coords", i, j);
-                error_handler (true, FUNC_NAME, errmsg);
-                exit (ERROR);
-            }
-            lat = geo.lat * RAD2DEG;
-            lon = geo.lon * RAD2DEG;
-
-            /*** Handle all the variables related to the current pixel in the
-                 auxiliary products ***/
-            /* Use that lat/long to determine the line/sample in the
-               CMG-related lookup tables, using the center of the UL
-               pixel. Note, we are basically making sure the line/sample
-               combination falls within -90, 90 and -180, 180 global climate
-               data boundaries.  However, the source code below uses lcmg+1
-               and scmg+1, which for some scenes may wrap around the dateline
-               or the poles.  Thus we need to wrap the CMG data around to the
-               beginning of the array. */
-            /* Each CMG pixel is 0.05 x 0.05 degrees.  Use the center of the
-               pixel for each calculation.  Negative latitude values should be
-               the largest line values in the CMG grid.  Negative longitude
-               values should be the smallest sample values in the CMG grid. */
-            /* The line/sample calculation from the x/ycmg values are not
-               rounded.  The interpolation of the value using line+1 and
-               sample+1 are based on the truncated numbers, therefore rounding
-               up is not appropriate. */
-            ycmg = (89.975 - lat) * 20.0;   /* vs / 0.05 */
-            xcmg = (179.975 + lon) * 20.0;  /* vs / 0.05 */
-            lcmg = (int) ycmg;
-            scmg = (int) xcmg;
-
-            /* Handle the edges of the lat/long values in the CMG grid */
-            if (lcmg < 0)
-                lcmg = 0;
-            else if (lcmg >= CMG_NBLAT)
-                lcmg = CMG_NBLAT;
-
-            if (scmg < 0)
-                scmg = 0;
-            else if (scmg >= CMG_NBLON)
-                scmg = CMG_NBLON;
-
-            /* If the current CMG pixel is at the edge of the CMG array,
-               then allow the next pixel for interpolation to wrap around
-               the array */
-            if (scmg >= CMG_NBLON-1)  /* 180 degrees so wrap around */
-                scmg1 = 0;
-            else
-                scmg1 = scmg + 1;
-
-            if (lcmg >= CMG_NBLAT-1)  /* -90 degrees so wrap around */
-                lcmg1 = 0;
-            else
-                lcmg1 = lcmg + 1;
-
-            /* Determine the four CMG pixels to be used for the current
-               Landsat pixel */
-            cmg_pix11 = lcmg * CMG_NBLON + scmg;
-            cmg_pix12 = lcmg * CMG_NBLON + scmg1;
-            cmg_pix21 = lcmg1 * CMG_NBLON + scmg;
-            cmg_pix22 = lcmg1 * CMG_NBLON + scmg1;
-
-            /* Get the water vapor pixels. If the water vapor value is
-               fill (=0), then use it as-is. */
-            wv11 = wv[cmg_pix11];
-            wv12 = wv[cmg_pix12];
-            wv21 = wv[cmg_pix21];
-            wv22 = wv[cmg_pix22];
-
-            /* Get the ozone pixels. If the ozone value is fill (=0), then use
-               a default value of 120. */
-            uoz11 = oz[cmg_pix11];
-            if (uoz11 == 0)
-                uoz11 = 120;
-
-            uoz12 = oz[cmg_pix12];
-            if (uoz12 == 0)
-                uoz12 = 120;
-
-            uoz21 = oz[cmg_pix21];
-            if (uoz21 == 0)
-                uoz21 = 120;
-
-            uoz22 = oz[cmg_pix22];
-            if (uoz22 == 0)
-                uoz22 = 120;
-
-            /* Get the surface pressure from the global DEM.  Set to 1013.0
-               (sea level) if the DEM is fill (= -9999), which is likely ocean.
-               The dimensions on the DEM array is the same as that of the CMG
-               arrays. Use the current pixel locations already calculated. */
-            if (dem[cmg_pix11] != -9999)
-                pres11 = 1013.0 * exp (-dem[cmg_pix11] * ONE_DIV_8500);
-            else
-                pres11 = 1013.0;
-
-            if (dem[cmg_pix12] != -9999)
-                pres12 = 1013.0 * exp (-dem[cmg_pix12] * ONE_DIV_8500);
-            else
-                pres12 = 1013.0;
-
-            if (dem[cmg_pix21] != -9999)
-                pres21 = 1013.0 * exp (-dem[cmg_pix21] * ONE_DIV_8500);
-            else
-                pres21 = 1013.0;
-
-            if (dem[cmg_pix22] != -9999)
-                pres22 = 1013.0 * exp (-dem[cmg_pix22] * ONE_DIV_8500);
-            else
-                pres22 = 1013.0;
-
-            /*** Handle all the variables related to the current pixel in the
-                 Landsat scene, which means interpolating the global-level
-                 variables ***/
-            /* Determine the fractional difference between the integer location
-               and floating point pixel location to be used for interpolation */
-            u = (ycmg - lcmg);
-            v = (xcmg - scmg);
-            one_minus_u = 1.0 - u;
-            one_minus_v = 1.0 - v;
-            one_minus_u_x_one_minus_v = one_minus_u * one_minus_v;
-            one_minus_u_x_v = one_minus_u * v;
-            u_x_one_minus_v = u * one_minus_v;
-            u_x_v = u * v;
-
-            /* Interpolate water vapor, and unscale */
-            twvi[curr_pix] = wv11 * one_minus_u_x_one_minus_v +
-                             wv12 * one_minus_u_x_v +
-                             wv21 * u_x_one_minus_v +
-                             wv22 * u_x_v;
-            twvi[curr_pix] = twvi[curr_pix] * 0.01;   /* vs / 100 */
-
-            /* Interpolate ozone, and unscale */
-            tozi[curr_pix] = uoz11 * one_minus_u_x_one_minus_v +
-                             uoz12 * one_minus_u_x_v +
-                             uoz21 * u_x_one_minus_v +
-                             uoz22 * u_x_v;
-            tozi[curr_pix] = tozi[curr_pix] * 0.0025;   /* vs / 400 */
-
-
-            /* Interpolate surface pressure */
-            tp[curr_pix] = pres11 * one_minus_u_x_one_minus_v +
-                           pres12 * one_minus_u_x_v +
-                           pres21 * u_x_one_minus_v +
-                           pres22 * u_x_v;
-        }  /* end for j */
-    }  /* end for i */
-
-#ifndef _OPENMP
-    /* update status */
-    printf ("100%%\n");
-    fflush (stdout);
-#endif
-#endif
+    /* Compute some EPS values */
+    eps1 = LOW_EPS;
+    eps2 = MOD_EPS;
+    eps3 = HIGH_EPS;
+    xa = (eps1 * eps1) - (eps3 * eps3);
+    xd = (eps2 * eps2) - (eps3 * eps3);
+    xb = eps1 - eps3;
+    xe = eps2 - eps3;
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
-        AERO_WINDOW, AERO_WINDOW, ctime(&mytime));
+        L8_AERO_WINDOW, L8_AERO_WINDOW, ctime(&mytime));
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iband, iband1, iband3, iaots, retval, eps, eps1, eps2, eps3, residual, residual1, residual2, residual3, raot, sraot1, sraot2, sraot3, xa, xb, xc, xd, xe, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, erelc, troatm)
+    #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iband, iband1, iband3, iaots, retval, eps, residual, residual1, residual2, residual3, raot, sraot1, sraot3, xc, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros5, ros4, erelc, troatm)
 #endif
-    for (i = HALF_AERO_WINDOW; i < nlines; i += AERO_WINDOW)
+    for (i = L8_HALF_AERO_WINDOW; i < nlines; i += L8_AERO_WINDOW)
     {
 #ifndef _OPENMP
         /* update status, but not if multi-threaded */
@@ -1023,9 +825,9 @@ int compute_sr_refl
         }
 #endif
 
-        curr_pix = i * nsamps + HALF_AERO_WINDOW;
-        for (j = HALF_AERO_WINDOW; j < nsamps;
-             j += AERO_WINDOW, curr_pix += AERO_WINDOW)
+        curr_pix = i * nsamps + L8_HALF_AERO_WINDOW;
+        for (j = L8_HALF_AERO_WINDOW; j < nsamps;
+             j += L8_AERO_WINDOW, curr_pix += L8_AERO_WINDOW)
         {
             /* Keep track of the center pixel for the current aerosol window;
                may need to return here if this is fill, cloudy or water */
@@ -1038,7 +840,8 @@ int compute_sr_refl
             {
                 /* Look for other non-fill pixels in the window */
                 if (find_closest_non_fill (qaband, nlines, nsamps, center_line,
-                    center_samp, &nearest_line, &nearest_samp))
+                    center_samp, L8_HALF_AERO_WINDOW, &nearest_line,
+                    &nearest_samp))
                 {
                     /* Use the line/sample location of the non-fill pixel for
                        further processing of aerosols. However we will still
@@ -1059,13 +862,14 @@ int compute_sr_refl
             /* If this non-fill pixel is water, then look for a pixel which is
                not water.  If none are found then the whole window is fill or
                water.  Flag this pixel as water. */
-            if (is_water (sband[SR_BAND4][curr_pix],
-                          sband[SR_BAND5][curr_pix]))
+            if (is_water (sband[SR_L8_BAND4][curr_pix],
+                          sband[SR_L8_BAND5][curr_pix]))
             {
                 /* Look for other non-fill/non-water pixels in the window.
                    Start with the center of the window and search outward. */
-                if (find_closest_non_water (qaband, sband, nlines, nsamps,
-                    center_line, center_samp, &nearest_line, &nearest_samp))
+                if (find_closest_non_water (qaband, sband, SR_L8_BAND4,
+                    SR_L8_BAND5, nlines, nsamps, center_line, center_samp,
+                    L8_HALF_AERO_WINDOW, &nearest_line, &nearest_samp))
                 {
                     /* Use the line/sample location of the non-fill/non-water
                        pixel for further processing */
@@ -1101,8 +905,9 @@ int compute_sr_refl
                 /* Look for other non-fill/non-water/non-cloud/non-shadow
                    pixels in the window.  Start with the center of the window
                    and search outward. */
-                if (find_closest_non_cloud_shadow_water (qaband, sband, nlines,
-                    nsamps, center_line, center_samp, &nearest_line,
+                if (find_closest_non_cloud_shadow_water (qaband, sband,
+                    SR_L8_BAND4, SR_L8_BAND5, nlines, nsamps, center_line,
+                    center_samp, L8_HALF_AERO_WINDOW, &nearest_line,
                     &nearest_samp))
                 {
                     /* Use the line/sample location of the non-fill/non-cloud
@@ -1140,7 +945,7 @@ int compute_sr_refl
 
             /* Get the lat/long for the current pixel (which may not be the
                center of the aerosol window), for the center of that pixel */
-            img.l = i - 0.5;
+            img.l = i + 0.5;
             img.s = j + 0.5;
             img.is_fill = false;
             if (!from_space (space, &img, &geo))
@@ -1189,11 +994,6 @@ int compute_sr_refl
             /* If the current CMG pixel is at the edge of the CMG array, then
                allow the next pixel for interpolation to wrap around the
                array */
-            if (scmg >= CMG_NBLON-1)  /* 180 degrees so wrap around */
-                scmg1 = 0;
-            else
-                scmg1 = scmg + 1;
-
             if (lcmg >= CMG_NBLAT-1)  /* -90 degrees so wrap around */
                 lcmg1 = 0;
             else
@@ -1359,10 +1159,10 @@ int compute_sr_refl
                      intr22 * u_x_v;
 
             /* Calculate NDWI variables for the band ratios */
-            xndwi = ((double) sband[SR_BAND5][curr_pix] -
-                     (double) (sband[SR_BAND7][curr_pix] * 0.5)) /
-                    ((double) sband[SR_BAND5][curr_pix] +
-                     (double) (sband[SR_BAND7][curr_pix] * 0.5));
+            xndwi = ((double) sband[SR_L8_BAND5][curr_pix] -
+                     (double) (sband[SR_L8_BAND7][curr_pix] * 0.5)) /
+                    ((double) sband[SR_L8_BAND5][curr_pix] +
+                     (double) (sband[SR_L8_BAND7][curr_pix] * 0.5));
 
             if (xndwi > ndwi_th1)
                 xndwi = ndwi_th1;
@@ -1376,48 +1176,46 @@ int compute_sr_refl
                 troatm[ib] = 0.0;
             }
 
-            /* Compute the band ratio */
-            erelc[DN_BAND1] = (xndwi * slprb1 + intrb1);
-            erelc[DN_BAND2] = (xndwi * slprb2 + intrb2);
-            erelc[DN_BAND4] = 1.0;
-            erelc[DN_BAND7] = (xndwi * slprb7 + intrb7);
+            /* Compute the band ratio - coastal aerosol, blue, red, SWIR */
+            erelc[DN_L8_BAND1] = (xndwi * slprb1 + intrb1);
+            erelc[DN_L8_BAND2] = (xndwi * slprb2 + intrb2);
+            erelc[DN_L8_BAND4] = 1.0;
+            erelc[DN_L8_BAND7] = (xndwi * slprb7 + intrb7);
 
             /* Retrieve the TOA reflectance values for the current pixel */
-            troatm[DN_BAND1] = aerob1[curr_pix] * SCALE_FACTOR;
-            troatm[DN_BAND2] = aerob2[curr_pix] * SCALE_FACTOR;
-            troatm[DN_BAND4] = aerob4[curr_pix] * SCALE_FACTOR;
-            troatm[DN_BAND7] = aerob7[curr_pix] * SCALE_FACTOR;
+            troatm[DN_L8_BAND1] = aerob1[curr_pix] * SCALE_FACTOR;
+            troatm[DN_L8_BAND2] = aerob2[curr_pix] * SCALE_FACTOR;
+            troatm[DN_L8_BAND4] = aerob4[curr_pix] * SCALE_FACTOR;
+            troatm[DN_L8_BAND7] = aerob7[curr_pix] * SCALE_FACTOR;
 
-            /* Retrieve the aerosol information for eps 1.0 */
-            iband1 = DN_BAND4;
-            iband3 = DN_BAND1;
-            eps = 1.0;
+            /* Retrieve the aerosol information for low eps 1.0 */
+            iband1 = DN_L8_BAND4;   /* red band */
+            iband3 = DN_L8_BAND1;   /* coastal aerosol */
+            eps = LOW_EPS;
             iaots = 0;
-            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
-                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
-                normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
+                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
-            eps1 = eps;
             residual1 = residual;
             sraot1 = raot;
 
-            /* Retrieve the aerosol information for eps 1.75 */
-            eps = 1.75;
-            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
-                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
-                normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            /* Retrieve the aerosol information for moderate eps 1.75 */
+            eps = MOD_EPS;
+            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
+                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             eps2 = eps;
             residual2 = residual;
-            sraot2 = raot;
 
-            /* Retrieve the aerosol information for eps 2.5 */
-            eps = 2.5;
-            subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
-                xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
-                normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            /* Retrieve the aerosol information for high eps 2.5 */
+            eps = HIGH_EPS;
+            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
+                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             eps3 = eps;
@@ -1425,10 +1223,6 @@ int compute_sr_refl
             sraot3 = raot;
 
             /* Find the eps that minimizes the residual */
-            xa = (eps1 * eps1) - (eps3 * eps3);
-            xd = (eps2 * eps2) - (eps3 * eps3);
-            xb = eps1 - eps3;
-            xe = eps2 - eps3;
             xc = residual1 - residual3;
             xf = residual2 - residual3;
             coefa = (xc*xe - xb*xf) / (xa*xe - xb*xd);
@@ -1436,21 +1230,21 @@ int compute_sr_refl
             epsmin = -coefb / (2.0 * coefa);
             eps = epsmin;
 
-            if (epsmin >= 1.0 && epsmin <= 2.5)
+            if (epsmin >= LOW_EPS && epsmin <= HIGH_EPS)
             {
-                subaeroret_new (iband1, iband3, erelc, troatm, tgo_arr,
-                    xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
+                    tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
                     satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
             }
             else
             {
-                if (epsmin <= 1.0)
+                if (epsmin <= LOW_EPS)
                 {
                     eps = eps1;
                     residual = residual1;
                     raot = sraot1;
                 }
-                else if (epsmin >= 2.5)
+                else if (epsmin >= HIGH_EPS)
                 {
                     eps = eps3;
                     residual = residual3;
@@ -1464,29 +1258,32 @@ int compute_sr_refl
 
             /* Check the model residual.  Corf represents aerosol impact.
                Test the quality of the aerosol inversion. */
-            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DN_BAND7]))
+            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DN_L8_BAND7]))
             {
-                /* Test if band 5 makes sense */
-                iband = DN_BAND5;
+                /* Test if NIR band 5 makes sense */
+                iband = DN_L8_BAND5;
                 rotoa = aerob5[curr_pix] * SCALE_FACTOR;
                 raot550nm = raot;
-                atmcorlamb2_new (tgo_arr[iband], xrorayp_arr[iband],
-                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
-                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
-                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
+                atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
+                    xrorayp_arr[iband], aot550nm[roatm_iaMax[iband]],
+                    &roatm_coef[iband][0], &ttatmg_coef[iband][0],
+                    &satm_coef[iband][0], raot550nm, iband,
+                    normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros5 = roslamb;
 
-                /* Test if band 4 makes sense */
-                iband = DN_BAND4;
+                /* Test if red band 4 makes sense */
+                iband = DN_L8_BAND4;
                 rotoa = aerob4[curr_pix] * SCALE_FACTOR;
                 raot550nm = raot;
-                atmcorlamb2_new (tgo_arr[iband], xrorayp_arr[iband],
-                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
-                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
-                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
+                atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
+                    xrorayp_arr[iband], aot550nm[roatm_iaMax[iband]],
+                    &roatm_coef[iband][0], &ttatmg_coef[iband][0],
+                    &satm_coef[iband][0], raot550nm, iband,
+                    normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros4 = roslamb;
 
-                /* Use the NDVI to validate the reflectance values */
+                /* Use the NDVI to validate the reflectance values or flag
+                   as water */
                 if ((ros5 > 0.1) && ((ros5 - ros4) / (ros5 + ros4) > 0))
                 {
                     /* Clear pixel with valid aerosol retrieval */
@@ -1565,7 +1362,8 @@ int compute_sr_refl
     mytime = time(NULL);
     printf ("Computing median of clear pixels in NxN windows %s",
         ctime(&mytime));
-    median_aerosol = find_median_aerosol (ipflag, taero, nlines, nsamps);
+    median_aerosol = find_median_aerosol_l8 (ipflag, taero, L8_AERO_WINDOW,
+        L8_HALF_AERO_WINDOW, nlines, nsamps);
     if (median_aerosol == 0.0)
     {   /* error message already printed */
         error_handler (true, FUNC_NAME, errmsg);
@@ -1578,7 +1376,8 @@ int compute_sr_refl
     mytime = time(NULL);
     printf ("Fill non-clear aerosol values in NxN windows with the median %s",
         ctime(&mytime));
-    aerosol_fill_median (ipflag, taero, median_aerosol, nlines, nsamps);
+    aerosol_fill_median_l8 (ipflag, taero, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+        median_aerosol, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1597,8 +1396,8 @@ int compute_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp (xml_metadata, sband, qaband, ipflag, taero, median_aerosol,
-        nlines, nsamps);
+    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+        sband, qaband, ipflag, taero, median_aerosol, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1618,16 +1417,16 @@ int compute_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the teps values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp (xml_metadata, sband, qaband, ipflag, teps, DEFAULT_EPS,
-        nlines, nsamps);
+    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+        sband, qaband, ipflag, teps, DEFAULT_EPS, nlines, nsamps);
 
     /* Perform the second level of atmospheric correction using the aerosols */
     mytime = time(NULL);
     printf ("Performing atmospheric correction ... %s", ctime(&mytime));
 
-    /* 0 .. DN_BAND7 is the same as 0 .. SR_BAND7 here, since the pan band
+    /* 0 .. DN_L8_BAND7 is the same as 0 .. SR_L8_BAND7 here, since the pan band
        isn't spanned */
-    for (ib = 0; ib <= DN_BAND7; ib++)
+    for (ib = 0; ib <= DN_L8_BAND7; ib++)
     {
         printf ("  Band %d\n", ib+1);
 #ifdef _OPENMP
@@ -1654,14 +1453,14 @@ int compute_sr_refl
                     broatm[ib]) * btgo[ib];
                 raot550nm = taero[curr_pix];
                 eps = teps[curr_pix];
-                atmcorlamb2_new (tgo_arr[ib], xrorayp_arr[ib],
+                atmcorlamb2_new (input->meta.sat, tgo_arr[ib], xrorayp_arr[ib],
                     aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
                     &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
                     normext_p0a3_arr[ib], rotoa, &roslamb, eps);
 
                 /* If this is the coastal aerosol band then set the aerosol
                    bits in the QA band */
-                if (ib == DN_BAND1)
+                if (ib == DN_L8_BAND1)
                 {
                     /* Set up aerosol QA bits */
                     tmpf = fabs (rsurf - roslamb);
@@ -1697,9 +1496,6 @@ int compute_sr_refl
     }  /* end for ib */
 
     /* Free memory for arrays no longer needed */
-    free (twvi);
-    free (tozi);
-    free (tp);
     free (taero);
     free (teps);
  
@@ -1717,7 +1513,7 @@ int compute_sr_refl
     }
 
     /* Loop through the reflectance bands and write the data */
-    for (ib = 0; ib <= DN_BAND7; ib++)
+    for (ib = 0; ib <= DN_L8_BAND7; ib++)
     {
         printf ("  Band %d: %s\n", ib+1,
             sr_output->metadata.band[ib].file_name);
@@ -1761,9 +1557,9 @@ int compute_sr_refl
     }
 
     /* Write the aerosol QA band */
-    printf ("  Band %d: %s\n", SR_AEROSOL+1,
-            sr_output->metadata.band[SR_AEROSOL].file_name);
-    if (put_output_lines (sr_output, ipflag, SR_AEROSOL, 0, nlines,
+    printf ("  Aerosol Band %d: %s\n", SR_L8_AEROSOL+1,
+            sr_output->metadata.band[SR_L8_AEROSOL].file_name);
+    if (put_output_lines (sr_output, ipflag, SR_L8_AEROSOL, 0, nlines,
         sizeof (uint8)) != SUCCESS)
     {
         sprintf (errmsg, "Writing aerosol QA output data");
@@ -1775,7 +1571,7 @@ int compute_sr_refl
     free (ipflag);
 
     /* Create the ENVI header for the aerosol QA band */
-    if (create_envi_struct (&sr_output->metadata.band[SR_AEROSOL],
+    if (create_envi_struct (&sr_output->metadata.band[SR_L8_AEROSOL],
         &xml_metadata->global, &envi_hdr) != SUCCESS)
     {
         sprintf (errmsg, "Creating ENVI header structure.");
@@ -1784,7 +1580,7 @@ int compute_sr_refl
     }
 
     /* Write the ENVI header */
-    strcpy (envi_file, sr_output->metadata.band[SR_AEROSOL].file_name);
+    strcpy (envi_file, sr_output->metadata.band[SR_L8_AEROSOL].file_name);
     cptr = strchr (envi_file, '.');
     strcpy (cptr, ".hdr");
     if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
@@ -1795,7 +1591,7 @@ int compute_sr_refl
     }
 
     /* Append the aerosol QA band to the XML file */
-    if (append_metadata (1, &sr_output->metadata.band[SR_AEROSOL],
+    if (append_metadata (1, &sr_output->metadata.band[SR_L8_AEROSOL],
         xml_infile) != SUCCESS)
     {
         sprintf (errmsg, "Appending aerosol QA band to XML file.");
@@ -1804,7 +1600,7 @@ int compute_sr_refl
     }
 
     /* Close the output surface reflectance products */
-    close_output (sr_output, OUTPUT_SR);
+    close_output (sat, sr_output, OUTPUT_SR);
     free_output (sr_output, OUTPUT_SR);
 
     /* Free the spatial mapping pointer */
@@ -1826,632 +1622,3 @@ int compute_sr_refl
     printf ("Surface reflectance correction complete ... %s\n", ctime(&mytime));
     return (SUCCESS);
 }
-
-
-/******************************************************************************
-MODULE:  init_sr_refl
-
-PURPOSE:  Initialization for the atmospheric corrections.  Initialization for
-look up tables, auxiliary data, mapping, and geolocation information is used
-for the surface reflectance correction.
-
-RETURN VALUE:
-Type = int
-Value           Description
------           -----------
-ERROR           Error initializing the atmospheric parameters
-SUCCESS         No errors encountered
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-1. The view angle is set to 0.0 and this never changes.
-2. The DEM is used to calculate the surface pressure.
-******************************************************************************/
-int init_sr_refl
-(
-    int nlines,         /* I: number of lines in reflectance, thermal bands */
-    int nsamps,         /* I: number of samps in reflectance, thermal bands */
-    Input_t *input,     /* I: input structure for the Landsat product */
-    Geoloc_t *space,    /* I: structure for geolocation information */
-    char *anglehdf,     /* I: angle HDF filename */
-    char *intrefnm,     /* I: intrinsic reflectance filename */
-    char *transmnm,     /* I: transmission filename */
-    char *spheranm,     /* I: spherical albedo filename */
-    char *cmgdemnm,     /* I: climate modeling grid DEM filename */
-    char *rationm,      /* I: ratio averages filename */
-    char *auxnm,        /* I: auxiliary filename for ozone and water vapor */
-    float *eps,         /* O: angstrom coefficient */
-    int *iaots,         /* O: index for AOTs */ 
-    float *xtv,         /* O: observation zenith angle (deg) */
-    float *xmuv,        /* O: cosine of observation zenith angle */
-    float *xfi,         /* O: azimuthal difference between sun and
-                              observation (deg) */
-    float *cosxfi,      /* O: cosine of azimuthal difference */
-    float *raot550nm,   /* O: nearest value of AOT */
-    float *pres,        /* O: surface pressure */
-    float *uoz,         /* O: total column ozone */
-    float *uwv,         /* O: total column water vapor (precipital water
-                              vapor) */
-    float *xtsstep,     /* O: solar zenith step value */
-    float *xtsmin,      /* O: minimum solar zenith value */
-    float *xtvstep,     /* O: observation step value */
-    float *xtvmin,      /* O: minimum observation value */
-    float *tsmax,       /* O: maximum scattering angle table
-                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
-    float *tsmin,       /* O: minimum scattering angle table
-                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
-    float tts[22],      /* O: sun angle table */
-    float *ttv,         /* O: view angle table
-                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
-    int32 indts[22],    /* O: index for the sun angle table */
-    float *rolutt,      /* O: intrinsic reflectance table
-                          [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
-    float *transt,      /* O: transmission table 
-                      [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUN_ANGLE_VALS] */
-    float *sphalbt,     /* O: spherical albedo table 
-                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
-    float *normext,     /* O: aerosol extinction coefficient at the current
-                              wavelength (normalized at 550nm)
-                              [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
-    float *nbfic,       /* O: communitive number of azimuth angles
-                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
-    float *nbfi,        /* O: number of azimuth angles
-                              [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
-    int16 *dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
-    int16 *andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *ratiob1,     /* O: mean band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *ratiob2,     /* O: mean band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *ratiob7,     /* O: mean band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *intratiob1,  /* O: integer band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *intratiob2,  /* O: integer band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *intratiob7,  /* O: integer band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *slpratiob1,  /* O: slope band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *slpratiob2,  /* O: slope band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    int16 *slpratiob7,  /* O: slope band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
-    uint16 *wv,         /* O: water vapor values [CMG_NBLAT x CMG_NBLON] */
-    uint8 *oz           /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
-)
-{
-    char errmsg[STR_SIZE];                   /* error message */
-    char FUNC_NAME[] = "init_sr_refl";       /* function name */
-    int retval;          /* return status */
-    int lcmg, scmg;      /* line/sample index for the CMG */
-    int cmg_pix;         /* pixel location in the CMG array for [lcmg][scmg] */
-    int dem_pix;         /* pixel location in the DEM array for [lcmg][scmg] */
-    float xcmg, ycmg;    /* x/y location for CMG */
-
-    /* Vars for forward/inverse mapping space */
-    Img_coord_float_t img;        /* coordinate in line/sample space */
-    Geo_coord_t geo;              /* coordinate in lat/long space */
-    float center_lat, center_lon; /* lat/long for scene center */
-
-    /* Initialize the look up tables */
-    *eps = 1.0;
-    *iaots = 0;
-    *xtv = 0.0;
-    *xmuv = cos (*xtv * DEG2RAD);
-    *xfi = 0.0;
-    *cosxfi = cos (*xfi * DEG2RAD);
-    *xtsmin = 0;
-    *xtsstep = 4.0;
-    *xtvmin = 2.84090;
-    *xtvstep = 6.52107 - *xtvmin;
-    retval = readluts (tsmax, tsmin, ttv, tts, nbfic, nbfi, indts, rolutt,
-        transt, sphalbt, normext, *xtsstep, *xtsmin, anglehdf,
-        intrefnm, transmnm, spheranm);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Reading the LUTs");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    printf ("The LUTs for urban clean case v2.0 have been read.  We can "
-        "now perform atmospheric correction.\n");
-
-    /* Read the auxiliary data files used as input to the reflectance
-       calculations */
-    retval = read_auxiliary_files (cmgdemnm, rationm, auxnm, dem, andwi, sndwi,
-        ratiob1, ratiob2, ratiob7, intratiob1, intratiob2, intratiob7,
-        slpratiob1, slpratiob2, slpratiob7, wv, oz);
-    if (retval != SUCCESS)
-    {
-        sprintf (errmsg, "Reading the auxiliary files");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    /* Getting parameters for atmospheric correction */
-    /* Update to get the parameter of the scene center */
-    *raot550nm = 0.12;
-    *pres = 1013.0;
-    *uoz = 0.30;
-    *uwv = 0.5;
-
-    /* Use scene center (and center of the pixel) to compute atmospheric
-       parameters */
-    img.l = (int) (nlines * 0.5) - 0.5;
-    img.s = (int) (nsamps * 0.5) + 0.5;
-    img.is_fill = false;
-    if (!from_space (space, &img, &geo))
-    {
-        sprintf (errmsg, "Mapping scene center to geolocation coords");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-    center_lat = geo.lat * RAD2DEG;
-    center_lon = geo.lon * RAD2DEG;
-    printf ("Scene center line/sample: %f, %f\n", img.l, img.s);
-    printf ("Scene center lat/long: %f, %f\n", center_lat, center_lon);
-
-    /* Use the scene center lat/long to determine the line/sample in the
-       CMG-related lookup tables, using the center of the UL pixel.
-       Negative latitude values should be the largest line values in the CMG
-       grid.  Negative longitude values should be the smallest sample values
-       in the CMG grid. */
-    ycmg = (89.975 - center_lat) * 20.0;    /* vs / 0.05 */
-    xcmg = (179.975 + center_lon) * 20.0;   /* vs / 0.05 */
-    lcmg = (int) roundf (ycmg);
-    scmg = (int) roundf (xcmg);
-
-    /* Handle the edges of the lat/long values in the CMG grid */
-    if (lcmg < 0)
-        lcmg = 0;
-    else if (lcmg >= CMG_NBLAT)
-        lcmg = CMG_NBLAT;
-
-    if (scmg < 0)
-        scmg = 0;
-    else if (scmg >= CMG_NBLON)
-        scmg = CMG_NBLON;
-
-    cmg_pix = lcmg * CMG_NBLON + scmg;
-    if (wv[cmg_pix] != 0)
-        *uwv = wv[cmg_pix] / 200.0;
-    else
-        *uwv = 0.5;
-
-    if (oz[cmg_pix] != 0)
-        *uoz = oz[cmg_pix] / 400.0;
-    else
-        *uoz = 0.3;
-
-    dem_pix = lcmg * DEM_NBLON + scmg;
-    if (dem[dem_pix] != -9999)
-        *pres = 1013.0 * exp (-dem[dem_pix] * ONE_DIV_8500);
-    else
-        *pres = 1013.0;
-    *raot550nm = DEFAULT_AERO;
-
-    /* Successful completion */
-    return (SUCCESS);
-}
-
-
-/******************************************************************************
-MODULE:  is_cloud
-
-PURPOSE:  Determines if the pixel is a cloud (cloud or cirrus cloud).  The
-Level-1 QA band is used.  A confidence of high for either of the QA types will
-result in the pixel being flagged as cloudy.
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           Pixel is not cloud
-true            Pixel is cloud
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool is_cloud
-(
-    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
-)
-{
-    /* If the confidence level is high for cloud or cirrus, then flag this as
-       a cloud */
-    if (level1_qa_cloud_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
-        level1_qa_cirrus_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
-        return (true);
-    else
-        return (false);
-}
-
-
-/******************************************************************************
-MODULE:  is_cloud_or_shadow
-
-PURPOSE:  Determines if the pixel is a cloud (cloud, cloud shadow, or cirrus
-cloud).  The Level-1 QA band is used.  A confidence of high for any of the
-three QA types will result in the pixel being flagged as cloudy.
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           Pixel is not cloud or shadow
-true            Pixel is cloud or shadow
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool is_cloud_or_shadow
-(
-    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
-)
-{
-    /* If the confidence level is high for cloud, cloud shadow, or cirrus, then
-       flag this as a cloud */
-    if (level1_qa_cloud_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
-        level1_qa_cloud_shadow_confidence (l1_qa_pix) == L1QA_HIGH_CONF ||
-        level1_qa_cirrus_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
-        return (true);
-    else
-        return (false);
-}
-
-
-/******************************************************************************
-MODULE:  is_shadow
-
-PURPOSE:  Determines if the pixel is a cloud shadow.  The Level-1 QA band is
-used.  A confidence of high for this QA type will result in the pixel being
-flagged as a cloud shadow.
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           Pixel is not cloud shadow
-true            Pixel is cloud shadow
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool is_shadow
-(
-    uint16_t l1_qa_pix      /* I: Level-1 QA value for current pixel */
-)
-{
-    /* If the confidence level is high for cloud shadow, then flag this as a
-       cloud */
-    if (level1_qa_cloud_shadow_confidence (l1_qa_pix) == L1QA_HIGH_CONF)
-        return (true);
-    else
-        return (false);
-}
-
-
-/******************************************************************************
-MODULE:  is_water
-
-PURPOSE:  Determines if the pixel is water.  The NDVI is used to determine if
-this is a water pixel.
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           Pixel is not water
-true            Pixel is water
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool is_water
-(
-    int16 band4_pix,     /* I: Band 4 reflectance for current pixel */
-    int16 band5_pix      /* I: Band 5 reflectance for current pixel */
-)
-{
-    double ndvi;             /* use NDVI for flagging water pixels */
-
-    /* Calculate NDVI and flag water pixels */
-    if (band5_pix < 100)
-        ndvi = -0.01;
-    else
-        ndvi = ((double) band5_pix - (double) band4_pix) /
-               ((double) band5_pix + (double) band4_pix);
-
-    /* If the NDVI is low, then flag this as a water pixel */
-    if (ndvi < 0.01)
-        return (true);
-    else
-        return (false);
-}
-
-
-/******************************************************************************
-MODULE:  find_closest_non_fill
-
-PURPOSE:  Finds the closest non-fill pixel in the aerosol window
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           No pixel found
-true            Pixel found
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool find_closest_non_fill
-(
-    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
-    int nlines,        /* I: number of lines in QA band */
-    int nsamps,        /* I: number of samps in QA band */
-    int center_line,   /* I: line for the center of the aerosol window */
-    int center_samp,   /* I: sample for the center of the aerosol window */
-    int *nearest_line, /* O: line for nearest non-fill pix in aerosol window */
-    int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
-)
-{
-    int curr_pix;            /* looping variable for pixels */
-    int line, samp;          /* looping variables for lines and samples */
-    int aero_window;         /* looping variabel for the aerosol window */
-
-    /* Loop around the center pixel, moving outward with each loop, searching
-       for a pixel that is not of the QA type specified and is not fill */
-    for (aero_window = 1; aero_window <= HALF_AERO_WINDOW; aero_window++)
-    {
-        for (line = center_line - aero_window;
-             line <= center_line + aero_window; line++)
-        {
-            /* Make sure the line is valid */
-            if (line < 0 || line >= nlines)
-                continue;
-
-            curr_pix = line * nsamps + center_samp - aero_window;
-            for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++, curr_pix++)
-            {
-                /* Make sure the sample is valid */
-                if (samp < 0 || samp >= nsamps)
-                    continue;
-
-                /* If this pixel is not fill, then mark it as the closest
-                   non-fill pixel and return */
-                if (!level1_qa_is_fill (qaband[curr_pix]))
-                {
-                    *nearest_line = line;
-                    *nearest_samp = samp;
-                    return (true);
-                }
-            }
-        }
-    }
-
-    /* No pixel was found that met the criteria */
-    return (false);
-}
-
-
-/******************************************************************************
-MODULE:  find_closest_non_cloud_shadow_water
-
-PURPOSE:  Finds the closest non-cloud, non-shadow, non-water pixel in the
-aerosol window
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           No pixel found
-true            Pixel found
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool find_closest_non_cloud_shadow_water
-(
-    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
-    int16 **sband,     /* I: input surface reflectance, nlines x nsamps */
-    int nlines,        /* I: number of lines in QA band */
-    int nsamps,        /* I: number of samps in QA band */
-    int center_line,   /* I: line for the center of the aerosol window */
-    int center_samp,   /* I: sample for the center of the aerosol window */
-    int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
-    int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
-)
-{
-    int curr_pix;            /* looping variable for pixels */
-    int line, samp;          /* looping variables for lines and samples */
-    int aero_window;         /* looping variabel for the aerosol window */
-
-    /* Loop around the center pixel, moving outward with each loop, searching
-       for a pixel that is not of the QA type specified and is not fill */
-    for (aero_window = 1; aero_window <= HALF_AERO_WINDOW; aero_window++)
-    {
-        for (line = center_line - aero_window;
-             line <= center_line + aero_window; line++)
-        {
-            /* Make sure the line is valid */
-            if (line < 0 || line >= nlines)
-                continue;
-
-            curr_pix = line * nsamps + center_samp - aero_window;
-            for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++, curr_pix++)
-            {
-                /* Make sure the sample is valid */
-                if (samp < 0 || samp >= nsamps)
-                    continue;
-
-                /* If this pixel is not fill, not water, and is not cloud or
-                   shadow, then mark it as the closest non-cloud pixel and
-                   return. */
-                if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                    !is_cloud_or_shadow (qaband[curr_pix]) &&
-                    !is_water (sband[SR_BAND4][curr_pix],
-                               sband[SR_BAND5][curr_pix]))
-                {
-                    *nearest_line = line;
-                    *nearest_samp = samp;
-                    return (true);
-                }
-            }
-        }
-    }
-
-    /* No pixel was found that met the criteria */
-    return (false);
-}
-
-
-/******************************************************************************
-MODULE:  find_closest_non_water
-
-PURPOSE:  Finds the closest non-water pixel in the aerosol window
-
-RETURN VALUE:
-Type = boolean
-Value           Description
------           -----------
-false           No pixel found
-true            Pixel found
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-bool find_closest_non_water
-(
-    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
-    int16 **sband,     /* I: input surface reflectance, nlines x nsamps */
-    int nlines,        /* I: number of lines in QA band */
-    int nsamps,        /* I: number of samps in QA band */
-    int center_line,   /* I: line for the center of the aerosol window */
-    int center_samp,   /* I: sample for the center of the aerosol window */
-    int *nearest_line, /* O: line for nearest non-cloud pix in aerosol window */
-    int *nearest_samp  /* O: samp for nearest non-cloud pix in aerosol window */
-)
-{
-    int curr_pix;            /* looping variable for pixels */
-    int line, samp;          /* looping variables for lines and samples */
-    int aero_window;         /* looping variabel for the aerosol window */
-
-    /* Loop around the center pixel, moving outward with each loop, searching
-       for a pixel that is not of the QA type specified and is not fill */
-    for (aero_window = 1; aero_window <= HALF_AERO_WINDOW; aero_window++)
-    {
-        for (line = center_line - aero_window;
-             line <= center_line + aero_window; line++)
-        {
-            /* Make sure the line is valid */
-            if (line < 0 || line >= nlines)
-                continue;
-
-            curr_pix = line * nsamps + center_samp - aero_window;
-            for (samp = center_samp - aero_window;
-                 samp <= center_samp + aero_window; samp++, curr_pix++)
-            {
-                /* Make sure the sample is valid */
-                if (samp < 0 || samp >= nsamps)
-                    continue;
-
-                /* If this pixel is not fill and is not water, then mark it as
-                   the closest non-water pixel and return. */
-                if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                    !is_water (sband[SR_BAND4][curr_pix],
-                               sband[SR_BAND5][curr_pix]))
-                {
-                    *nearest_line = line;
-                    *nearest_samp = samp;
-                    return (true);
-                }
-            }
-        }
-    }
-
-    /* No pixel was found that met the criteria */
-    return (false);
-}
-
-
-/******************************************************************************
-MODULE:  mask_aero_window
-
-PURPOSE:  Masks the current pixel's quick use aerosol window for fill, cloud,
-and water pixels.
-
-RETURN VALUE: N/A
-
-PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
-at the USGS EROS
-
-NOTES:
-******************************************************************************/
-void mask_aero_window
-(
-    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
-    int16 **sband,     /* I: input surface reflectance */
-    int nlines,        /* I: number of lines in QA band */
-    int nsamps,        /* I: number of samps in QA band */
-    int center_line,   /* I: line for the center of the aerosol window */
-    int center_samp,   /* I: sample for the center of the aerosol window */
-    bool *quick_qa     /* O: quick QA for the current aerosol window,
-                             AERO_WINDOW x AERO_WINDOW
-                             (true=not clear, false=clear) */
-)
-{
-    int curr_pix;            /* looping variable for current pixel in the
-                                level-1 QA */
-    int curr_qa_pix;         /* looping variable for current quick QA pixel */
-    int line, samp;          /* looping variables for lines and samples */
-
-    /* Initialize the quick QA window to not clear, which includes pixels
-       that go beyond the scene boundaries */
-    for (curr_qa_pix = 0; curr_qa_pix < AERO_WINDOW * AERO_WINDOW;
-         curr_qa_pix++)
-        quick_qa[curr_qa_pix] = true;
-
-    /* Loop around the current aerosol window flagging fill, cloudy, and water
-       pixels */
-    curr_qa_pix = 0;
-    for (line = center_line - HALF_AERO_WINDOW;
-         line <= center_line + HALF_AERO_WINDOW; line++)
-    {
-        /* Make sure the line is valid */
-        if (line < 0 || line >= nlines)
-            continue;
-
-        curr_pix = line * nsamps + center_samp - HALF_AERO_WINDOW;
-        for (samp = center_samp - HALF_AERO_WINDOW;
-             samp <= center_samp + HALF_AERO_WINDOW;
-             samp++, curr_pix++, curr_qa_pix++)
-        {
-            /* Make sure the sample is valid */
-            if (samp < 0 || samp >= nsamps)
-                continue;
-
-            /* If this pixel is not fill, is not cloud, is not shadow, and is
-               not water, then mark it as clear. */
-            if (!level1_qa_is_fill (qaband[curr_pix]) &&
-                !is_cloud_or_shadow (qaband[curr_pix]) &&
-                !is_water (sband[SR_BAND4][curr_pix],
-                           sband[SR_BAND5][curr_pix]))
-            { /* pixel is clear */
-                quick_qa[curr_qa_pix] = false;
-            }
-        }  /* for samp */
-    }  /* for line */
-}
-

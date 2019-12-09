@@ -15,6 +15,16 @@ NOTES:
 #include "hdf.h"
 #include "mfhdf.h"
 
+/* Define the full list of band names for Sentinel-2 for the input files */
+char S2_FULL_BANDNAME[S2_TTL][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9", "10", "11", "12"};
+
+/* Removed bands 9 and 10 from the Sentinel array */
+float l8_lambda[NREFL_L8_BANDS] =
+    {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+float s2_lambda[NREFL_S2_BANDS] =
+    {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 1.61, 2.19};
+
 /******************************************************************************
 MODULE:  atmcorlamb2_new
 
@@ -28,6 +38,7 @@ NOTES:
 ******************************************************************************/
 void atmcorlamb2_new
 (
+    Sat_t sat,                /* I: satellite */
     float tgo,                /* I: other gaseous transmittance  */
     float xrorayp,            /* I: reflectance of the atmosphere due to
                                     molecular (Rayleigh) scattering */
@@ -47,10 +58,23 @@ void atmcorlamb2_new
     float mraot550nm;      /* nearest value of AOT -- modified local variable */
     float mraot550nm_sq;   /* mraot550nm squared */
     float mraot550nm_cube; /* mraot550nm cubed */
-    float lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+    int max_band_indx = 0; /* maximum band index for L8 or S2 */
+    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
     float roatm;           /* intrinsic atmospheric reflectance */
     float ttatmg;          /* total atmospheric transmission */
     float satm;            /* spherical albedo */
+
+    /* Setup L8 or S2 variables */
+    if (sat == SAT_LANDSAT_8)
+    {
+        lambda = l8_lambda;
+        max_band_indx = DN_L8_BAND7;
+    }
+    else if (sat == SAT_SENTINEL_2)
+    {
+        lambda = s2_lambda;
+        max_band_indx = DN_S2_BAND12;
+    }
 
     /* Modifiy the AOT value based on the angstroem coefficient and lambda
        values */
@@ -58,7 +82,7 @@ void atmcorlamb2_new
         mraot550nm = raot550nm;
     else
     {
-        if (iband <= DN_BAND7)
+        if (iband <= max_band_indx)
         {
             mraot550nm = (raot550nm / normext_ib_0_3) *
                 (pow ((lambda[iband] / 0.55), -eps));
@@ -118,6 +142,7 @@ NOTES:
 ******************************************************************************/
 int atmcorlamb2
 (
+    Sat_t sat,                   /* I: satellite */
     float xts,                   /* I: solar zenith angle (deg) */
     float xtv,                   /* I: observation zenith angle (deg) */
     float xmus,                  /* I: cosine of solar zenith angle */
@@ -201,8 +226,20 @@ int atmcorlamb2
     int its;            /* index for the sun angle table */
     int itv;            /* index for the view angle table */
     int indx;           /* index for normext array */
-    float lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2, 4.0, 4.0,
-                      4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0};
+    int max_band_indx = 0; /* maximum band index for L8 or S2 */
+    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
+
+    /* Setup L8 or S2 variables */
+    if (sat == SAT_LANDSAT_8)
+    {
+        lambda = l8_lambda;
+        max_band_indx = DN_L8_BAND7;
+    }
+    else if (sat == SAT_SENTINEL_2)
+    {
+        lambda = s2_lambda;
+        max_band_indx = DN_S2_BAND12;
+    }
 
     /* Modifiy the AOT value based on the angstroem coefficient and lambda
        values */
@@ -210,7 +247,7 @@ int atmcorlamb2
         mraot550nm = raot550nm;
     else
     {
-        if (iband <= DN_BAND7)
+        if (iband <= max_band_indx)
         {
             indx = iband * NPRES_VALS * NAOT_VALS + 3;
             mraot550nm = (raot550nm / normext[indx]) *
@@ -1375,6 +1412,7 @@ NOTES:
 ******************************************************************************/
 int readluts
 (
+    Sat_t sat,                  /* I: satellite */
     float *tsmax,               /* O: maximum scattering angle table
                                       [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float *tsmin,               /* O: minimum scattering angle table
@@ -1410,11 +1448,19 @@ int readluts
     char errmsg[STR_SIZE];  /* error message */
     char tmpstr[STR_SIZE];  /* temporary string variable, not use */
     int i, j;               /* looping variables */
+    int nsr_bands = 0;      /* number of SR bands in the input file (L8 or S2);
+                               for S2 the number of bands in the input file
+                               might be different than the number of bands we
+                               want to store in the array, since we are
+                               skipping bands 9 and 10 */
     int iband;              /* band looping variable */
+    int ibndx;              /* index of the current band for writing to array */
     int iaot;               /* aerosol optical thickness (AOT) index */
     int ipres;              /* looping variable for pressure */
     int itau;               /* looping variable for molecular optical thick */
     int ival;               /* looping variable for LUT */
+    int iline;              /* current line for consuming, but ignoring, lines
+                               in the input ASCII file for Sentinel-2 */
     int status;             /* return status of the HDF function */
     int start[3];           /* starting point to read SDS data */
     int edges[3];           /* number of values to read in SDS data */
@@ -1426,14 +1472,21 @@ int readluts
     int sd_id;              /* file ID for the HDF file */
     int sds_id;             /* ID for the current SDS */
     int sds_index;          /* index for the current SDS */
-    int iband_indx;         /* index of the current iband */
+    int iband_indx;         /* index of current location in the overall array */
     int ipres_indx;         /* index of current pressure (without the band) */
     int itau_indx;          /* index of current itau (without the band & ip */
     int curr_indx;          /* index of current pixel */
     FILE *fp = NULL;        /* file pointer for reading ascii files */
 
+    /* Setup L8 or S2 number of SR bands to be read from the input LUT files;
+       number of input bands for S2 is more than we will actually store since
+       we are skipping bands 9 and 10 */
+    if (sat == SAT_LANDSAT_8)
+        nsr_bands = NSR_L8_BANDS;
+    else if (sat == SAT_SENTINEL_2)
+        nsr_bands = S2_TTL;
+
     /* Initialize some variables */
-    
     for (i = 0; i < NVIEW_ZEN_VALS * NSOLAR_ZEN_VALS; i++)
         nbfic[i] = 0.0;
     for (j = 0; j < NSUNANGLE_VALS; j++)
@@ -1765,16 +1818,33 @@ int readluts
         return (ERROR);
     }
 
+    /* Loop through all the bands in the input HDF file */
     start[0] = 0;  /* left-most dimension */
     start[1] = 0;
     start[2] = 0;  /* right-most dimension */
     edges[0] = NSOLAR_VALS;
     edges[1] = NAOT_VALS;
     edges[2] = NPRES_VALS;
-    for (iband = 0; iband < NSR_BANDS; iband++)
+    ibndx = -1;
+    for (iband = 0; iband < nsr_bands; iband++)
     {
-        /* Get the sds name */
-        sprintf (fname, "NRLUT_BAND_%d", iband+1);
+        /* Get the sds name and band index of this band in the rolut array */
+        if (sat == SAT_LANDSAT_8)
+        {
+            sprintf (fname, "NRLUT_BAND_%d", iband+1);
+            ibndx = iband;
+        }
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the rolutt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+                continue;
+
+            /* Read this band */
+            ibndx++;
+            sprintf (fname, "NRLUT_BAND_%s", S2_FULL_BANDNAME[iband]);
+        }
 
         /* Find the SDS */
         sds_index = SDnametoindex (sd_id, fname);
@@ -1818,7 +1888,7 @@ int readluts
            slowest-changing dimension.  This allows the access for the data
            in the application to be most efficient.  rolut is read from the
            HDF file (per band) as 8000 x 22 x 7. */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             ipres_indx = ipres * NAOT_VALS * NSOLAR_VALS;
@@ -1856,9 +1926,45 @@ int readluts
         return (ERROR);
     }
 
-    /* 8 bands of data */
-    for (iband = 0; iband < NSR_BANDS; iband++)
+    /* Loop through bands of data */
+    ibndx = -1;
+    for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the transt array */
+        if (sat == SAT_LANDSAT_8)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+            {
+                /* Given that this is an ASCII file, we need to consume the
+                   data for this band even though we aren't using it. Each
+                   pressure level has a line for each sunangle. There is a
+                   single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * NSUNANGLE_VALS + 1;
+                     iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in transmission "
+                            "coefficient file: %s", S2_FULL_BANDNAME[iband],
+                            transmnm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the band and source of
            the data; ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -1870,7 +1976,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -1946,9 +2052,43 @@ int readluts
         return (ERROR);
     }
 
-    /* 8 bands of data */
-    for (iband = 0; iband < NSR_BANDS; iband++)
+    /* Loop through bands of data */
+    ibndx = -1;
+    for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the sphalbt/normext array */
+        if (sat == SAT_LANDSAT_8)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == S2_BAND9 || iband == S2_BAND10)
+            {
+               /* Given that this is an ASCII file, we need to consume the
+                  data for this band even though we aren't using it. Each
+                  pressure level has a line for each AOT. There is a
+                  single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * (NAOT_VALS+1) + 1; iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in spherical albedo "
+                            "file: %s", S2_FULL_BANDNAME[iband], spheranm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the source of the data;
            ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -1961,7 +2101,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -2020,53 +2160,64 @@ NOTES:
 ******************************************************************************/
 int memory_allocation_main
 (
+    Sat_t sat,           /* I: satellite */
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
     int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
-    int16 **saa,         /* O: solar azimuth angle table, nlines x nsamps */
-    int16 **vza,         /* O: view zenith angle, nlines x nsamps  */
-    int16 **vaa,         /* O: view azimuth angle table, nlines x nsamps */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     uint16 **radsat,     /* O: radiometric saturation band for the input image,
                                nlines x nsamps */
-    int16 ***sband       /* O: output surface reflectance and brightness temp
+    int16 ***sband,      /* O: output surface reflectance and brightness temp
                                bands */
+    uint16 ***toaband    /* O: S2 TOA reflectance bands */
 )
 {
     char FUNC_NAME[] = "memory_allocation_main"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
     int i;                   /* looping variables */
+    int nband_ttl =  0;      /* total number of output bands */
 
-    *sza = calloc (nlines*nsamps, sizeof (int16));
-    if (*sza == NULL)
+    /* Solar zenith array and radiometric sat are only used for L8 */
+    if (sat == SAT_LANDSAT_8)
     {
-        sprintf (errmsg, "Error allocating memory for sza");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
+        *sza = calloc (nlines*nsamps, sizeof (int16));
+        if (*sza == NULL)
+        {
+            sprintf (errmsg, "Error allocating memory for sza");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
+
+        *radsat = calloc (nlines*nsamps, sizeof (uint16));
+        if (*radsat == NULL)
+        {
+            sprintf (errmsg, "Error allocating memory for radsat");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
+
+        nband_ttl = NBAND_L8_TTL_OUT;
     }
-
-    *saa = calloc (nlines*nsamps, sizeof (int16));
-    if (*saa == NULL)
+    else if (sat == SAT_SENTINEL_2)
     {
-        sprintf (errmsg, "Error allocating memory for saa");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *vza = calloc (nlines*nsamps, sizeof (int16));
-    if (*vza == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for vza");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *vaa = calloc (nlines*nsamps, sizeof (int16));
-    if (*vaa == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for vaa");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
+        nband_ttl = NBAND_S2_TTL_OUT;
+        *toaband = calloc (nband_ttl-1, sizeof (uint16*));
+        if (*toaband == NULL)
+        {
+            sprintf (errmsg, "Error allocating memory for toaband");
+            error_handler (true, FUNC_NAME, errmsg);
+            return (ERROR);
+        }
+        for (i = 0; i < nband_ttl-1; i++)
+        {
+            (*toaband)[i] = calloc (nlines*nsamps, sizeof (uint16));
+            if ((*toaband)[i] == NULL)
+            {
+                sprintf (errmsg, "Error allocating memory for toaband");
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
+        }
     }
 
     *qaband = calloc (nlines*nsamps, sizeof (uint16));
@@ -2077,24 +2228,16 @@ int memory_allocation_main
         return (ERROR);
     }
 
-    *radsat = calloc (nlines*nsamps, sizeof (uint16));
-    if (*radsat == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for radsat");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
     /* Given that the QA band is its own separate array of uint16s, we need
        one less band for the signed image data */
-    *sband = calloc (NBAND_TTL_OUT-1, sizeof (int16*));
+    *sband = calloc (nband_ttl-1, sizeof (int16*));
     if (*sband == NULL)
     {
         sprintf (errmsg, "Error allocating memory for sband");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    for (i = 0; i < NBAND_TTL_OUT-1; i++)
+    for (i = 0; i < nband_ttl-1; i++)
     {
         (*sband)[i] = calloc (nlines*nsamps, sizeof (int16));
         if ((*sband)[i] == NULL)
@@ -2111,7 +2254,7 @@ int memory_allocation_main
 
 
 /******************************************************************************
-MODULE:  memory_allocation_sr
+MODULE:  l8_memory_allocation_sr
 
 PURPOSE:  Allocates memory for all the various arrays needed specifically for
 the L8 surface reflectance corrections.
@@ -2129,7 +2272,7 @@ NOTES:
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
 ******************************************************************************/
-int memory_allocation_sr
+int l8_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
@@ -2145,10 +2288,6 @@ int memory_allocation_sr
                                (TOA refl), nlines x nsamps */
     uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
-    float **twvi,        /* O: interpolated water vapor value,
-                               nlines x nsamps */
-    float **tozi,        /* O: interpolated ozone value, nlines x nsamps */
-    float **tp,          /* O: interpolated pressure value, nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
     float **teps,        /* O: eps (angstrom coefficient) for each pixel,
                                nlines x nsamps*/
@@ -2187,8 +2326,12 @@ int memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
-    char FUNC_NAME[] = "memory_allocation_sr"; /* function name */
+    char FUNC_NAME[] = "l8_memory_allocation_sr"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
+    int nsr_bands = 0;       /* number of SR bands - L8 or S2 */
+
+    /* Setup L8 number of SR bands */
+    nsr_bands = NSR_L8_BANDS;
 
     *aerob1 = calloc (nlines*nsamps, sizeof (int16));
     if (*aerob1 == NULL)
@@ -2226,30 +2369,6 @@ int memory_allocation_sr
     if (*aerob7 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob7");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *twvi = calloc (nlines*nsamps, sizeof (float));
-    if (*twvi == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for twvi");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *tozi = calloc (nlines*nsamps, sizeof (float));
-    if (*tozi == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for tozi");
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
-
-    *tp = calloc (nlines*nsamps, sizeof (float));
-    if (*tp == NULL)
-    {
-        sprintf (errmsg, "Error allocating memory for tp");
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
@@ -2392,7 +2511,7 @@ int memory_allocation_sr
     }
 
     /* rolutt, transt, sphalbt, and normext */
-    *rolutt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS*NSOLAR_VALS,
+    *rolutt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS*NSOLAR_VALS,
         sizeof (float));
     if (*rolutt == NULL)
     {
@@ -2401,7 +2520,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *transt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS*NSUNANGLE_VALS,
+    *transt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS*NSUNANGLE_VALS,
         sizeof (float));
     if (*transt == NULL)
     {
@@ -2410,7 +2529,7 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *sphalbt = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS, sizeof (float));
+    *sphalbt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS, sizeof (float));
     if (*sphalbt == NULL)
     {
         sprintf (errmsg, "Error allocating memory for sphalbt");
@@ -2418,7 +2537,296 @@ int memory_allocation_sr
         return (ERROR);
     }
 
-    *normext = calloc (NSR_BANDS*NPRES_VALS*NAOT_VALS, sizeof (float));
+    *normext = calloc (nsr_bands*NPRES_VALS*NAOT_VALS, sizeof (float));
+    if (*normext == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for normext");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* float tsmax, tsmin, nbfic, nbfi, and ttv */
+    *tsmax = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
+    if (*tsmax == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for tsmax");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *tsmin = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
+    if (*tsmin == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for tsmin");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *nbfic = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
+    if (*nbfic == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for nbfic");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *nbfi = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
+    if (*nbfi == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for nbfi");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *ttv = calloc (NVIEW_ZEN_VALS*NSOLAR_ZEN_VALS, sizeof (float));
+    if (*ttv == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for ttv");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Successful completion */
+    return (SUCCESS);
+}
+
+
+/******************************************************************************
+MODULE:  s2_memory_allocation_sr
+
+PURPOSE:  Allocates memory for all the various arrays needed specifically for
+the S2 surface reflectance corrections.
+
+RETURN VALUE:
+Type = int
+Value          Description
+-----          -----------
+ERROR          Error occurred allocating memory
+SUCCESS        Successful completion
+
+NOTES:
+  1. Memory is allocated for each of the input variables, so it is up to the
+     calling routine to free this memory.
+  2. Each array passed into this function is passed in as the address to that
+     1D, 2D, nD array.
+******************************************************************************/
+int s2_memory_allocation_sr
+(
+    int nlines,          /* I: number of lines in the scene */
+    int nsamps,          /* I: number of samples in the scene */
+    uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
+                               nlines x nsamps */
+    float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
+    float **teps,        /* O: eps (angstrom coefficient) for each pixel,
+                               nlines x nsamps*/
+    int16 **dem,         /* O: CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
+    int16 **andwi,       /* O: avg NDWI [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **sndwi,       /* O: standard NDWI [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **ratiob1,     /* O: mean band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **ratiob2,     /* O: mean band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **ratiob7,     /* O: mean band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **intratiob1,  /* O: band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **intratiob2,  /* O: band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **intratiob7,  /* O: band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **slpratiob1,  /* O: slope band1 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **slpratiob2,  /* O: slope band2 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    int16 **slpratiob7,  /* O: slope band7 ratio [RATIO_NBLAT x RATIO_NBLON] */
+    uint16 **wv,         /* O: water vapor values [CMG_NBLAT x CMG_NBLON] */
+    uint8 **oz,          /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
+    float **rolutt,      /* O: intrinsic reflectance table
+                         [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
+    float **transt,      /* O: transmission table
+                        [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
+    float **sphalbt,     /* O: spherical albedo table
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float **normext,     /* O: aerosol extinction coefficient at the current
+                               wavelength (normalized at 550nm) 
+                               [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
+    float **tsmax,       /* O: maximum scattering angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **tsmin,       /* O: minimum scattering angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **nbfic,       /* O: communitive number of azimuth angles
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **nbfi,        /* O: number of azimuth angles
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+    float **ttv          /* O: view angle table
+                               [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
+)
+{
+    char FUNC_NAME[] = "s2_memory_allocation_sr"; /* function name */
+    char errmsg[STR_SIZE];         /* error message */
+    int nsr_bands = NSR_S2_BANDS;  /* number of SR bands */
+
+    /* Setup S2 number of SR bands */
+    nsr_bands = NSR_S2_BANDS;
+
+    /* Allocate memory for aero, eps, and ipflag */
+    *taero = calloc (nlines*nsamps, sizeof (float));
+    if (*taero == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for taero");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *teps = calloc (nlines*nsamps, sizeof (float));
+    if (*teps == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for teps");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *ipflag = calloc (nlines*nsamps, sizeof (uint8));
+    if (*ipflag == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for ipflag");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* Allocate memory for all the climate modeling grid files */
+    *dem = calloc (DEM_NBLAT * DEM_NBLON, sizeof (int16*));
+    if (*dem == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the DEM");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *andwi = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*andwi == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the andwi");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *sndwi = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*sndwi == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the sndwi");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *ratiob1 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*ratiob1 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the ratiob1");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *ratiob2 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*ratiob2 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the ratiob2");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *ratiob7 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*ratiob7 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the ratiob7");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *intratiob1 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*intratiob1 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the intratiob1");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *intratiob2 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*intratiob2 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the intratiob2");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *intratiob7 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*intratiob7 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the intratiob7");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *slpratiob1 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*slpratiob1 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the slpratiob1");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *slpratiob2 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*slpratiob2 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the slpratiob2");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *slpratiob7 = calloc (RATIO_NBLAT * RATIO_NBLON, sizeof (int16));
+    if (*slpratiob7 == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the slpratiob7");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *wv = calloc (CMG_NBLAT * CMG_NBLON, sizeof (int16));
+    if (*wv == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the wv");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *oz = calloc (CMG_NBLAT * CMG_NBLON, sizeof (uint8));
+    if (*oz == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for the oz");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    /* rolutt, transt, sphalbt, and normext */
+    *rolutt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS*NSOLAR_VALS,
+        sizeof (float));
+    if (*rolutt == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for rolutt");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *transt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS*NSUNANGLE_VALS,
+        sizeof (float));
+    if (*transt == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for transt");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *sphalbt = calloc (nsr_bands*NPRES_VALS*NAOT_VALS, sizeof (float));
+    if (*sphalbt == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for sphalbt");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
+    *normext = calloc (nsr_bands*NPRES_VALS*NAOT_VALS, sizeof (float));
     if (*normext == NULL)
     {
         sprintf (errmsg, "Error allocating memory for normext");
@@ -2522,7 +2930,7 @@ int read_auxiliary_files
     int sds_id;          /* ID for the current SDS */
     int sds_index;       /* index for the current SDS */
 
-    /* Read the DEM */
+    /*** Read the DEM ***/
     sd_id = SDstart (cmgdemnm, DFACC_RDONLY);
     if (sd_id < 0)
     {
@@ -2585,7 +2993,7 @@ int read_auxiliary_files
         return (ERROR);
     }
 
-    /* Read the RATIO file */
+    /*** Read the RATIO file ***/
     sd_id = SDstart (rationm, DFACC_RDONLY);
     if (sd_id < 0)
     {
