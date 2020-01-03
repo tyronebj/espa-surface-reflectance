@@ -583,8 +583,9 @@ int compute_s2_sr_refl
 
                 }
                 else
-                { /* fill value */
-                    qaband[curr_pix] |= ESPA_L1_DESIGNATED_FILL_BIT;
+                { /* fill value - if any of the bands are fill this pixel is
+                     masked as fill in the QA band */
+                    qaband[curr_pix] |= (1 << ESPA_L1_DESIGNATED_FILL_BIT);
                     sband[ib][curr_pix] = FILL_VALUE;
                 }
             }  /* end for j */
@@ -1230,14 +1231,14 @@ int compute_s2_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s\n",
         ctime(&mytime)); fflush(stdout);
-    aerosol_interp_s2 (S2_AERO_WINDOW, ipflag, taero, nlines, nsamps);
+    aerosol_interp_s2 (S2_AERO_WINDOW, qaband, ipflag, taero, nlines, nsamps);
 
     /* Use the UL corner of the aerosol windows to interpolate the teps values
        (angstrom coefficient) */
     mytime = time(NULL);
     printf ("Interpolating the teps values in the NxN windows %s\n",
         ctime(&mytime)); fflush(stdout);
-    aerosol_interp_s2 (S2_AERO_WINDOW, ipflag, teps, nlines, nsamps);
+    aerosol_interp_s2 (S2_AERO_WINDOW, qaband, ipflag, teps, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */

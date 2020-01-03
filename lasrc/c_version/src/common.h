@@ -14,7 +14,7 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "2.0.0"
+#define SR_VERSION "2.0.1"
 
 /* Define the default aerosol value */
 #define DEFAULT_AERO 0.05

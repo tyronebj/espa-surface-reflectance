@@ -277,7 +277,7 @@ int main (int argc, char *argv[])
     {
         if (get_input_ppa_lines (input, 0, nlines, sza) != SUCCESS)
         {
-            sprintf (errmsg, "Reading per-pixel solar and view angle bands");
+            sprintf (errmsg, "Reading per-pixel solar angle bands");
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
         }

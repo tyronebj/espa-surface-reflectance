@@ -1,5 +1,5 @@
-## LaSRC Version 2.0.0 Release Notes
-Release Date: Sept. 2019
+## LaSRC Version 2.0.1 Release Notes
+Release Date: Jan. 2020
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [lasrc-version_2.0.0]
+See git tag [lasrc-version_2.0.1]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
@@ -86,7 +86,6 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Modified the LaSRC executable to work with Sentinel-2 products.
-2. Added Sentinel-2 support to the do\_lasrc.py and surface\_reflectance.py scripts.
-3. Fixed a bug in the lat/long code when identifying the center of the pixel. This may have a slight affect on the Landsat-8 results.
-4. Copy the level-1 filenames for each of the reflectance bands to the level-2 bands for provenance of the old filenames, given that Sentinel-2 files are renamed in ESPA.
+1. Fixed a bug when masking fill values in the internal QA band.
+2. Modified the aerosol interpolation to not overwrite fill masks in the
+   ipflag. Fill values remain masked as fill.

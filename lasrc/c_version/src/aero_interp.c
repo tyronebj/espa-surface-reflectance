@@ -292,6 +292,7 @@ NOTES:
 void aerosol_interp_s2
 (
     int aero_window,   /* I: size of the aerosol window */
+    uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
     uint8 *ipflag,     /* I/O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps.  It is expected that the ipflag
                                values are computed for the UL of the aerosol
@@ -396,6 +397,14 @@ void aerosol_interp_s2
                 ipflag[curr_pix] = (1 << IPFLAG_INTERP_WINDOW);
         }  /* for samp */
     }  /* for line */
+
+    /* Clean up the ipflag for the fill pixels */
+    for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
+    {
+        if (level1_qa_is_fill (qaband[curr_pix]))
+            ipflag[curr_pix] = (1 << IPFLAG_FILL);
+    }
+
 }
 
 
