@@ -597,7 +597,7 @@ int compute_s2_sr_refl
                 }
                 else
                 { /* fill value */
-                    qaband[curr_pix] |= ESPA_L1_DESIGNATED_FILL_BIT;
+                    qaband[curr_pix] |= ESPA_L1_SINGLE_BIT;
                     sband[ib][curr_pix] = FILL_VALUE;
                 }
             }  /* end for j */
