@@ -1,5 +1,5 @@
-## Ledaps Version 3.4.0 Release Notes
-Release Date: August 2019
+## Ledaps Version 3.5.0 Release Notes
+Release Date: May 2020
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_3.4.0]
+See git tag [ledaps-version_3.5.0]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
@@ -92,10 +92,4 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-  1. The TOMS and OMI data are no longer available on the NASA ftp site.
-     Removed access to ftp://toms.gsfc.nasa.gov and changed the source to
-     https://acd-ext.gsfc.nasa.gov/anonftp/toms/. This site has the TOMS-line
-     OMI data as well as the archived NIMBUS7, METEOR3, and EP/TOMS data files
-     in the same text format and 1.0 x 1.0 degree resolution for the global
-     product. These changes were applied to updatetoms.py in the LEDAPS
-     auxiliary download scripts.
+  1. Converted the scripts to utilize Python 3, since Python 2.x is obsolete.
