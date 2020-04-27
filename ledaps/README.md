@@ -4,7 +4,7 @@ Release Date: May 2020
 ### Downloads
 Ledaps source code
 
-    git clone https://github.com/USGS-EROS/espa-surface-reflectance.git
+    git clone https://eroslab.cr.usgs.gov/lsrd/espa-surface-reflectance.git
 
 Ledaps auxiliary files
 
@@ -13,7 +13,7 @@ Ledaps auxiliary files
 See git tag [ledaps-version_3.5.0]
 
 ### Installation
-  * Install dependent projects and libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter) and ESPA python library (https://github.com/USGS-EROS/espa-python-library)
+  * Install dependent projects and libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git) and ESPA python library (https://eroslab.cr.usgs.gov/lsrd/espa-python-library.git)
   * Set up environment variables.  Can create an environment shell file or add the following to your bash shell.  For C shell, use 'setenv VAR "directory"'.
 ```
     export PREFIX="path_to_directory_for_ledaps_build_data"
@@ -69,6 +69,7 @@ See git tag [ledaps-version_3.5.0]
 ```
 
 ### Dependencies
+  * Python >= 3.6.X
   * ESPA raw binary and ESPA common libraries from ESPA product formatter and associated dependencies
   * XML2 library
   * Auxiliary data products
