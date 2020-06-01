@@ -669,15 +669,15 @@ int compute_l8_sr_refl
                scaled value for further corrections.  (NOTE: the full
                computations are in atmcorlamb2) */
             rotoa = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
+/* ESPA Version -- GAIL
             roslamb = rotoa / tgo;
             roslamb = roslamb - roatm;
             roslamb = roslamb / ttatmg;
             roslamb = roslamb / (1.0 + satm * roslamb);
+*/
 
-/* LPGS Version  -- GAIL
             roslamb = rotoa - tgo*roatm;
             roslamb /= tgo*ttatmg + satm*roslamb;
-*/
             sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) * MULT_FACTOR);
         }  /* end for i */
     }  /* for ib */
