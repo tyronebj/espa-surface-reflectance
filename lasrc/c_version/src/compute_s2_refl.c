@@ -16,6 +16,7 @@ NOTES:
 #include "time.h"
 #include "aero_interp.h"
 #include "poly_coeff.h"
+#include "read_level1_qa.h"
 
 /******************************************************************************
 MODULE:  read_s2_toa_refl
@@ -244,7 +245,7 @@ int compute_s2_sr_refl
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
     uint16 **toaband,   /* I: input TOA reflectance bands, nlines x nsamps */
-    int16 **sband,      /* O: output SR bands, nlines x nsamps */
+    uint16 **sband,     /* O: output SR bands, nlines x nsamps */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
@@ -281,7 +282,7 @@ int compute_s2_sr_refl
     float erelc[NSR_BANDS];   /* band ratio variable for refl bands */
     float troatm[NSR_BANDS];  /* atmospheric reflectance table for refl bands */
 
-    int iband1, iband3; /* band indices (zero-based) */
+    int iband1;         /* band index (zero-based) */
     float raot;         /* AOT reflectance */
                         /* raot values for three different eps values */
     float residual;     /* model residual */
@@ -314,6 +315,8 @@ int compute_s2_sr_refl
                              nlines x nsamps */
     float *taero = NULL;  /* aerosol values for each pixel, nlines x nsamps */
     float *teps = NULL;   /* angstrom coeff for each pixel, nlines x nsamps */
+    Espa_band_meta_t *bmeta = xml_metadata->band;
+                          /* pointer to the array of band metadata */
 
     /* Vars for forward/inverse mapping space */
     Geoloc_t *space = NULL;       /* structure for geolocation information */
@@ -358,8 +361,6 @@ int compute_s2_sr_refl
 
     /* Atmospheric correction coefficient variables */
     float tgo_arr[NREFL_BANDS];     /* per-band other gaseous transmittance */
-    float xrorayp_arr[NREFL_BANDS]; /* per-band reflectance of the atmosphere
-                                       due to molecular (Rayleigh) scattering */
     float roatm_arr[NREFL_BANDS][NAOT_VALS];  /* per band AOT vals for roatm */
     float ttatmg_arr[NREFL_BANDS][NAOT_VALS]; /* per band AOT vals for ttatmg */
     float satm_arr[NREFL_BANDS][NAOT_VALS];   /* per band AOT vals for satm */
@@ -556,39 +557,37 @@ int compute_s2_sr_refl
 
         /* Perform atmospheric corrections for reflectance bands */
 #ifdef _OPENMP
-        #pragma omp parallel for private (i, j, curr_pix, roslamb)
+        #pragma omp parallel for private (i, roslamb)
 #endif
-        for (i = 0; i < nlines; i++)
+        for (i = 0; i < nlines*nsamps; i++)
         {
-            curr_pix = i * nsamps;
-            for (j = 0; j < nsamps; j++, curr_pix++)
+            /* If this pixel is not fill then handle the atmospheric
+               correction */
+            if (toaband[ib][i] > 0)
             {
-                /* If this pixel is not fill then handle the atmospheric
-                   correction */
-                if (toaband[ib][curr_pix] > 0)
-                {
-                    /* Store the TOA scaled TOA reflectance values for later
-                       use before completing atmospheric corrections */
-                    roslamb = toaband[ib][curr_pix] * SCALE_FACTOR;
-    
-                    /* Apply the atmospheric corrections (ignoring the Rayleigh
-                       scattering component and water vapor), and store the
-                       scaled value for further corrections.  (NOTE: the full
-                       computations are in atmcorlamb2) */
-                    roslamb = roslamb / tgo;
-                    roslamb = roslamb - roatm;
-                    roslamb = roslamb / ttatmg;
-                    roslamb = roslamb / (1.0 + satm * roslamb);
-                    sband[ib][curr_pix] = (int) (roslamb * MULT_FACTOR);
+                /* Store the scaled TOA reflectance values for later use before
+                   completing atmospheric corrections */
+                roslamb = toaband[ib][i] * bmeta[ib].scale_factor +
+                    bmeta[ib].add_offset;
+printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scale_factor, bmeta[ib].add_offset);
 
-                }
-                else
-                { /* fill value - if any of the bands are fill this pixel is
-                     masked as fill in the QA band */
-                    qaband[curr_pix] |= (1 << ESPA_L1_DESIGNATED_FILL_BIT);
-                    sband[ib][curr_pix] = FILL_VALUE;
-                }
-            }  /* end for j */
+                /* Apply the atmospheric corrections (ignoring the Rayleigh
+                   scattering component and water vapor), and store the
+                   scaled value for further corrections.  (NOTE: the full
+                   computations are in atmcorlamb2) */
+                roslamb = roslamb / tgo;
+                roslamb = roslamb - roatm;
+                roslamb = roslamb / ttatmg;
+                roslamb = roslamb / (1.0 + satm * roslamb);
+                sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) *
+                    MULT_FACTOR);
+            }
+            else
+            { /* fill value - if any of the bands are fill this pixel is
+                 masked as fill in the QA band */
+                qaband[i] |= (1 << ESPA_L1_DESIGNATED_FILL_BIT);
+                sband[ib][i] = FILL_VALUE;
+            }
         }  /* end for i */
     }  /* for ib */
     printf ("\n");
@@ -636,7 +635,6 @@ int compute_s2_sr_refl
            corrections. tgo and xrorayp are the same for each AOT, so just
            save the last set for this band. */
         tgo_arr[ib] = tgo;
-        xrorayp_arr[ib] = xrorayp;
     }
 
     for (ib = 0; ib <= SR_S2_BAND12; ib++)
@@ -695,7 +693,7 @@ int compute_s2_sr_refl
         S2_AERO_WINDOW, S2_AERO_WINDOW, ctime(&mytime)); fflush(stdout);
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iband3, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros4, ros5, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros4, ros5, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i+=S2_AERO_WINDOW)
     {
@@ -990,30 +988,29 @@ int compute_s2_sr_refl
 
             /* Retrieve the aerosol information for low eps 1.0 */
             iband1 = DN_S2_BAND4;  /* red band */
-            iband3 = DN_S2_BAND1;  /* coastal aerosol */
             eps = LOW_EPS;
             iaots = 0;
-            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
-                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
-                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
+                tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             residual1 = residual;
 
             /* Retrieve the aerosol information for moderate eps 1.75 */
             eps = MOD_EPS;
-            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
-                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
-                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
+                tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             residual2 = residual;
 
             /* Retrieve the aerosol information for high eps 2.5 */
             eps = HIGH_EPS;
-            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
-                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
-                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
+                tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
 
             /* Save the data */
             residual3 = residual;
@@ -1046,9 +1043,9 @@ int compute_s2_sr_refl
             }
             eps = epsmin;
 
-            subaeroret_new (input->meta.sat, iband1, iband3, erelc, troatm,
-                tgo_arr, xrorayp_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
-                satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
+                tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                normext_p0a3_arr, &raot, &residual, &iaots, eps);
             corf = raot / xmus;
 
             /* Check the model residual.  Corf represents aerosol impact.
@@ -1075,10 +1072,9 @@ int compute_s2_sr_refl
 
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
-                    xrorayp_arr[iband], aot550nm[roatm_iaMax[iband]],
-                    &roatm_coef[iband][0], &ttatmg_coef[iband][0],
-                    &satm_coef[iband][0], raot550nm, iband,
-                    normext_p0a3_arr[iband], rotoa, &roslamb, eps);
+                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
+                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
+                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros5 = roslamb;
 
                 /* Test if red band 4 makes sense. Use a NxN window average. */
@@ -1101,10 +1097,9 @@ int compute_s2_sr_refl
 
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
-                    xrorayp_arr[iband], aot550nm[roatm_iaMax[iband]],
-                    &roatm_coef[iband][0], &ttatmg_coef[iband][0],
-                    &satm_coef[iband][0], raot550nm, iband,
-                    normext_p0a3_arr[iband], rotoa, &roslamb, eps);
+                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
+                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
+                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
                 ros4 = roslamb;
 
                 /* Use the NDVI to validate the reflectance values or flag
@@ -1119,8 +1114,6 @@ int compute_s2_sr_refl
                 else
                 {
                     /* Flag as failed and fill will a default value */
-/*                    taero[curr_pix] = raot;
-                    teps[curr_pix] = eps;  */
                     taero[curr_pix] = DEFAULT_AERO;
                     teps[curr_pix] = DEFAULT_EPS;
                     ipflag[curr_pix] = (1 << IPFLAG_FAILED);
@@ -1129,8 +1122,6 @@ int compute_s2_sr_refl
             else
             {
                 /* Flag as failed and fill will a default value */
-/*                taero[curr_pix] = raot;
-                teps[curr_pix] = eps; */
                 taero[curr_pix] = DEFAULT_AERO;
                 teps[curr_pix] = DEFAULT_EPS;
                 ipflag[curr_pix] = (1 << IPFLAG_FAILED);
@@ -1261,62 +1252,57 @@ int compute_s2_sr_refl
     {
         printf ("  Band %s\n", S2_BANDNAME[ib]); fflush(stdout);
 #ifdef _OPENMP
-        #pragma omp parallel for private (i, j, curr_pix, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
+        #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
-        for (i = 0; i < nlines; i++)
+        for (i = 0; i < nlines * nsamps; i++)
         {
-            curr_pix = i * nsamps;
-            for (j = 0; j < nsamps; j++, curr_pix++)
+            /* If this pixel is fill, then don't process */
+            if (level1_qa_is_fill (qaband[i]))
+                continue;
+
+            /* Correct all pixels */
+            rotoa = toaband[ib][i] * SCALE_FACTOR;
+            raot550nm = taero[i];
+            eps = teps[i];
+            atmcorlamb2_new (input->meta.sat, tgo_arr[ib],
+                aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
+                &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
+                normext_p0a3_arr[ib], rotoa, &roslamb, eps);
+
+            /* If this is the coastal aerosol band then set the aerosol
+               bits in the QA band */
+            if (ib == DN_S2_BAND1)
             {
-                /* If this pixel is fill, then don't process */
-                if (level1_qa_is_fill (qaband[curr_pix]))
-                    continue;
-
-                /* Correct all pixels */
-                rotoa = toaband[ib][curr_pix] * SCALE_FACTOR;
-                raot550nm = taero[curr_pix];
-                eps = teps[curr_pix];
-                atmcorlamb2_new (input->meta.sat, tgo_arr[ib],
-                    xrorayp_arr[ib], aot550nm[roatm_iaMax[ib]],
-                    &roatm_coef[ib][0], &ttatmg_coef[ib][0],
-                    &satm_coef[ib][0], raot550nm, ib, normext_p0a3_arr[ib],
-                    rotoa, &roslamb, eps);
-
-                /* If this is the coastal aerosol band then set the aerosol
-                   bits in the QA band */
-                if (ib == DN_S2_BAND1)
+                /* Set up aerosol QA bits */
+                rsurf = sband[ib][i] * SCALE_FACTOR;
+                tmpf = fabs (rsurf - roslamb);
+                if (tmpf <= 0.015)
+                {  /* Set first aerosol bit (low aerosols) */
+                    ipflag[i] |= (1 << AERO1_QA);
+                }
+                else
                 {
-                    /* Set up aerosol QA bits */
-                    rsurf = sband[ib][curr_pix] * SCALE_FACTOR;
-                    tmpf = fabs (rsurf - roslamb);
-                    if (tmpf <= 0.015)
-                    {  /* Set first aerosol bit (low aerosols) */
-                        ipflag[curr_pix] |= (1 << AERO1_QA);
+                    if (tmpf < 0.03)
+                    {  /* Set second aerosol bit (average aerosols) */
+                        ipflag[i] |= (1 << AERO2_QA);
                     }
                     else
-                    {
-                        if (tmpf < 0.03)
-                        {  /* Set second aerosol bit (average aerosols) */
-                            ipflag[curr_pix] |= (1 << AERO2_QA);
-                        }
-                        else
-                        {  /* Set both aerosol bits (high aerosols) */
-                            ipflag[curr_pix] |= (1 << AERO1_QA);
-                            ipflag[curr_pix] |= (1 << AERO2_QA);
-                        }
+                    {  /* Set both aerosol bits (high aerosols) */
+                        ipflag[i] |= (1 << AERO1_QA);
+                        ipflag[i] |= (1 << AERO2_QA);
                     }
-                }  /* end if this is the coastal aerosol band */
+                }
+            }  /* end if this is the coastal aerosol band */
 
-                /* Save the scaled surface reflectance value, but make sure
-                   it falls within the defined valid range. */
-                roslamb = roslamb * MULT_FACTOR;  /* scale the value */
-                if (roslamb < MIN_VALID)
-                    sband[ib][curr_pix] = MIN_VALID;
-                else if (roslamb > MAX_VALID)
-                    sband[ib][curr_pix] = MAX_VALID;
-                else
-                    sband[ib][curr_pix] = (int) (roundf (roslamb));
-            }  /* end for j */
+            /* Save the scaled surface reflectance value, but make sure
+               it falls within the defined valid range. */
+            roslamb = (roslamb + BAND_OFFSET) * MULT_FACTOR;
+            if (roslamb < MIN_VALID)
+                sband[ib][i] = MIN_VALID;
+            else if (roslamb > MAX_VALID)
+                sband[ib][i] = MAX_VALID;
+            else
+                sband[ib][i] = (int) (roundf (roslamb));
         }  /* end for i */
     }  /* end for ib */
 
@@ -1343,7 +1329,7 @@ int compute_s2_sr_refl
         printf ("  Band %s: %s\n", S2_BANDNAME[ib],
             sr_output->metadata.band[ib].file_name);
         if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
-            sizeof (int16)) != SUCCESS)
+            sizeof (uint16)) != SUCCESS)
         {
             sprintf (errmsg, "Writing output data for band %d", ib);
             error_handler (true, FUNC_NAME, errmsg);

@@ -3,9 +3,9 @@
 #include "lasrc.h"
 
 /******************************************************************************
-MODULE:  lasrc (Landsat Surface Reflectance Code - LaSRC)
+MODULE:  lasrc (Land Surface Reflectance Code - LaSRC)
 
-PURPOSE:  Computes the surface reflectance values for the Landsat 8 and
+PURPOSE:  Computes the surface reflectance values for the Landsat 8/9 and
 Sentinel 2 products.
 
 RETURN VALUE:
@@ -19,7 +19,7 @@ PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
 
 NOTES:
-**Landsat 8:
+**Landsat 8/9:
 1. Bands 1-7 are corrected to surface reflectance.  Band 8 (pand band) is not
    processed.  Band 9 (cirrus band) is corrected to TOA reflectance.  Bands
    10 and 11 are corrected to brightness temperature.
@@ -70,8 +70,6 @@ int main (int argc, char *argv[])
     Input_t *input = NULL;       /* input structure for the Landsat product */
     Output_t *toa_output = NULL; /* output structure and metadata for the TOA
                                     product */
-    Output_t *radsat_output = NULL; /* output structure and metadata for the
-                                       RADSAT product */
     Espa_internal_meta_t xml_metadata;  /* XML metadata structure */
     Espa_global_meta_t *gmeta = NULL;   /* pointer to global meta */
     Envi_header_t envi_hdr;      /* output ENVI header information */
@@ -80,12 +78,10 @@ int main (int argc, char *argv[])
     int16 *sza = NULL;       /* L8 per-pixel solar zenith angles,
                                 nlines x nsamps */
     uint16 **toaband = NULL; /* S2 TOA reflectance bands, nlines x nsamps */
-    int16 **sband = NULL;    /* output surface reflectance and brightness
+    uint16 **sband = NULL;   /* output surface reflectance and brightness
                                 temp bands, qa band is separate as a uint16 */
     uint16 *qaband = NULL;   /* L8 input QA band, S2 generated QA band,
                                 nlines x nsamps */
-    uint16 *radsat = NULL;   /* L8 QA band for radiometric saturation of the
-                                Level-1 product, nlines x nsamps */
     float xts;               /* scene center solar zenith angle (deg) */
     float xmus;              /* cosine of solar zenith angle */
     bool process_sr = true;  /* this is set to false if the solar zenith
@@ -164,13 +160,13 @@ int main (int argc, char *argv[])
     }
     gmeta = &xml_metadata.global;
 
-    /* Verify that we have either an L8 or S2 product */
+    /* Verify that we have either an L8/L9 or S2 product */
     sat = input->meta.sat;
-    if (sat != SAT_LANDSAT_8 && sat != SAT_SENTINEL_2)
+    if (sat != SAT_LANDSAT_8 && sat != SAT_LANDSAT_9 && sat != SAT_SENTINEL_2)
     {
         sprintf (errmsg, "The satellite identified from the input metadata "
-            "is not Landsat 8 or Sentinel-2.  This application only supports "
-            "L8 or S2 products.");
+            "is not Landsat 8/9 or Sentinel-2.  This application only supports "
+            "L8/9 or S2 products.");
         error_handler (true, FUNC_NAME, errmsg);
         exit (ERROR);
     }
@@ -208,19 +204,6 @@ int main (int argc, char *argv[])
     nlines = input->size.nlines;
     nsamps = input->size.nsamps;
 
-    /* If this is OLI-only data, then surface reflectance can not be
-       processed */
-    if (input->meta.inst == INST_OLI && process_sr)
-    {
-        sprintf (errmsg, "This is an OLI-only scene vs. an OLI-TIRS scene. "
-            "Corrections must be limited to top-of-atmosphere reflectance and "
-            "brightness temperature corrections. Use the --process_sr=false "
-            "command-line argument to process. (oli-only cannot be corrected "
-            "to surface reflectance)");
-        error_handler (true, FUNC_NAME, errmsg);
-        exit (ERROR);
-    }
-
     /* If this is a Sentinel product and TOA reflectance was requested, then
        it will not be written */
     if (sat == SAT_SENTINEL_2 && write_toa)
@@ -247,12 +230,12 @@ int main (int argc, char *argv[])
         exit (ERROR);
     }
 
-    /* Allocate memory for all the data arrays. Note: sza and radsat are only
-       used for L8, toaband is for S2 only. */
+    /* Allocate memory for all the data arrays. Note: sza is only used for
+       L8/L9, toaband is for S2 only. */
     if (verbose)
         printf ("Allocating memory for the data arrays ...\n");
     retval = memory_allocation_main (sat, nlines, nsamps, &sza, &qaband,
-        &radsat, &sband, &toaband);
+        &sband, &toaband);
     if (retval != SUCCESS)
     {   /* get_args already printed the error message */
         sprintf (errmsg, "Error allocating memory for the data arrays from "
@@ -261,8 +244,8 @@ int main (int argc, char *argv[])
         exit (ERROR);
     }
 
-    /* Read the QA band for L8 */
-    if (sat == SAT_LANDSAT_8)
+    /* Read the QA band for L8/L9 */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         if (get_input_qa_lines (input, 0, 0, nlines, qaband) != SUCCESS)
         {
@@ -272,8 +255,9 @@ int main (int argc, char *argv[])
         }
     }
 
-    /* Read the scaled solar zenith per pixel angle bands, in degrees */
-    if (sat == SAT_LANDSAT_8)
+    /* Read the scaled solar zenith per pixel angle bands, in degrees, for
+       L8/L9 */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         if (get_input_ppa_lines (input, 0, nlines, sza) != SUCCESS)
         {
@@ -283,7 +267,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    /* Get the L8 auxiliary directory and the full pathname of the auxiliary
+    /* Get the auxiliary directory and the full pathname of the auxiliary
        files to be read if processing surface reflectance */
     if (process_sr)
     {
@@ -306,7 +290,7 @@ int main (int argc, char *argv[])
         aux_year[4] = '\0';
 
         /* Set up the look-up table files and make sure they exist */
-        if (sat == SAT_LANDSAT_8)
+        if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
         {
             sprintf (anglehdf, "%s/LDCMLUT/ANGLE_NEW.hdf", aux_path);
             sprintf (intrefnm, "%s/LDCMLUT/RES_LUT_V3.0-URBANCLEAN-V2.0.hdf",
@@ -388,18 +372,19 @@ int main (int argc, char *argv[])
         }
     }
 
-    /* L8 needs the TOA reflectance and brightness temp computed from the
+    /* L8/L9 needs the TOA reflectance and brightness temp computed from the
        input Level-1 data product.  S2 is already TOA reflectance so just
        read it and convert all the bands to the same resolution. */
-    if (sat == SAT_LANDSAT_8)
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         /* Compute the TOA reflectance and TOA brightness temp */
-        printf ("Calculating L8 TOA reflectance and TOA brightness temps...\n");
+        printf ("Calculating L8/L9 TOA reflectance and TOA brightness "
+                "temps...\n");
         retval = compute_l8_toa_refl (input, &xml_metadata, qaband, nlines,
-            nsamps, gmeta->instrument, sza, sband, radsat);
+            nsamps, gmeta->instrument, sza, sband);
         if (retval != SUCCESS)
         {
-            sprintf (errmsg, "Error computing L8 TOA reflectance and TOA "
+            sprintf (errmsg, "Error computing L8/L9 TOA reflectance and TOA "
                 "brightness temperatures.");
             error_handler (true, FUNC_NAME, errmsg);
             exit (ERROR);
@@ -418,8 +403,8 @@ int main (int argc, char *argv[])
         }
     }
 
-    /* Write the output TOA and BT bands for L8. Nothing is done for S2. */
-    if (sat == SAT_LANDSAT_8)
+    /* Write the output TOA and BT bands for L8/L9. Nothing is done for S2. */
+    if (sat == SAT_LANDSAT_8 ||sat == SAT_LANDSAT_9)
     {
         /* Open the TOA output file, and set up the bands according to whether
            the TOA reflectance bands will be written. */
@@ -442,7 +427,7 @@ int main (int argc, char *argv[])
                 printf ("  Band %d: %s\n", ib+1,
                     toa_output->metadata.band[ib].file_name);
                 if (put_output_lines (toa_output, sband[ib], ib, 0, nlines,
-                    sizeof (int16)) != SUCCESS)
+                    sizeof (uint16)) != SUCCESS)
                 {
                     sprintf (errmsg, "Writing output TOA data for band %d",
                         ib+1);
@@ -494,7 +479,7 @@ int main (int argc, char *argv[])
             printf ("  Band %d: %s\n", ib+2,
                 toa_output->metadata.band[ib].file_name);
             if (put_output_lines (toa_output, sband[ib], ib, 0, nlines,
-                sizeof (int16)) != SUCCESS)
+                sizeof (uint16)) != SUCCESS)
             {
                 sprintf (errmsg, "Writing output TOA data for band %d", ib+2);
                 error_handler (true, FUNC_NAME, errmsg);
@@ -542,58 +527,6 @@ int main (int argc, char *argv[])
                 unlink (toa_output->metadata.band[ib].file_name);
         }
         free_output (toa_output, OUTPUT_TOA);
-
-        /* Open the RADSAT output file */
-        radsat_output = open_output (&xml_metadata, input, OUTPUT_RADSAT);
-        if (radsat_output == NULL)
-        {   /* error message already printed */
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-        printf ("Writing RADSAT data to the output files ...\n");
-
-        /* Write the RADSAT band */
-        if (put_output_lines (radsat_output, radsat, 0, 0, nlines,
-            sizeof (uint16)) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing output RADSAT data");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Create the ENVI header file this band */
-        if (create_envi_struct (&radsat_output->metadata.band[SR_RADSAT],
-            &xml_metadata.global, &envi_hdr) != SUCCESS)
-        {
-            sprintf (errmsg, "Creating ENVI header structure.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-          
-        /* Write the ENVI header */
-        strcpy (envi_file, radsat_output->metadata.band[SR_RADSAT].file_name);
-        cptr = strchr (envi_file, '.');
-        strcpy (cptr, ".hdr");
-        if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
-        {
-            sprintf (errmsg, "Writing ENVI header file.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Append the RADSAT band to the XML file */
-        if (append_metadata (1, &radsat_output->metadata.band[SR_RADSAT],
-            xml_infile) != SUCCESS)
-        {
-            sprintf (errmsg, "Appending the RADSAT band to XML file.");
-            error_handler (true, FUNC_NAME, errmsg);
-            exit (ERROR);
-        }
-
-        /* Close output radsat product, cleanup bands, and free the memory */
-        close_output (sat, radsat_output, OUTPUT_RADSAT);
-        free_output (radsat_output, OUTPUT_RADSAT);
-        free (radsat);
     }
 
     /* Only continue with the surface reflectance corrections if SR processing
@@ -604,7 +537,7 @@ int main (int argc, char *argv[])
            the data to the SR output file */
         printf ("Performing atmospheric corrections for each reflectance "
             "band ...\n");
-        if (sat == SAT_LANDSAT_8)
+        if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
         {
             retval = compute_l8_sr_refl (input, &xml_metadata, xml_infile,
                 qaband, nlines, nsamps, pixsize, sband, xts, xmus, anglehdf,
@@ -645,7 +578,7 @@ int main (int argc, char *argv[])
 
     /* Free memory for band data */
     free (qaband);
-    if (sat == SAT_LANDSAT_8)
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         free (sza);
         for (i = 0; i < NBAND_L8_TTL_OUT-1; i++)
@@ -680,10 +613,10 @@ NOTES:
 ******************************************************************************/
 void usage ()
 {
-    printf ("LaSRC (Landsat Surface Reflectance Code) computes the surface "
-            "reflectance values for the input Landsat 8 DN and Sentinel-2 "
+    printf ("LaSRC (Land Surface Reflectance Code) computes the surface "
+            "reflectance values for the input Landsat 8/9 DN and Sentinel-2 "
             "L1C TOA reflectance products.\n"
-            "Landsat 8: Surface reflectance correction and/or top of "
+            "Landsat 8/9: Surface reflectance correction and/or top of "
             "atmosphere correction is applied and written for bands 1-7.  "
             "Top of atmosphere and corrections are applied and written for "
             "bands 9 (cirrus), 10 (thermal), and 11 (thermal).  Surface "

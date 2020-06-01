@@ -29,7 +29,7 @@ NULL       Error occurred opening or reading the file
 non-NULL   Successful completion
 
 NOTES:
-  1. This routine opens the input L8 files.  It also allocates memory for
+  1. This routine opens the input L8-9 files.  It also allocates memory for
      pointers in the input structure.  It is up to the caller to use
      close_input and free_input to close the files and free up the memory when
      done using the input data structure.
@@ -65,11 +65,12 @@ Input_t *open_input
         return (NULL);
     }
 
-    /* Make sure the metadata satellite is either L8 or S2 */
-    if (this->meta.sat != SAT_LANDSAT_8 && this->meta.sat != SAT_SENTINEL_2)
+    /* Make sure the metadata satellite is either L8/L9 or S2 */
+    if (this->meta.sat != SAT_LANDSAT_8 && this->meta.sat != SAT_LANDSAT_9 &&
+        this->meta.sat != SAT_SENTINEL_2)
     {
         strcpy (errmsg, "Error getting satellite information from the input "
-            "metadata file. Only Landsat 8 and Sentinel 2 are supported.");
+            "metadata file. Only Landsat 8/9 and Sentinel 2 are supported.");
         free (this);
         error_handler (true, FUNC_NAME, errmsg);
         return (NULL);
@@ -132,8 +133,8 @@ Input_t *open_input
         this->open_qa[ib] = true;
     }
 
-    /* Open the per-pixel solar zenith angle bands for L8 */
-    if (this->meta.sat == SAT_LANDSAT_8)
+    /* Open the per-pixel solar zenith angle bands for L8/L9 */
+    if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         this->fp_bin_sza = open_raw_binary (this->file_name_sza, "rb");
         if (this->fp_bin_sza == NULL)
@@ -165,19 +166,21 @@ Input_t *open_input
         return (NULL);
     }
 
-    /* L8 should have a QA input band */
-    if (this->meta.sat == SAT_LANDSAT_8 && !this->open_qa[0])
+    /* L8/L9 should have a QA input band */
+    if ((this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9) &&
+         !this->open_qa[0])
     {
-        sprintf (errmsg, "L8 QA band is not open.");
+        sprintf (errmsg, "L8/L9 QA band is not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
     }
 
-    /* L8 should have a per-pixel angle input bands */
-    if (this->meta.sat == SAT_LANDSAT_8 && !this->open_ppa)
+    /* L8/L9 should have a per-pixel angle input bands */
+    if ((this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9) &&
+         !this->open_ppa)
     {
-        sprintf (errmsg, "L8 per-pixel angle bands are not open.");
+        sprintf (errmsg, "L8/L9 per-pixel angle bands are not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
@@ -214,8 +217,8 @@ void close_input
         }
     }
 
-    /* L8 has thermal, pan, QA, and per-pixel angle bands to close */
-    if (this->meta.sat == SAT_LANDSAT_8)
+    /* L8/L9 has thermal, pan, QA, and per-pixel angle bands to close */
+    if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         /* Close the thermal files */
         for (ib = 0; ib < this->nband_th; ib++)
@@ -290,8 +293,8 @@ void free_input
         for (ib = 0; ib < this->nband; ib++)
             free (this->file_name[ib]);
 
-        /* L8 has thermal, pan, QA, and per-pixel angle bands to close */
-        if (this->meta.sat == SAT_LANDSAT_8)
+        /* L8/L9 has thermal, pan, QA, and per-pixel angle bands to close */
+        if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
         {
             for (ib = 0; ib < this->nband_th; ib++)
                 free (this->file_name_th[ib]);
@@ -796,12 +799,16 @@ int get_xml_input
     this->file_name_sza = NULL;
     this->open_ppa = NULL;
     this->fp_bin_sza = NULL;
+    this->meta.gain_sza = GAIN_BIAS_FILL;
+    this->meta.bias_sza = GAIN_BIAS_FILL;
 
     /* Pull the appropriate data from the XML file */
     acq_date[0] = acq_time[0] = '\0';
     prod_date[0] = '\0';
     if (!strcmp (gmeta->satellite, "LANDSAT_8"))
         this->meta.sat = SAT_LANDSAT_8;
+    else if (!strcmp (gmeta->satellite, "LANDSAT_9"))
+        this->meta.sat = SAT_LANDSAT_9;
     else if (!strncmp (gmeta->satellite, "Sentinel-2", 10))
         this->meta.sat = SAT_SENTINEL_2;
     else
@@ -811,7 +818,8 @@ int get_xml_input
         return (ERROR);
     }
     printf ("Metadata satellite: %s\n", gmeta->satellite);
-    printf ("         satellite (L8=0, S2=1): %d\n", this->meta.sat);
+    printf ("         satellite (L8=%d, L9=%d, S2=%d): %d\n", SAT_LANDSAT_8,
+        SAT_LANDSAT_9, SAT_SENTINEL_2, this->meta.sat);
 
     if (!strcmp (gmeta->instrument, "OLI_TIRS"))
         this->meta.inst = INST_OLI_TIRS;
@@ -880,7 +888,7 @@ int get_xml_input
         }
     }
 
-    if (this->meta.sat == SAT_LANDSAT_8)
+    if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         switch (gmeta->wrs_system)
         {
@@ -918,8 +926,8 @@ int get_xml_input
         this->nband_qa = 0;     /* number of QA bands */
     }
 
-    /* Band differences between L8 and S2 */
-    if (this->meta.sat == SAT_LANDSAT_8)
+    /* Band differences between L8/L9 and S2 */
+    if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         /* Use band 1 for the representative band */
         for (i = 0; i < metadata->nbands; i++)
@@ -1050,22 +1058,26 @@ int get_xml_input
                 this->file_name_th[1] = strdup (metadata->band[i].file_name);
             }
     
-            else if (!strcmp (metadata->band[i].name, "bqa"))
+            else if (!strcmp (metadata->band[i].name, "qa_pixel"))
             {
-                /* this is the index we'll use for qa band info */
+                /* this is the index we'll use for pixel qa band info */
                 qa_indx = i;
     
                 /* get the QA band info */
                 this->file_name_qa[0] = strdup (metadata->band[i].file_name);
             }
     
-            else if (!strcmp (metadata->band[i].name, "solar_zenith_band4"))
+            else if (!strcmp (metadata->band[i].name, "sza"))
             {
                 /* this is the index we'll use for sza band info */
                 sza_indx = i;
     
                 /* get the solar zenith band info */
                 this->file_name_sza = strdup (metadata->band[i].file_name);
+                this->meta.gain_sza = metadata->band[i].scale_factor;
+                this->meta.bias_sza = metadata->band[i].add_offset;
+                if (this->meta.bias_sza == -3333)
+                    this->meta.bias_sza = 0;
             }
         }  /* for i */
 
@@ -1185,8 +1197,8 @@ int get_xml_input
         this->scale_factor_th = 0;
     }
 
-    /* L8-specific input params -- including pan and QA bands */
-    if (this->meta.sat == SAT_LANDSAT_8)
+    /* L8/L9-specific input params -- including pan and QA bands */
+    if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         this->size_pan.nsamps = metadata->band[pan_indx].nsamps;
         this->size_pan.nlines = metadata->band[pan_indx].nlines;
@@ -1254,7 +1266,7 @@ int get_xml_input
     if (this->meta.inst == INST_OLI_TIRS ||
         this->meta.inst == INST_OLI)
     {
-        if (this->meta.sat != SAT_LANDSAT_8)
+        if (this->meta.sat != SAT_LANDSAT_8 && this->meta.sat != SAT_LANDSAT_9)
         {
             sprintf (errmsg, "Invalid instrument/satellite combination");
             error_handler (true, FUNC_NAME, errmsg);

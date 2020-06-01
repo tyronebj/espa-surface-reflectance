@@ -14,9 +14,9 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "2.1.0"
+#define SR_VERSION "dev_C2"
 
-/* Define the default aerosol value */
+/* Define the default aerosol and EPS value */
 #define DEFAULT_AERO 0.05
 #define DEFAULT_EPS 1.5
 
@@ -36,6 +36,14 @@ typedef char byte;
 #define L8_HALF_AERO_WINDOW 1
 #define S2_AERO_WINDOW 6
 
+/* Define the size of the window used for fixing the invalid aerosols, using
+   an average of the representative pixels in this window. Define the minimum
+   number of clear/valid pixels needed in the window in order for the average
+   to be valid. */
+#define FIX_AERO_WINDOW 15
+#define HALF_FIX_AERO_WINDOW 7
+#define MIN_CLEAR_PIX 4
+
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10
 
@@ -48,7 +56,8 @@ typedef char byte;
 #define RAD2DEG 57.29577951
 
 /* For divisions - to minimize processing time */
-#define ONE_DIV_1013 0.000987166
+#define ATMOS_PRES_0 1013.0 /* mean atmospheric pressure (mbar) at sea level */
+#define ONE_DIV_ATMOS_PRES_0 0.000987166
 #define ONE_DIV_8500 0.000117647
 
 /* Number of bands corrected to surface reflectance
@@ -153,9 +162,6 @@ extern char S2_BANDNAME[NREFL_S2_BANDS][3];  /* defined in output.c */
    of the L8 and S2 number of output bands */
 #define NBAND_TTL_OUT SR_S2_TTL
 
-/* Definte the RADSAT band */
-#define SR_RADSAT 0
-
 /* High confidence Level-1 QA values */
 #define L1QA_HIGH_CONF 3
 
@@ -163,14 +169,13 @@ extern char S2_BANDNAME[NREFL_S2_BANDS][3];  /* defined in output.c */
    levels */
 typedef enum {
   IPFLAG_FILL=0,            /* fill value */
-  IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land pixel) */
+  IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land or water) */
   IPFLAG_WATER=2,           /* water pixel */
   IPFLAG_FAILED=2,          /* flags failed aerosol retrieval pixels for S2 */
-  IPFLAG_CLOUD=3,           /* pixel was flagged as cloud in the Level-1 QA */
+  IPFLAG_FIXED=3,           /* invalid retrieval which was fixed with a local
+                               average of valid aerosols (internal use only) */
   IPFLAG_FAILED_TMP=3,      /* temp flag for expanding possible failed pixels
                                for S2 */
-  IPFLAG_SHADOW=4,          /* pixel was flagged as cloud shadow in the
-                               Level-1 QA */
   IPFLAG_INTERP_WINDOW=5,   /* aerosol was interpolated using the center (L8) or
                                UL (S2) of the NxN windows */
   AERO1_QA=6,    /* these two AERO bits mark the amount of aerosols and = 64 */
@@ -182,8 +187,8 @@ typedef enum {
 typedef enum {
   SAT_NULL = -1,
   SAT_LANDSAT_8 = 0, 
+  SAT_LANDSAT_9, 
   SAT_SENTINEL_2,
-  SAT_MAX
 } Sat_t;
 
 /* Instrument type definition */
@@ -192,7 +197,6 @@ typedef enum {
   INST_OLI_TIRS = 0, 
   INST_OLI, 
   INST_MSI,
-  INST_MAX
 } Inst_t;
 
 /* World Reference System (WRS) type definition */
@@ -200,7 +204,6 @@ typedef enum {
   WRS_NULL = -1,
   WRS_1 = 0, 
   WRS_2,
-  WRS_MAX
 } Wrs_t;
 
 typedef struct {

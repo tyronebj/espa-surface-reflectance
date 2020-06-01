@@ -5,21 +5,28 @@
 #include "input.h"
 
 /* Define some of the constants to use in the output data products */
-#define FILL_VALUE -9999
-#define RADSAT_FILL_VALUE 1
+#define FILL_VALUE 0
 #define CLOUD_FILL_VALUE 0
-#define SCALE_FACTOR 0.0001
-#define MULT_FACTOR 10000.0
-#define SCALE_FACTOR_TH 0.1
-#define MULT_FACTOR_TH 10.0
-#define MIN_VALID -2000
-#define MAX_VALID 16000
-#define MIN_VALID_TH 1500
-#define MAX_VALID_TH 3500
-#define L1_SATURATED 65535    /* saturation value of the Level-1 L8/S2 pixel */
+
+/* written to XML file for users of the SR data */
+#define SCALE_FACTOR 0.0000275
+#define OFFSET_REFL -0.20
+#define SCALE_FACTOR_TH 0.00341802
+#define OFFSET_TH 149.0
+
+#define MIN_VALID (-0.20 + BAND_OFFSET) * MULT_FACTOR
+#define MAX_VALID (1.60 + BAND_OFFSET) * MULT_FACTOR
+#define MIN_VALID_TH (150 + BAND_OFFSET_TH) * MULT_FACTOR_TH
+#define MAX_VALID_TH (350 + BAND_OFFSET_TH) * MULT_FACTOR_TH
+
+/* applied to the SR data before writing to the output file */
+#define MULT_FACTOR (1.0 / SCALE_FACTOR)
+#define BAND_OFFSET (-OFFSET_REFL)
+#define MULT_FACTOR_TH (1.0 / SCALE_FACTOR_TH)
+#define BAND_OFFSET_TH (-OFFSET_TH)
 
 /* Define the output product types */
-typedef enum {OUTPUT_TOA=0, OUTPUT_SR=1, OUTPUT_RADSAT=2} Myoutput_t;
+typedef enum {OUTPUT_TOA=0, OUTPUT_SR=1} Myoutput_t;
 
 /* Structure for the 'output' data type */
 typedef struct {
@@ -41,21 +48,20 @@ Output_t *open_output
 (
     Espa_internal_meta_t *in_meta,  /* I: input metadata structure */
     Input_t *input,                 /* I: input band data structure */
-    Myoutput_t output_type          /* I: are we processing TOA, SR, RADSAT
-                                          outputs? */
+    Myoutput_t output_type          /* I: are we processing TOA, SR outputs? */
 );
 
 int close_output
 (
     Sat_t sat,              /* I: satellite */
     Output_t *output,       /* I/O: Output data structure to close */
-    Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
+    Myoutput_t output_type  /* I: are we processing TOA, SR outputs? */
 );
 
 int free_output
 (
     Output_t *output,       /* I/O: Output data structure to free */
-    Myoutput_t output_type  /* I: are we processing TOA, SR, RADSAT outputs? */
+    Myoutput_t output_type  /* I: are we processing TOA, SR outputs? */
 );
 
 int put_output_lines

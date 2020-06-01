@@ -1,4 +1,4 @@
-## LaSRC Version 2.1.0 Release Notes
+## LaSRC Version X.X.X Release Notes
 Release Date: May 2020
 
 ### Downloads
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [lasrc-version_2.1.0]
+See git tag [lasrc-version_dev_C2]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
@@ -67,7 +67,7 @@ See git tag [lasrc-version_2.1.0]
   * Auxiliary data products
     1. LAADS Terra and Aqua CMG and CMA data
     2. CMGDEM HDF file
-    3. Various input files and model information provided with the LaSRC auxiliary .tar.gz files
+    3. Various input files and model information provided with the LaSRC auxiliary .tar.gz file
 
 ### Auxiliary Data Updates
 The baseline auxiliary files provided don't include the daily climate data.  In order to generate or update the auxiliary files to the most recent day of year (actually the most current auxiliary files available will be 2-3 days prior to the current day of year do to the latency of the underlying LAADS products) the user will want to run the updatelads.py script available in $PREFIX/bin.  This script can be run with the "--help" argument to print the usage information.  In general the --quarterly argument will reprocess/update all the LAADS data back to 2013.  This is good to do every once in a while to make sure any updates to the LAADS data products are captured.  The --today command-line argument will process the LAADS data for the most recent year.  In general, it is suggested to run the script with --quarterly once a quarter.  Then run the script with --today on a nightly basis.  This should provide an up-to-date version of the auxiliary input data for LaSRC.  The easiest way to accomplish this is to set up a nightly and quarterly cron job.
@@ -88,3 +88,25 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 
 ## Release Notes
 1. Converted the scripts to utilize Python 3, since Python 2.x is obsolete.
+2. Allow OLI-only products to be processed for surface reflectance corrections.
+3. Support Collection 2 products.
+4. Removed the saturation band output in lieu of the Level-1 RADSAT band.
+5. Supported L8 and L9.
+6. Added some computational efficiences from the LPGS code.
+7. Write out data type, scale factor, add offset, etc. similar to the
+   Collection 2 products.
+8. Support the new pixel QA band from Collection 2.
+9. Added Landsat 9 satellite support from the input metadata.
+10. Removed the input Level-1 QA which was used to designate clouds, shadows,
+    and cirrus. Instead all pixels are considered for aerosol inversion. Cloud,
+    shadows, and cirrus are pixels are no longer masked in the aerosol QA band.
+11. Pixels which fail the clear land inversion fall into the "water category"
+    and are now subject to aerosol inversion for water pixels, similar to the
+    original FORTRAN code. If aerosol inversion is successful, these pixels are
+    masked with valid aerosol retrieval and as water in the aerosol QA band.
+12. Removed pixel size x/y from aerosol interpolation, since it wasn't used.
+13. Pixels which fail the aerosol inversion checks are no longer given a default
+    value then filled with the median of the clear land pixels. Instead the
+    computed aerosol value is used as-is.
+14. All pixels are corrected for surface reflectance, except fill. Previously
+    cloud pixels were not corrected.

@@ -39,10 +39,12 @@ typedef struct {
     int irow;                /* WRS row number */
     uint16 fill;             /* fill value */
     bool gain_set;                 /* are the gains and biases set? */
-    float gain[NBAND_REFL_MAX];    /* reflectance band TOA refl gain */
+    float gain_sza;                /* solar zenith angle gain (L8 only) */
+    float gain[NBAND_REFL_MAX];    /* reflectance band TOA refl gain (L8) */
     float gain_th[NBAND_L8_THM_MAX];  /* therm band brightness temp gain (L8)*/
     float gain_pan[NBAND_L8_PAN_MAX]; /* pan band TOA refl gain (L8 only) */
-    float bias[NBAND_REFL_MAX];    /* reflectance band bias */
+    float bias_sza;                /* solar zenith angle bias (L8 only) */
+    float bias[NBAND_REFL_MAX];    /* reflectance band bias (L8 only) */
     float bias_th[NBAND_L8_THM_MAX];  /* thermal band bias (L8 only) */
     float bias_pan[NBAND_L8_PAN_MAX]; /* pan band bias (L8 only) */
     float k1_const[NBAND_L8_THM_MAX]; /* K1 const for thermal bands (L8 only) */
