@@ -754,7 +754,7 @@ int fix_invalid_aerosols_l8
             "pixels\n", nbpixnf, nbpixtot);
     }
 
-    /** Final reverese pass for any remaining invalid retrievals (mostly the
+    /** Final reverse pass for any remaining invalid retrievals (mostly the
         UL part of the image) **/
     if (nbpixnf > 0)
     {

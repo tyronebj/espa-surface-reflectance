@@ -365,11 +365,6 @@ int compute_l8_sr_refl
     float corf;         /* aerosol impact (higher values represent high
                            aerosol) */
     float ros1, ros4, ros5; /* surface reflectance for bands 1, 4, and 5 */
-    int tmp_percent;      /* current percentage for printing status */
-#ifndef _OPENMP
-    int curr_tmp_percent; /* percentage for current line */
-#endif
-
     float lat, lon;       /* pixel lat, long location */
     int lcmg, scmg;       /* line/sample index for the CMG */
     int lcmg1, scmg1;     /* line+1/sample+1 index for the CMG */
@@ -451,7 +446,6 @@ int compute_l8_sr_refl
     int roatm_iaMax[NREFL_BANDS];          /* ??? */
     int ia;                                /* looping variable for AOTs */
     int iaMaxTemp;                         /* max temp for current AOT level */
-    float arr1[NAOT_VALS], coef1[NCOEF];   /* temporary arrays */
 
     /* Auxiliary file variables */
     int16 *dem = NULL;        /* CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
@@ -606,8 +600,6 @@ int compute_l8_sr_refl
         "band ... %s", ctime(&mytime));
     for (ib = 0; ib <= SR_L8_BAND7; ib++)
     {
-        printf (" %d ...", ib+1);
-
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
            roslamb value is not valid upon output. Just set it to 0.0 to
@@ -669,19 +661,11 @@ int compute_l8_sr_refl
                scaled value for further corrections.  (NOTE: the full
                computations are in atmcorlamb2) */
             rotoa = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
-/* ESPA Version -- GAIL
-            roslamb = rotoa / tgo;
-            roslamb = roslamb - roatm;
-            roslamb = roslamb / ttatmg;
-            roslamb = roslamb / (1.0 + satm * roslamb);
-*/
-
             roslamb = rotoa - tgo*roatm;
             roslamb /= tgo*ttatmg + satm*roslamb;
             sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) * MULT_FACTOR);
         }  /* end for i */
     }  /* for ib */
-    printf ("\n");
 
     /* Start the retrieval of atmospheric correction parameters for each band */
     mytime = time(NULL);
@@ -730,10 +714,6 @@ int compute_l8_sr_refl
 
     for (ib = 0; ib <= SR_L8_BAND7; ib++)
     {
-        /* Get the polynomial coefficients for roatm */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = roatm_arr[ib][ia];
-
         /* Determine the maximum AOT index */
         iaMaxTemp = 1;
         for (ia = 1; ia < NAOT_VALS; ia++)
@@ -741,7 +721,7 @@ int compute_l8_sr_refl
             if (ia == NAOT_VALS-1)
                 iaMaxTemp = NAOT_VALS-1;
 
-            if ((arr1[ia] - arr1[ia-1]) > ESPA_EPSILON)
+            if ((roatm_arr[ib][ia] - roatm_arr[ib][ia-1]) > ESPA_EPSILON)
                 continue;
             else
             {
@@ -752,49 +732,27 @@ int compute_l8_sr_refl
 
         /* Get the polynomial coefficients for roatm */
         roatm_iaMax[ib] = iaMaxTemp;
-        get_3rd_order_poly_coeff (aot550nm, arr1, iaMaxTemp, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            roatm_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, roatm_arr[ib], iaMaxTemp,
+            roatm_coef[ib]);
 
         /* Get the polynomial coefficients for ttatmg */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = ttatmg_arr[ib][ia];
-        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            ttatmg_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, ttatmg_arr[ib], NAOT_VALS,
+            ttatmg_coef[ib]);
 
         /* Get the polynomial coefficients for satm */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = satm_arr[ib][ia];
-        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            satm_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, satm_arr[ib], NAOT_VALS,
+            satm_coef[ib]);
     }
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         L8_AERO_WINDOW, L8_AERO_WINDOW, ctime(&mytime));
-    tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, sraot1, sraot3, xc, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros5, ros4, erelc, troatm)
 #endif
     for (i = L8_HALF_AERO_WINDOW; i < nlines; i += L8_AERO_WINDOW)
     {
-#ifndef _OPENMP
-        /* update status, but not if multi-threaded */
-        curr_tmp_percent = 100 * i / nlines;
-        if (curr_tmp_percent > tmp_percent)
-        {
-            tmp_percent = curr_tmp_percent;
-            if (tmp_percent % 10 == 0)
-            {
-                printf ("%d%% ", tmp_percent);
-                fflush (stdout);
-            }
-        }
-#endif
-
         curr_pix = i * nsamps + L8_HALF_AERO_WINDOW;
         for (j = L8_HALF_AERO_WINDOW; j < nsamps;
              j += L8_AERO_WINDOW, curr_pix += L8_AERO_WINDOW)
@@ -1260,12 +1218,6 @@ int compute_l8_sr_refl
             curr_pix = center_pix;
         }  /* end for j */
     }  /* end for i */
-
-#ifndef _OPENMP
-    /* update status */
-    printf ("100%%\n");
-    fflush (stdout);
-#endif
 
     /* Done with the aerob* arrays */
     free (aerob1);  aerob1 = NULL;
