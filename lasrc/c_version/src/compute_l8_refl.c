@@ -1318,7 +1318,6 @@ int compute_l8_sr_refl
        isn't spanned */
     for (ib = 0; ib <= DN_L8_BAND7; ib++)
     {
-        printf ("  Band %d\n", ib+1);
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
@@ -1395,8 +1394,6 @@ int compute_l8_sr_refl
     /* Loop through the reflectance bands and write the data */
     for (ib = 0; ib <= DN_L8_BAND7; ib++)
     {
-        printf ("  Band %d: %s\n", ib+1,
-            sr_output->metadata.band[ib].file_name);
         if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
             sizeof (uint16)) != SUCCESS)
         {
