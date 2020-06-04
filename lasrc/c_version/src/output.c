@@ -289,7 +289,7 @@ Output_t *open_output
             else
             {  /* reflectance bands */
                 bmeta[ib].scale_factor = SCALE_FACTOR;
-                bmeta[ib].add_offset = OFFSET_TH;
+                bmeta[ib].add_offset = OFFSET_REFL;
                 bmeta[ib].valid_range[0] = (float) MIN_VALID;
                 bmeta[ib].valid_range[1] = (float) MAX_VALID;
             }
