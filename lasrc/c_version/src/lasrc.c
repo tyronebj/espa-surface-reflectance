@@ -77,7 +77,8 @@ int main (int argc, char *argv[])
 
     int16 *sza = NULL;       /* L8 per-pixel solar zenith angles,
                                 nlines x nsamps */
-    uint16 **toaband = NULL; /* S2 TOA reflectance bands, nlines x nsamps */
+    float **toaband = NULL;  /* S2 TOA unscaled reflectance bands,
+                                nlines x nsamps */
     uint16 **sband = NULL;   /* output surface reflectance and brightness
                                 temp bands, qa band is separate as a uint16 */
     uint16 *qaband = NULL;   /* L8 input QA band, S2 generated QA band,
@@ -392,7 +393,7 @@ int main (int argc, char *argv[])
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        /* Read the TOA reflectance bands */
+        /* Read the TOA reflectance bands and return unscaled values */
         printf ("Reading S2 TOA reflectance bands...\n");
         retval = read_s2_toa_refl (input, &xml_metadata, toaband);
         if (retval != SUCCESS)

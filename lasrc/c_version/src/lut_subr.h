@@ -329,7 +329,7 @@ int memory_allocation_main
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     uint16 ***sband,     /* O: output surface reflectance and brightness temp
                                bands */
-    uint16 ***toaband    /* O: S2 TOA reflectance bands */
+    float ***toaband     /* O: S2 TOA unscaled reflectance bands */
 );
 
 int l8_memory_allocation_sr

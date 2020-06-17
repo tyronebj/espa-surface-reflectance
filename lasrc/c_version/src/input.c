@@ -952,6 +952,12 @@ int get_xml_input
            band-related information for reflectance, thermal, and pan bands */
         for (i = 0; i < metadata->nbands; i++)
         {
+            /* Check the band offset against a value of -3333, which means
+               it isn't valid or it's fill. In this case set it to 0. */
+            if (metadata->band[i].add_offset == -3333.)
+                metadata->band[i].add_offset = 0.;
+
+            /* Obtain band-related info */
             if (!strcmp (metadata->band[i].name, "b1"))
             {
                 /* get the band1 info */
@@ -1117,6 +1123,12 @@ int get_xml_input
            processed. */
         for (i = 0; i < metadata->nbands; i++)
         {
+            /* Check the band offset against a value of -3333, which means
+               it isn't valid or it's fill. In this case set it to 0. */
+            if (metadata->band[i].add_offset == -3333.)
+                metadata->band[i].add_offset = 0.;
+
+            /* Obtain band-related info */
             if (!strcmp (metadata->band[i].name, "B01"))
                 this->file_name[DN_S2_BAND1] =
                     strdup (metadata->band[i].file_name);

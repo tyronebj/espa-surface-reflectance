@@ -24,7 +24,7 @@ typedef char byte;
    aerosol inversion.  The aerosols will be inverted for the center of the
    NxN window (with special handling for fill, clouds, water) and then used
    to fill the rest of the window.  Aerosols are fairly homogenious over a
-   reasonable area.  Landsat windows represent the UL corner.
+   reasonable area.  Landsat windows represent the center of the window.
    The following are example NxN window setups:
    9x9: AERO_WINDOW 9 and HALF_AERO_WINDOW 4
    7x7: AERO_WINDOW 7 and HALF_AERO_WINDOW 3
@@ -39,10 +39,21 @@ typedef char byte;
 /* Define the size of the window used for fixing the invalid aerosols, using
    an average of the representative pixels in this window. Define the minimum
    number of clear/valid pixels needed in the window in order for the average
-   to be valid. */
-#define FIX_AERO_WINDOW 15
-#define HALF_FIX_AERO_WINDOW 7
-#define MIN_CLEAR_PIX 4
+   to be valid. The MIN_CLEAR_PIX is ~16.7% of the number of representative
+   pixels in the FIX_AERO_WINDOW.
+   Landsat ==> 15 x 30m pixels = 450m window for average
+               There are 25 (5x5) possible representative pixels in a window
+               of 15x15 using 3x3 representative pixel windows. 4/24 = .167
+   Sentinel ==> 45 x 10m pixels = 450m window for average
+               There are 49 (7x7) possible representative pixels in a window
+               of 45x45 using 6x6 representative pixel windows. 8/48 = .167
+*/
+#define L8_FIX_AERO_WINDOW 15
+#define L8_HALF_FIX_AERO_WINDOW 7
+#define L8_MIN_CLEAR_PIX 4
+#define S2_FIX_AERO_WINDOW 45
+#define S2_HALF_FIX_AERO_WINDOW 22
+#define S2_MIN_CLEAR_PIX 8
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10

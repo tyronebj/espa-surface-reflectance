@@ -17,6 +17,7 @@ NOTES:
 #include "aero_interp.h"
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
+#include "read_level2_qa.h"
 
 /******************************************************************************
 MODULE:  read_s2_toa_refl
@@ -41,11 +42,12 @@ int read_s2_toa_refl
     Input_t *input,     /* I: input structure for the Sentinel product */
     Espa_internal_meta_t *xml_metadata,
                         /* I: XML metadata structure */
-    uint16 **toaband    /* O: output TOA reflectance values (scaled) */
+    float **toaband     /* O: output TOA reflectance values (unscaled) */
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
     char FUNC_NAME[] = "read_s2_toa_refl";   /* function name */
+    int i;               /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
     int nlines10 = -99;  /* number of lines in 10m reflectance bands */
     int nsamps10 = -99;  /* number of samps in 10m reflectance bands */
@@ -53,10 +55,14 @@ int read_s2_toa_refl
     int nsamps20 = -99;  /* number of samps in 20m reflectance bands */
     int nlines60 = -99;  /* number of lines in 20m reflectance bands */
     int nsamps60 = -99;  /* number of samps in 20m reflectance bands */
+    uint16 *tmp_band = NULL;    /* array for input 10m image data for a single
+                                   band, nlines10 x nsamps10 */
     uint16 *tmp20_band = NULL;  /* array for input 20m image data for a single
                                    band, nlines20 x nsamps20 */
     uint16 *tmp60_band = NULL;  /* array for input 60m image data for a single
                                    band, nlines60 x nsamps60 */
+    Espa_band_meta_t *bmeta = xml_metadata->band;
+                          /* pointer to the array of band metadata */
 
     /* Determine the 10m, 20m, and 60m number of lines and samples */
     for (ib = 0; ib < xml_metadata->nbands; ib++)
@@ -106,6 +112,14 @@ int read_s2_toa_refl
     }
 
     /* Allocate memory for 10m, 20m 60m band data */
+    tmp_band = calloc (nlines10 * nsamps10, sizeof (uint16));
+    if (tmp_band == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for temporary 10m band");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
     tmp20_band = calloc (nlines20 * nsamps20, sizeof (uint16));
     if (tmp20_band == NULL)
     {
@@ -134,7 +148,7 @@ int read_s2_toa_refl
             case DN_S2_BAND8:
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines10, nsamps10,
-                    &toaband[ib][0]) != SUCCESS)
+                    tmp_band) != SUCCESS)
                 {
                     sprintf (errmsg, "Error reading S2 TOA 10m band %d", ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
@@ -161,7 +175,7 @@ int read_s2_toa_refl
 
                 /* Convert to 10m */
                 if (convert_to_10m (nlines20, nsamps20, nlines10, nsamps10,
-                    tmp20_band, &toaband[ib][0]) != SUCCESS)
+                    tmp20_band, tmp_band) != SUCCESS)
                 {
                     sprintf (errmsg, "Error converting 20m band %d", ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
@@ -183,7 +197,7 @@ int read_s2_toa_refl
 
                 /* Convert to 10m */
                 if (convert_to_10m (nlines60, nsamps60, nlines10, nsamps10,
-                    tmp60_band, &toaband[ib][0]) != SUCCESS)
+                    tmp60_band, tmp_band) != SUCCESS)
                 {
                     sprintf (errmsg, "Error converting 60m band %d", ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
@@ -191,10 +205,23 @@ int read_s2_toa_refl
                 }
 
                 break;
+        }  /* switch ib */
+
+        /* Unscale the data */
+        for (i = 0; i < nlines10 * nsamps10; i++)
+        {
+            /* If this is fill, leave the value as-is for masking later. O/W
+               unscale the data. */
+            if (tmp_band[i] == bmeta[ib].fill_value)
+                toaband[ib][i] = tmp_band[i];
+            else
+                toaband[ib][i] = tmp_band[i] * bmeta[ib].scale_factor +
+                    bmeta[ib].add_offset;
         }
-    }
+    }  /* for ib */
 
     /* Free the memory */
+    free (tmp_band);
     free (tmp20_band);
     free (tmp60_band);
 
@@ -240,11 +267,11 @@ int compute_s2_sr_refl
     Espa_internal_meta_t *xml_metadata,
                         /* I: XML metadata structure */
     char *xml_infile,   /* I: input XML filename */
-    uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
+    uint16 *qaband,     /* O: QA band generated for image, nlines x nsamps */
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
-    uint16 **toaband,   /* I: input TOA reflectance bands, nlines x nsamps */
+    float **toaband,    /* I: unscaled TOA reflectance bands, nlines x nsamps */
     uint16 **sband,     /* O: output SR bands, nlines x nsamps */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
@@ -291,7 +318,7 @@ int compute_s2_sr_refl
     float rsurf;        /* surface reflectance */
     float corf;         /* aerosol impact (higher values represent high
                            aerosol) */
-    float ros4,ros5;    /* surface reflectance for bands 4 and 5 */
+    float ros1,ros4,ros5; /* surface reflectance for bands 1, 4, and 5 */
     int tmp_percent;    /* current percentage for printing status */
 #ifndef _OPENMP
     int curr_tmp_percent; /* percentage for current line */
@@ -299,7 +326,7 @@ int compute_s2_sr_refl
 
     float lat, lon;       /* pixel lat, long location */
     int lcmg, scmg;       /* line/sample index for the CMG */
-    int lcmg1;            /* line+1 index for the CMG */
+    int lcmg1, scmg1;     /* line+1/sample+1 index for the CMG */
     float u, v;           /* line/sample index for the CMG */
     float one_minus_u;    /* 1.0 - u */
     float one_minus_v;    /* 1.0 - v */
@@ -310,7 +337,6 @@ int compute_s2_sr_refl
     float ndwi_th1, ndwi_th2; /* values for NDWI calculations */
     float xcmg, ycmg;     /* x/y location for CMG */
     float xndwi;          /* calculated NDWI value */
-    float median_aerosol; /* median aerosol value for clear pixels */
     uint8 *ipflag = NULL; /* QA flag to assist with aerosol interpolation,
                              nlines x nsamps */
     float *taero = NULL;  /* aerosol values for each pixel, nlines x nsamps */
@@ -371,7 +397,6 @@ int compute_s2_sr_refl
     int roatm_iaMax[NREFL_BANDS];
     int ia;                                /* looping variable for AOTs */
     int iaMaxTemp;                         /* max temp for current AOT level */
-    float arr1[NAOT_VALS], coef1[NCOEF];   /* temporary arrays */
 
     /* Auxiliary file variables */
     int16 *dem = NULL;        /* CMG DEM data array [DEM_NBLAT x DEM_NBLON] */
@@ -563,22 +588,15 @@ int compute_s2_sr_refl
         {
             /* If this pixel is not fill then handle the atmospheric
                correction */
-            if (toaband[ib][i] > 0)
+            if (toaband[ib][i] != bmeta[ib].fill_value)
             {
-                /* Store the scaled TOA reflectance values for later use before
-                   completing atmospheric corrections */
-                roslamb = toaband[ib][i] * bmeta[ib].scale_factor +
-                    bmeta[ib].add_offset;
-printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scale_factor, bmeta[ib].add_offset);
-
                 /* Apply the atmospheric corrections (ignoring the Rayleigh
                    scattering component and water vapor), and store the
                    scaled value for further corrections.  (NOTE: the full
                    computations are in atmcorlamb2) */
-                roslamb = roslamb / tgo;
-                roslamb = roslamb - roatm;
-                roslamb = roslamb / ttatmg;
-                roslamb = roslamb / (1.0 + satm * roslamb);
+                rotoa = toaband[ib][i];
+                roslamb = rotoa - tgo * roatm;
+                roslamb /= tgo * ttatmg + satm * roslamb;
                 sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) *
                     MULT_FACTOR);
             }
@@ -639,17 +657,14 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
 
     for (ib = 0; ib <= SR_S2_BAND12; ib++)
     {
-        /* Get the polynomial coefficients for roatm */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = roatm_arr[ib][ia];
+        /* Determine the maximum AOT index */
         iaMaxTemp = 1;
-
         for (ia = 1; ia < NAOT_VALS; ia++)
         {
             if (ia == NAOT_VALS-1)
                 iaMaxTemp = NAOT_VALS-1;
 
-            if ((arr1[ia] - arr1[ia-1]) > ESPA_EPSILON)
+            if ((roatm_arr[ib][ia] - roatm_arr[ib][ia-1]) > ESPA_EPSILON)
                 continue;
             else
             {
@@ -658,24 +673,18 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
             }
         }
 
+        /* Get the polynomial coefficients for roatm */
         roatm_iaMax[ib] = iaMaxTemp;
-        get_3rd_order_poly_coeff (aot550nm, arr1, iaMaxTemp, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            roatm_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, roatm_arr[ib], iaMaxTemp,
+            roatm_coef[ib]);
 
         /* Get the polynomial coefficients for ttatmg */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = ttatmg_arr[ib][ia];
-        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            ttatmg_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, ttatmg_arr[ib], NAOT_VALS,
+            ttatmg_coef[ib]);
 
         /* Get the polynomial coefficients for satm */
-        for (ia = 0; ia < NAOT_VALS; ia++)
-            arr1[ia] = satm_arr[ib][ia];
-        get_3rd_order_poly_coeff (aot550nm, arr1, NAOT_VALS, coef1);
-        for (ia = 0; ia < NCOEF; ia++)
-            satm_coef[ib][ia] = coef1[ia];
+        get_3rd_order_poly_coeff (aot550nm, satm_arr[ib], NAOT_VALS,
+            satm_coef[ib]);
     }
 
     /* Compute some EPS values */
@@ -693,7 +702,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
         S2_AERO_WINDOW, S2_AERO_WINDOW, ctime(&mytime)); fflush(stdout);
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros4, ros5, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i+=S2_AERO_WINDOW)
     {
@@ -723,7 +732,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
 
             /* Get the lat/long for the current pixel (which may not be the
                center of the aerosol window), for the center of that pixel */
-            img.l = i + 0.5;
+            img.l = i - 0.5;
             img.s = j + 0.5;
             img.is_fill = false;
             if (!from_space (space, &img, &geo))
@@ -762,18 +771,24 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
             if (lcmg < 0)
                 lcmg = 0;
             else if (lcmg >= CMG_NBLAT)
-                lcmg = CMG_NBLAT;
+                lcmg = CMG_NBLAT - 1;
 
             if (scmg < 0)
                 scmg = 0;
             else if (scmg >= CMG_NBLON)
-                scmg = CMG_NBLON;
+                scmg = CMG_NBLON - 1;
 
             /* If the current CMG pixel is at the edge of the CMG array, then
                allow the next pixel for interpolation to wrap around the
                array */
-            if (lcmg >= CMG_NBLAT-1)  /* -90 degrees so wrap around */
-                lcmg1 = 0;
+            if (scmg >= CMG_NBLON - 1)  /* 180 degrees so wrap around */
+                scmg1 = 0;
+            else
+                scmg1 = scmg + 1;
+
+            if (lcmg >= CMG_NBLAT - 1)  /* -90 degrees, so set the next pixel
+                                           to also use -90. */
+                lcmg1 = lcmg;
             else
                 lcmg1 = lcmg + 1;
 
@@ -790,9 +805,9 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
 
             /* Determine the band ratios and slope/intercept */
             ratio_pix11 = lcmg * RATIO_NBLON + scmg;
-            ratio_pix12 = ratio_pix11 + 1;
+            ratio_pix12 = lcmg * RATIO_NBLON + scmg1;
             ratio_pix21 = lcmg1 * RATIO_NBLON + scmg;
-            ratio_pix22 = ratio_pix21 + 1;
+            ratio_pix22 = lcmg1 * RATIO_NBLON + scmg1;
 
             rb1 = ratiob1[ratio_pix11] * 0.001;  /* vs. / 1000. */
             rb2 = ratiob2[ratio_pix11] * 0.001;  /* vs. / 1000. */
@@ -969,14 +984,10 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
                 {
                     if (isamp >= nsamps) continue;
                     curr_win_pix = iline * nsamps + isamp;
-                    troatm[DN_S2_BAND1] +=
-                        toaband[DN_S2_BAND1][curr_win_pix] * SCALE_FACTOR;
-                    troatm[DN_S2_BAND2] +=
-                        toaband[DN_S2_BAND2][curr_win_pix] * SCALE_FACTOR;
-                    troatm[DN_S2_BAND4] +=
-                        toaband[DN_S2_BAND4][curr_win_pix] * SCALE_FACTOR;
-                    troatm[DN_S2_BAND12] +=
-                        toaband[DN_S2_BAND12][curr_win_pix] * SCALE_FACTOR;
+                    troatm[DN_S2_BAND1] += toaband[DN_S2_BAND1][curr_win_pix];
+                    troatm[DN_S2_BAND2] += toaband[DN_S2_BAND2][curr_win_pix];
+                    troatm[DN_S2_BAND4] += toaband[DN_S2_BAND4][curr_win_pix];
+                    troatm[DN_S2_BAND12] += toaband[DN_S2_BAND12][curr_win_pix];
                     pix_count++;
                 }
             }
@@ -1046,6 +1057,8 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
             subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
                 tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
                 normext_p0a3_arr, &raot, &residual, &iaots, eps);
+            taero[curr_pix] = raot;
+            teps[curr_pix] = eps;
             corf = raot / xmus;
 
             /* Check the model residual.  Corf represents aerosol impact.
@@ -1064,7 +1077,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
                          isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
-                        rotoa += toaband[iband][curr_win_pix] * SCALE_FACTOR;
+                        rotoa += toaband[iband][curr_win_pix];
                         pix_count++;
                     }
                 }
@@ -1089,7 +1102,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
                          isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
-                        rotoa += toaband[iband][curr_win_pix] * SCALE_FACTOR;
+                        rotoa += toaband[iband][curr_win_pix];
                         pix_count++;
                     }
                 }
@@ -1107,40 +1120,111 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
                 if ((ros5 > 0.1) && ((ros5 - ros4) / (ros5 + ros4) > 0))
                 {
                     /* Clear pixel with valid aerosol retrieval */
-                    taero[curr_pix] = raot;
-                    teps[curr_pix] = eps;
-                    ipflag[curr_pix] = (1 << IPFLAG_CLEAR);
+                    ipflag[curr_pix] |= (1 << IPFLAG_CLEAR);
                 }
                 else
                 {
-                    /* Flag as failed and fill will a default value */
-                    taero[curr_pix] = DEFAULT_AERO;
-                    teps[curr_pix] = DEFAULT_EPS;
-                    ipflag[curr_pix] = (1 << IPFLAG_FAILED);
+                    /* Flag as water */
+                    ipflag[curr_pix] |= (1 << IPFLAG_WATER);
                 }
             }
             else
             {
-                /* Flag as failed and fill will a default value */
-                taero[curr_pix] = DEFAULT_AERO;
-                teps[curr_pix] = DEFAULT_EPS;
-                ipflag[curr_pix] = (1 << IPFLAG_FAILED);
+                /* Flag as water */
+                ipflag[curr_pix] |= (1 << IPFLAG_WATER);
             }
 
-            /* Fill in the remaining taero and teps values for the window,
-               using the current pixel */
-            for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+            /* Retest any water pixels to verify they are water and obtain
+               their aerosol */
+            if (lasrc_qa_is_water(ipflag[curr_pix]))
             {
-                if (iline >= nlines) continue;
-                curr_win_pix = iline * nsamps + j;
-                for (isamp = j; isamp < j+S2_AERO_WINDOW;
-                     isamp++, curr_win_pix++)
+                /* Initialize the band ratios */
+                for (ib = 0; ib < NSR_BANDS; ib++)
+                    erelc[ib] = -1.0;
+
+                /* Retrieve the TOA reflectance values for the current pixel;
+                   use a NxN average */
+                pix_count = 0;
+                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
                 {
-                    if (isamp >= nsamps) continue;
-                    teps[curr_win_pix] = teps[curr_pix];
-                    taero[curr_win_pix] = taero[curr_pix];
+                    if (iline >= nlines) continue;
+                    for (isamp = j; isamp < j+S2_AERO_WINDOW; isamp++)
+                    {
+                        if (isamp >= nsamps) continue;
+                        curr_win_pix = iline * nsamps + isamp;
+                        troatm[DN_S2_BAND1] +=
+                            toaband[DN_S2_BAND1][curr_win_pix];
+                        troatm[DN_S2_BAND2] +=
+                            toaband[DN_S2_BAND2][curr_win_pix];
+                        troatm[DN_S2_BAND4] +=
+                            toaband[DN_S2_BAND4][curr_win_pix];
+                        troatm[DN_S2_BAND12] +=
+                            toaband[DN_S2_BAND12][curr_win_pix];
+                        pix_count++;
+                    }
                 }
-            }
+
+                troatm[DN_S2_BAND1] /= pix_count;
+                troatm[DN_S2_BAND2] /= pix_count;
+                troatm[DN_S2_BAND4] /= pix_count;
+                troatm[DN_S2_BAND12] /= pix_count;
+
+                /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
+                erelc[DN_S2_BAND1] = 1.0;
+                erelc[DN_S2_BAND2] = 1.0;
+                erelc[DN_S2_BAND4] = 1.0;
+                erelc[DN_S2_BAND12] = 1.0;
+
+                /* Retrieve the water aerosol information for eps 1.5 */
+                eps = 1.5;
+                iaots = 0;
+                subaeroret_new (input->meta.sat, true, iband1, erelc, troatm,
+                    tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
+                    normext_p0a3_arr, &raot, &residual, &iaots, eps);
+                teps[curr_pix] = eps;
+                taero[curr_pix] = raot;
+                corf = raot / xmus;
+
+                /* Test band 1 reflectance to eliminate negative */
+                iband = DN_S2_BAND1;
+                rotoa = 0.0;
+                pix_count = 0;
+                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+                {
+                    if (iline >= nlines) continue;
+                    curr_win_pix = iline * nsamps + j;
+                    for (isamp = j; isamp < j+S2_AERO_WINDOW;
+                         isamp++, curr_win_pix++)
+                    {
+                        if (isamp >= nsamps) continue;
+                        rotoa += toaband[iband][curr_win_pix];
+                        pix_count++;
+                    }
+                }
+                rotoa /= pix_count;
+
+                raot550nm = raot;
+                atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
+                    aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
+                    &ttatmg_coef[iband][0], &satm_coef[iband][0], raot550nm,
+                    iband, normext_p0a3_arr[iband], rotoa, &roslamb, eps);
+                ros1 = roslamb;
+
+                if (residual > (0.010 + 0.005 * corf) || ros1 < 0)
+                {
+                    /* Not a valid water pixel (possibly urban). Clear all
+                       the QA bits, and leave the IPFLAG_CLEAR bit off to
+                       indicate the aerosol retrieval was not valid. */
+                    ipflag[curr_pix] = 0;  /* IPFLAG_CLEAR bit is 0 */
+                }
+                else
+                {
+                    /* Valid water pixel. Set the clear aerosol retrieval bit
+                       and turn on the water bit. */
+                    ipflag[curr_pix] = (1 << IPFLAG_CLEAR);
+                    ipflag[curr_pix] |= (1 << IPFLAG_WATER);
+                }
+            }  /* if water pixel */
         }  /* end for j */
     }  /* end for i */
     /* end aerosol inversion for the NxN window */
@@ -1181,29 +1265,18 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
     fclose (aero_fptr);
 #endif
 
-    /* Find the median of the clear aerosols */
+    /* Replace the invalid aerosol retrievals (taero and teps) with a local
+       average of those values */
     mytime = time(NULL);
-    printf ("Computing median of clear pixels in NxN windows %s",
-        ctime(&mytime)); fflush(stdout);
-    median_aerosol = find_median_aerosol_s2 (ipflag, taero, S2_AERO_WINDOW,
+    printf ("Filling invalid aerosol values in the NxN windows %s",
+        ctime(&mytime));
+    retval = fix_invalid_aerosols_s2 (ipflag, taero, teps, S2_AERO_WINDOW,
         nlines, nsamps);
-    if (median_aerosol == 0.0)
-    {   /* error message already printed */
+    if (retval != SUCCESS)
+    {
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-    printf ("Median aerosol value for clear aerosols is %f\n", median_aerosol);
-
-    /* Fill the cloud, shadow, barren, urban, water pixels, etc. (any pixel
-       which failed aerosol retrieval) with the median aerosol value instead
-       of the current default aerosol value */
-    mytime = time(NULL);
-    printf ("Fill non-clear aerosol values in NxN windows with the median %s",
-        ctime(&mytime)); fflush(stdout);
-    aerosol_fill_median_s2 (ipflag, taero, S2_AERO_WINDOW, median_aerosol,
-        nlines, nsamps);
-    aerosol_fill_median_s2 (ipflag, teps, S2_AERO_WINDOW, DEFAULT_EPS,
-        nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1261,7 +1334,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
                 continue;
 
             /* Correct all pixels */
-            rotoa = toaband[ib][i] * SCALE_FACTOR;
+            rotoa = toaband[ib][i];
             raot550nm = taero[i];
             eps = teps[i];
             atmcorlamb2_new (input->meta.sat, tgo_arr[ib],
@@ -1274,7 +1347,7 @@ printf ("DEBUG: band %d: scale_factor: %f, add_offset: %f\n", ib, bmeta[ib].scal
             if (ib == DN_S2_BAND1)
             {
                 /* Set up aerosol QA bits */
-                rsurf = sband[ib][i] * SCALE_FACTOR;
+                rsurf = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
                 tmpf = fabs (rsurf - roslamb);
                 if (tmpf <= 0.015)
                 {  /* Set first aerosol bit (low aerosols) */

@@ -67,7 +67,7 @@ int read_s2_toa_refl
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
                         /* I: XML metadata structure */
-    uint16 **toaband    /* O: output TOA reflectance values (scaled) */
+    float **toaband     /* O: output TOA reflectance values (unscaled) */
 );
 
 int compute_l8_sr_refl
@@ -102,7 +102,8 @@ int compute_s2_sr_refl
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
-    uint16 **toaband,   /* I: input TOA reflectance bands, nlines x nsamps */
+    float **toaband,    /* I: input unscaled TOA reflectance bands,
+                              nlines x nsamps */
     uint16 **sband,     /* O: output SR bands, nlines x nsamps */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */

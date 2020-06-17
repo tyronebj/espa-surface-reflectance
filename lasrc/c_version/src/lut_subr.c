@@ -1691,7 +1691,8 @@ int memory_allocation_main
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     uint16 ***sband,     /* O: output surface reflectance and brightness temp
                                bands */
-    uint16 ***toaband    /* O: S2 TOA reflectance bands */
+    float ***toaband     /* O: S2 unscaled TOA reflectance bands,
+                               nlines x nsamps */
 )
 {
     char FUNC_NAME[] = "memory_allocation_main"; /* function name */
@@ -1715,7 +1716,7 @@ int memory_allocation_main
     else if (sat == SAT_SENTINEL_2)
     {
         nband_ttl = NBAND_S2_TTL_OUT;
-        *toaband = calloc (nband_ttl-1, sizeof (uint16*));
+        *toaband = calloc (nband_ttl-1, sizeof (float*));
         if (*toaband == NULL)
         {
             sprintf (errmsg, "Error allocating memory for toaband");
@@ -1724,7 +1725,7 @@ int memory_allocation_main
         }
         for (i = 0; i < nband_ttl-1; i++)
         {
-            (*toaband)[i] = calloc (nlines*nsamps, sizeof (uint16));
+            (*toaband)[i] = calloc (nlines*nsamps, sizeof (float));
             if ((*toaband)[i] == NULL)
             {
                 sprintf (errmsg, "Error allocating memory for toaband");

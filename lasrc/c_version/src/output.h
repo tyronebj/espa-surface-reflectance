@@ -13,17 +13,24 @@
 #define OFFSET_REFL -0.20
 #define SCALE_FACTOR_TH 0.00341802
 #define OFFSET_TH 149.0
-
-#define MIN_VALID (-0.20 + BAND_OFFSET) * MULT_FACTOR
-#define MAX_VALID (1.60 + BAND_OFFSET) * MULT_FACTOR
-#define MIN_VALID_TH (150 + BAND_OFFSET_TH) * MULT_FACTOR_TH
-#define MAX_VALID_TH (350 + BAND_OFFSET_TH) * MULT_FACTOR_TH
+/* GAIL SAVE C1 scale/offset FOR NOW 
+#define SCALE_FACTOR 0.0001
+#define OFFSET_REFL 0.0
+#define SCALE_FACTOR_TH 0.1
+#define OFFSET_TH 0.0 */
 
 /* applied to the SR data before writing to the output file */
 #define MULT_FACTOR (1.0 / SCALE_FACTOR)
 #define BAND_OFFSET (-OFFSET_REFL)
 #define MULT_FACTOR_TH (1.0 / SCALE_FACTOR_TH)
 #define BAND_OFFSET_TH (-OFFSET_TH)
+
+/* min/max valid values */
+//#define MIN_VALID (-0.20 + BAND_OFFSET) * MULT_FACTOR
+#define MIN_VALID (0.0 + BAND_OFFSET) * MULT_FACTOR
+#define MAX_VALID (1.60 + BAND_OFFSET) * MULT_FACTOR
+#define MIN_VALID_TH (150 + BAND_OFFSET_TH) * MULT_FACTOR_TH
+#define MAX_VALID_TH (350 + BAND_OFFSET_TH) * MULT_FACTOR_TH
 
 /* Define the output product types */
 typedef enum {OUTPUT_TOA=0, OUTPUT_SR=1} Myoutput_t;
