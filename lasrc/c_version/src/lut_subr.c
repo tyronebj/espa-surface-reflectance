@@ -16,13 +16,13 @@ NOTES:
 #include "mfhdf.h"
 
 /* Define the full list of band names for Sentinel-2 for the input files */
-char S2_FULL_BANDNAME[S2_TTL][3] =
+char SENTINEL_FULL_BANDNAME[SENTINEL_TTL][3] =
     {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9", "10", "11", "12"};
 
 /* Removed bands 9 and 10 from the Sentinel array */
-float l8_lambda[NREFL_L8_BANDS] =
+float landsat_lambda[NREFLL_BANDS] =
     {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-float s2_lambda[NREFL_S2_BANDS] =
+float sentinel_lambda[NREFLS_BANDS] =
     {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 1.61, 2.19};
 
 /******************************************************************************
@@ -56,23 +56,23 @@ void atmcorlamb2_new
     float mraot550nm;      /* nearest value of AOT -- modified local variable */
     float mraot550nm_sq;   /* mraot550nm squared */
     float mraot550nm_cube; /* mraot550nm cubed */
-    int max_band_indx = 0; /* maximum band index for L8 or S2 */
-    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
+    int max_band_indx = 0; /* maximum band index for Landsat or Sentinel */
+    float *lambda = NULL;  /* band wavelength pointer for Landsat or Sentinel */
     static const float lambda_sf = 1/0.55; /* lambda scale factor */
     float roatm;           /* intrinsic atmospheric reflectance */
     float ttatmg;          /* total atmospheric transmission */
     float satm;            /* spherical albedo */
 
-    /* Setup L8/L9 or S2 variables */
+    /* Setup Landsat or Sentinel variables */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        lambda = l8_lambda;
-        max_band_indx = DN_L8_BAND7;
+        lambda = landsat_lambda;
+        max_band_indx = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        lambda = s2_lambda;
-        max_band_indx = DN_S2_BAND12;
+        lambda = sentinel_lambda;
+        max_band_indx = DNS_BAND12;
     }
 
     /* Modify the AOT value based on the angstroem coefficient and lambda
@@ -216,20 +216,20 @@ int atmcorlamb2
     int its;            /* index for the sun angle table */
     int itv;            /* index for the view angle table */
     int indx;           /* index for normext array */
-    int max_band_indx = 0; /* maximum band index for L8 or S2 */
-    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
+    int max_band_indx = 0; /* maximum band index for Landsat or Sentinel */
+    float *lambda = NULL;  /* band wavelength pointer for Landsat or Sentinel */
     static const float lambda_sf = 1/0.55; /* lambda scale factor */
 
-    /* Setup L8/L9 or S2 variables */
+    /* Setup Landsat or Sentinel variables */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        lambda = l8_lambda;
-        max_band_indx = DN_L8_BAND7;
+        lambda = landsat_lambda;
+        max_band_indx = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        lambda = s2_lambda;
-        max_band_indx = DN_S2_BAND12;
+        lambda = sentinel_lambda;
+        max_band_indx = DNS_BAND12;
     }
 
     /* Modifiy the AOT value based on the angstroem coefficient and lambda
@@ -970,10 +970,10 @@ int readluts
     char errmsg[STR_SIZE];  /* error message */
     char tmpstr[STR_SIZE];  /* temporary string variable, not use */
     int i, j;               /* looping variables */
-    int nsr_bands = 0;      /* number of SR bands in the input file (L8 or S2);
-                               for S2 the number of bands in the input file
-                               might be different than the number of bands we
-                               want to store in the array, since we are
+    int nsr_bands = 0;      /* number of SR bands in the input file;
+                               for Sentinel the number of bands in the input
+                               file might be different than the number of bands
+                               we want to store in the array, since we are
                                skipping bands 9 and 10 */
     int iband;              /* band looping variable */
     int ibndx;              /* index of the current band for writing to array */
@@ -1001,13 +1001,13 @@ int readluts
     int tmp_lut_indx;       /* index for the LUT */
     FILE *fp = NULL;        /* file pointer for reading ascii files */
 
-    /* Setup L8/L9 or S2 number of SR bands to be read from the input LUT files;
-       number of input bands for S2 is more than we will actually store since
-       we are skipping bands 9 and 10 */
+    /* Setup Landsat or Sentinel number of SR bands to be read from the input
+       LUT files; number of input bands for Sentinel is more than we will
+       actually store since we are skipping bands 9 and 10 */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
-        nsr_bands = NSR_L8_BANDS;
+        nsr_bands = NSRL_BANDS;
     else if (sat == SAT_SENTINEL_2)
-        nsr_bands = S2_TTL;
+        nsr_bands = SENTINEL_TTL;
 
     /* Initialize some variables */
     for (i = 0; i < NVIEW_ZEN_VALS * NSOLAR_ZEN_VALS; i++)
@@ -1361,12 +1361,12 @@ int readluts
         {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the rolutt array in
               the same order. */
-            if (iband == S2_BAND9 || iband == S2_BAND10)
+            if (iband == SBAND9 || iband == SBAND10)
                 continue;
 
             /* Read this band */
             ibndx++;
-            sprintf (fname, "NRLUT_BAND_%s", S2_FULL_BANDNAME[iband]);
+            sprintf (fname, "NRLUT_BAND_%s", SENTINEL_FULL_BANDNAME[iband]);
         }
 
         /* Find the SDS */
@@ -1461,7 +1461,7 @@ int readluts
         {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the transt array in
               the same order. */
-            if (iband == S2_BAND9 || iband == S2_BAND10)
+            if (iband == SBAND9 || iband == SBAND10)
             {
                 /* Given that this is an ASCII file, we need to consume the
                    data for this band even though we aren't using it. Each
@@ -1474,8 +1474,8 @@ int readluts
                     if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
                     {
                         sprintf (errmsg, "Skipping band %s in transmission "
-                            "coefficient file: %s", S2_FULL_BANDNAME[iband],
-                            transmnm);
+                            "coefficient file: %s",
+                            SENTINEL_FULL_BANDNAME[iband], transmnm);
                         error_handler (true, FUNC_NAME, errmsg);
                         return (ERROR);
                     }
@@ -1587,7 +1587,7 @@ int readluts
         {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the transt array in
               the same order. */
-            if (iband == S2_BAND9 || iband == S2_BAND10)
+            if (iband == SBAND9 || iband == SBAND10)
             {
                /* Given that this is an ASCII file, we need to consume the
                   data for this band even though we aren't using it. Each
@@ -1599,7 +1599,8 @@ int readluts
                     if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
                     {
                         sprintf (errmsg, "Skipping band %s in spherical albedo "
-                            "file: %s", S2_FULL_BANDNAME[iband], spheranm);
+                            "file: %s", SENTINEL_FULL_BANDNAME[iband],
+                            spheranm);
                         error_handler (true, FUNC_NAME, errmsg);
                         return (ERROR);
                     }
@@ -1666,7 +1667,7 @@ int readluts
 /******************************************************************************
 MODULE:  memory_allocation_main
 
-PURPOSE:  Allocates memory for all the various arrays within the L8 surface
+PURPOSE:  Allocates memory for all the various arrays within the Landsat surface
 reflectance application for the main application.
 
 RETURN VALUE:
@@ -1691,7 +1692,7 @@ int memory_allocation_main
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     uint16 ***sband,     /* O: output surface reflectance and brightness temp
                                bands */
-    float ***toaband     /* O: S2 unscaled TOA reflectance bands,
+    float ***toaband     /* O: Sentinel unscaled TOA reflectance bands,
                                nlines x nsamps */
 )
 {
@@ -1700,7 +1701,7 @@ int memory_allocation_main
     int i;                   /* looping variables */
     int nband_ttl =  0;      /* total number of output bands */
 
-    /* Solar zenith array is only used for L8/L9 */
+    /* Solar zenith array is only used for Landsat */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         *sza = calloc (nlines*nsamps, sizeof (int16));
@@ -1711,11 +1712,11 @@ int memory_allocation_main
             return (ERROR);
         }
 
-        nband_ttl = NBAND_L8_TTL_OUT;
+        nband_ttl = NBANDL_TTL_OUT;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        nband_ttl = NBAND_S2_TTL_OUT;
+        nband_ttl = NBANDS_TTL_OUT;
         *toaband = calloc (nband_ttl-1, sizeof (float*));
         if (*toaband == NULL)
         {
@@ -1769,10 +1770,10 @@ int memory_allocation_main
 
 
 /******************************************************************************
-MODULE:  l8_memory_allocation_sr
+MODULE:  landsat_memory_allocation_sr
 
 PURPOSE:  Allocates memory for all the various arrays needed specifically for
-the L8 surface reflectance corrections.
+the Landsat surface reflectance corrections.
 
 RETURN VALUE:
 Type = int
@@ -1787,7 +1788,7 @@ NOTES:
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
 ******************************************************************************/
-int l8_memory_allocation_sr
+int landsat_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
@@ -1841,12 +1842,12 @@ int l8_memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
-    char FUNC_NAME[] = "l8_memory_allocation_sr"; /* function name */
+    char FUNC_NAME[] = "landsat_memory_allocation_sr"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
-    int nsr_bands = 0;       /* number of SR bands - L8 or S2 */
+    int nsr_bands = 0;       /* number of SR bands - Landsat or Sentinel */
 
-    /* Setup L8 number of SR bands */
-    nsr_bands = NSR_L8_BANDS;
+    /* Setup Landsat number of SR bands */
+    nsr_bands = NSRL_BANDS;
 
     *aerob1 = calloc (nlines*nsamps, sizeof (uint16));
     if (*aerob1 == NULL)
@@ -2107,10 +2108,10 @@ int l8_memory_allocation_sr
 
 
 /******************************************************************************
-MODULE:  s2_memory_allocation_sr
+MODULE:  sentinel_memory_allocation_sr
 
 PURPOSE:  Allocates memory for all the various arrays needed specifically for
-the S2 surface reflectance corrections.
+the Sentinel surface reflectance corrections.
 
 RETURN VALUE:
 Type = int
@@ -2125,7 +2126,7 @@ NOTES:
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
 ******************************************************************************/
-int s2_memory_allocation_sr
+int sentinel_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
@@ -2169,12 +2170,12 @@ int s2_memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
-    char FUNC_NAME[] = "s2_memory_allocation_sr"; /* function name */
+    char FUNC_NAME[] = "sentinel_memory_allocation_sr"; /* function name */
     char errmsg[STR_SIZE];         /* error message */
-    int nsr_bands = NSR_S2_BANDS;  /* number of SR bands */
+    int nsr_bands = NSRS_BANDS;  /* number of SR bands */
 
-    /* Setup S2 number of SR bands */
-    nsr_bands = NSR_S2_BANDS;
+    /* Setup Sentinel number of SR bands */
+    nsr_bands = NSRS_BANDS;
 
     /* Allocate memory for aero, eps, and ipflag */
     *taero = calloc (nlines*nsamps, sizeof (float));

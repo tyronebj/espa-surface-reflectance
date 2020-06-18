@@ -9,9 +9,9 @@ typedef enum {
 } Fill_direction_t;
 
 /******************************************************************************
-MODULE:  aerosol_interp_l8
+MODULE:  aerosol_interp_landsat
 
-PURPOSE:  Interpolates the L8/L9 aerosol values throughout the image using the
+PURPOSE:  Interpolates the Landsat aerosol values throughout the image using the
 aerosols that were calculated for each NxN window. Also cleans up the fill
 pixels in the ipflag.
 
@@ -23,7 +23,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-void aerosol_interp_l8
+void aerosol_interp_landsat
 (
     Espa_internal_meta_t *xml_metadata, /* I: XML metadata information */
     int aero_window,   /* I: size of the aerosol window */
@@ -231,9 +231,9 @@ void aerosol_interp_l8
 
 
 /******************************************************************************
-MODULE:  fill_with_local_average_l8
+MODULE:  fill_with_local_average_landsat
 
-PURPOSE:  Replaces the invalid L8/L9 aerosols with a local average of clear
+PURPOSE:  Replaces the invalid Landsat aerosols with a local average of clear
 land or water pixel values in a WxW window, for both the aerosol and eps values.
 This function can process the image in a forward direction, from upper left
 to lower right, or a reverse direction, from lower right to upper left.
@@ -251,7 +251,7 @@ NOTE: "fill" has two meanings here.
    based on an average of nearby valid aerosol pixels.  This is the purpose
    of this function.
 ******************************************************************************/
-static void fill_with_local_average_l8
+static void fill_with_local_average_landsat
 (
     Fill_direction_t direction, /* I: Direction to traverse the image */
     int required_clear,  /* I: Number of required clear pixels to use for the
@@ -291,7 +291,7 @@ static void fill_with_local_average_l8
                              WxW window */
     int ipix;             /* current pixel in 1D array of expanded WxW window */
     int nbclrpix;         /* number of clear aerosol pixels in this window */
-    int window_offset = L8_HALF_FIX_AERO_WINDOW - half_aero_window;
+    int window_offset = LHALF_FIX_AERO_WINDOW - half_aero_window;
                           /* offset from the invalid pixel to the
                              first (UL) NxN aero cell in the WxW fix window */
     double sum_aero;      /* sum of the taero values in the window */
@@ -405,10 +405,10 @@ static void fill_with_local_average_l8
 
 
 /******************************************************************************
-MODULE:  fill_with_local_average_s2
+MODULE:  fill_with_local_average_sentinel
 
-PURPOSE:  Replaces the invalid S2 aerosols with a local average of clear land
-or water pixel values in a WxW window, for both the aerosol and eps values.
+PURPOSE:  Replaces the invalid Sentinel aerosols with a local average of clear
+land or water pixel values in a WxW window, for both the aerosol and eps values.
 This function can process the image in a forward direction, from upper left
 to lower right, or a reverse direction, from lower right to upper left.
 This allows filled pixels to propagate throughout the entire image when
@@ -425,7 +425,7 @@ NOTE: "fill" has two meanings here.
    based on an average of nearby valid aerosol pixels.  This is the purpose
    of this function.
 ******************************************************************************/
-static void fill_with_local_average_s2
+static void fill_with_local_average_sentinel
 (
     Fill_direction_t direction, /* I: Direction to traverse the image */
     int required_clear,  /* I: Number of required clear pixels to use for the
@@ -513,7 +513,7 @@ static void fill_with_local_average_s2
             sum_aero = 0.0;
             sum_eps = 0.0;
             nbclrpix = 0;
-            for (iline = line; iline < line + S2_FIX_AERO_WINDOW;
+            for (iline = line; iline < line + SFIX_AERO_WINDOW;
                  iline += aero_window)
             {
                 /* Make sure the window line is valid */
@@ -524,7 +524,7 @@ static void fill_with_local_average_s2
                 ilpix = iline * nsamps;
 
                 /* Loop through the samples of the window */
-                for (isamp = samp; isamp < samp + S2_FIX_AERO_WINDOW;
+                for (isamp = samp; isamp < samp + SFIX_AERO_WINDOW;
                      isamp += aero_window)
                 {
                     /* Make sure the window samp is valid */
@@ -571,11 +571,11 @@ static void fill_with_local_average_s2
 
 
 /******************************************************************************
-MODULE:  aerosol_interp_s2
+MODULE:  aerosol_interp_sentinel
 
-PURPOSE:  Interpolates the S2 aerosol values throughout the image using the
-aerosols that were calculated for the UL pixel of each NxN window. Also cleans
-up the fill pixels in the ipflag.
+PURPOSE:  Interpolates the Sentinel aerosol values throughout the image using
+the aerosols that were calculated for the UL pixel of each NxN window. Also
+cleans up the fill pixels in the ipflag.
 
 RETURN VALUE:
 Type = N/A
@@ -585,7 +585,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-void aerosol_interp_s2
+void aerosol_interp_sentinel
 (
     int aero_window,   /* I: size of the aerosol window */
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
@@ -754,9 +754,9 @@ void aerosol_interp_s2
 
 
 /******************************************************************************
-MODULE:  fix_invalid_aerosols_l8
+MODULE:  fix_invalid_aerosols_landsat
 
-PURPOSE:  Fixes the invalid L8/L9 aerosols using multiple passes through the
+PURPOSE:  Fixes the invalid Landsat aerosols using multiple passes through the
 image, each one replacing invalid aerosols with some type of local average.
 
 RETURN VALUE:
@@ -771,7 +771,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-int fix_invalid_aerosols_l8
+int fix_invalid_aerosols_landsat
 (
     uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
                              nlines x nsamps.  It is expected that the ipflag
@@ -790,7 +790,7 @@ int fix_invalid_aerosols_l8
 )
 {
     char errmsg[STR_SIZE];                        /* error message */
-    char FUNC_NAME[] = "fix_invalid_aerosols_l8"; /* function name */
+    char FUNC_NAME[] = "fix_invalid_aerosols_landsat"; /* function name */
     bool *smflag = NULL;  /* flag to indicate if the pixel was an invalid
                              aerosol and filled (true) or not filled (false) */
     int nbpixnf;          /* number of pixels not filled in this scene */
@@ -807,7 +807,7 @@ int fix_invalid_aerosols_l8
     }
 
     /* First pass, require at least MIN_CLEAR_PIX valid surrounding values */
-    fill_with_local_average_l8 (FORWARD, L8_MIN_CLEAR_PIX, false, ipflag,
+    fill_with_local_average_landsat (FORWARD, LMIN_CLEAR_PIX, false, ipflag,
         smflag, taero, teps, aero_window, half_aero_window, nlines, nsamps,
         &nbpixnf, &nbpixtot);
     printf ("First pass: %d pixels were not filled out of a total %d pixels\n",
@@ -827,9 +827,9 @@ int fix_invalid_aerosols_l8
     /** Second pass, require at least 1 valid surrounding value **/
     if (nbpixnf > 0)
     {
-        fill_with_local_average_l8 (FORWARD, 1, true, ipflag, smflag, taero,
-            teps, aero_window, half_aero_window, nlines, nsamps, &nbpixnf,
-            &nbpixtot);
+        fill_with_local_average_landsat (FORWARD, 1, true, ipflag, smflag,
+            taero, teps, aero_window, half_aero_window, nlines, nsamps,
+            &nbpixnf, &nbpixtot);
         printf ("Second pass: %d pixels were not filled out of a total %d "
             "pixels\n", nbpixnf, nbpixtot);
     }
@@ -838,9 +838,9 @@ int fix_invalid_aerosols_l8
         UL part of the image) **/
     if (nbpixnf > 0)
     {
-        fill_with_local_average_l8 (REVERSE, 1, true, ipflag, smflag, taero,
-            teps, aero_window, half_aero_window, nlines, nsamps, &nbpixnf,
-            &nbpixtot);
+        fill_with_local_average_landsat(REVERSE, 1, true, ipflag, smflag,
+            taero, teps, aero_window, half_aero_window, nlines, nsamps,
+            &nbpixnf, &nbpixtot);
         printf ("Final pass: %d pixels were not filled out of a total %d "
             "pixels\n", nbpixnf, nbpixtot);
     }
@@ -854,10 +854,10 @@ int fix_invalid_aerosols_l8
 
 
 /******************************************************************************
-MODULE:  fix_invalid_aerosols_s2
+MODULE:  fix_invalid_aerosols_sentinel
 
-PURPOSE:  Fixes the invalid S2 aerosols using multiple passes through the image,
-each one replacing invalid aerosols with some type of local average.
+PURPOSE:  Fixes the invalid Sentinel aerosols using multiple passes through
+the image, each one replacing invalid aerosols with some type of local average.
 
 RETURN VALUE:
 Type = int
@@ -871,7 +871,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-int fix_invalid_aerosols_s2
+int fix_invalid_aerosols_sentinel
 (
     uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
                              nlines x nsamps.  It is expected that the ipflag
@@ -889,7 +889,7 @@ int fix_invalid_aerosols_s2
 )
 {
     char errmsg[STR_SIZE];                        /* error message */
-    char FUNC_NAME[] = "fix_invalid_aerosols_s2"; /* function name */
+    char FUNC_NAME[] = "fix_invalid_aerosols_sentinel"; /* function name */
     bool *smflag = NULL;  /* flag to indicate if the pixel was an invalid
                              aerosol and filled (true) or not filled (false) */
     int nbpixnf;          /* number of pixels not filled in this scene */
@@ -906,7 +906,7 @@ int fix_invalid_aerosols_s2
     }
 
     /* First pass, require at least MIN_CLEAR_PIX valid surrounding values */
-    fill_with_local_average_s2 (FORWARD, S2_MIN_CLEAR_PIX, false, ipflag,
+    fill_with_local_average_sentinel (FORWARD, SMIN_CLEAR_PIX, false, ipflag,
         smflag, taero, teps, aero_window, nlines, nsamps, &nbpixnf, &nbpixtot);
     printf ("First pass: %d pixels were not filled out of a total %d pixels\n",
         nbpixnf, nbpixtot);
@@ -925,8 +925,8 @@ int fix_invalid_aerosols_s2
     /** Second pass, require at least 1 valid surrounding value **/
     if (nbpixnf > 0)
     {
-        fill_with_local_average_s2 (FORWARD, 1, true, ipflag, smflag, taero,
-            teps, aero_window, nlines, nsamps, &nbpixnf, &nbpixtot);
+        fill_with_local_average_sentinel (FORWARD, 1, true, ipflag, smflag,
+            taero, teps, aero_window, nlines, nsamps, &nbpixnf, &nbpixtot);
         printf ("Second pass: %d pixels were not filled out of a total %d "
             "pixels\n", nbpixnf, nbpixtot);
     }
@@ -935,8 +935,8 @@ int fix_invalid_aerosols_s2
         UL part of the image) **/
     if (nbpixnf > 0)
     {
-        fill_with_local_average_s2 (REVERSE, 1, true, ipflag, smflag, taero,
-            teps, aero_window, nlines, nsamps, &nbpixnf, &nbpixtot);
+        fill_with_local_average_sentinel (REVERSE, 1, true, ipflag, smflag,
+            taero, teps, aero_window, nlines, nsamps, &nbpixnf, &nbpixtot);
         printf ("Final pass: %d pixels were not filled out of a total %d "
             "pixels\n", nbpixnf, nbpixtot);
     }

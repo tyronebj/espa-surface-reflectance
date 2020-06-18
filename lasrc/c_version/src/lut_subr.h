@@ -329,10 +329,10 @@ int memory_allocation_main
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
     uint16 ***sband,     /* O: output surface reflectance and brightness temp
                                bands */
-    float ***toaband     /* O: S2 TOA unscaled reflectance bands */
+    float ***toaband     /* O: Sentinel TOA unscaled reflectance bands */
 );
 
-int l8_memory_allocation_sr
+int landsat_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
@@ -388,7 +388,7 @@ int l8_memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 );
 
-int s2_memory_allocation_sr
+int sentinel_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */

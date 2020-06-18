@@ -1,8 +1,8 @@
 /******************************************************************************
-FILE: compute_l8_refl.c
+FILE: compute_landsat_refl.c
 
-PURPOSE: Contains functions for handling the L8 TOA reflectance and surface
-reflectance corrections.
+PURPOSE: Contains functions for handling the Landsat 8/9 TOA reflectance and
+surface reflectance corrections.
 
 PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
@@ -19,11 +19,11 @@ NOTES:
 #include "read_level2_qa.h"
 
 /******************************************************************************
-MODULE:  compute_l8_toa_refl
+MODULE:  compute_landsat_toa_refl
 
 PURPOSE:  Computes the TOA reflectance and TOA brightness temps for all
-the bands except the pan band. Uses a per-pixel solar zenith angle for the
-TOA corrections.
+the Landsat bands except the pan band. Uses a per-pixel solar zenith angle for
+the TOA corrections.
 
 RETURN VALUE:
 Type = int
@@ -39,7 +39,7 @@ NOTES:
   1. These TOA and BT algorithms match those as published by the USGS Landsat
      team in http://landsat.usgs.gov/Landsat8_Using_Product.php
 ******************************************************************************/
-int compute_l8_toa_refl
+int compute_landsat_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -55,7 +55,7 @@ int compute_l8_toa_refl
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
-    char FUNC_NAME[] = "compute_l8_toa_refl";   /* function name */
+    char FUNC_NAME[] = "compute_landsat_toa_refl";   /* function name */
     int i;               /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
     int sband_ib;        /* looping variable for output bands */
@@ -92,18 +92,18 @@ int compute_l8_toa_refl
 
     /* Loop through all the bands (except the pan band) and compute the TOA
        reflectance and TOA brightness temp */
-    for (ib = DN_L8_BAND1; ib <= DN_L8_BAND11; ib++)
+    for (ib = DNL_BAND1; ib <= DNL_BAND11; ib++)
     {
         /* Don't process the pan band */
-        if (ib == DN_L8_BAND8)
+        if (ib == DNL_BAND8)
             continue;
         printf ("%d ... ", ib+1);
 
         /* Read the current band and calibrate bands 1-9 (except pan) to
            obtain TOA reflectance. Bands are corrected for the sun angle. */
-        if (ib <= DN_L8_BAND9)
+        if (ib <= DNL_BAND9)
         {
-            if (ib <= DN_L8_BAND7)
+            if (ib <= DNL_BAND7)
             {
                 iband = ib;
                 sband_ib = ib;
@@ -117,7 +117,7 @@ int compute_l8_toa_refl
             if (get_input_refl_lines (input, iband, 0, nlines, nsamps, uband)
                 != SUCCESS)
             {
-                sprintf (errmsg, "Error reading L8 band %d", ib+1);
+                sprintf (errmsg, "Error reading Landsat band %d", ib+1);
                 error_handler (true, FUNC_NAME, errmsg);
                 return (ERROR);
             }
@@ -161,7 +161,7 @@ int compute_l8_toa_refl
 
         /* Read the current band and calibrate thermal bands.  Not available
            for OLI-only scenes. */
-        else if (ib == DN_L8_BAND10 && strcmp (instrument, "OLI"))
+        else if (ib == DNL_BAND10 && strcmp (instrument, "OLI"))
         {
             if (get_input_th_lines (input, 0, 0, nlines, uband) != SUCCESS)
             {
@@ -186,7 +186,7 @@ int compute_l8_toa_refl
                 /* If this pixel is fill, continue with the next pixel. */
                 if (level1_qa_is_fill(qaband[i]))
                 {
-                    sband[SR_L8_BAND10][i] = FILL_VALUE;
+                    sband[SRL_BAND10][i] = FILL_VALUE;
                     continue;
                 }
 
@@ -200,15 +200,15 @@ int compute_l8_toa_refl
                 /* Make sure the brightness temp falls within the specified
                    range */
                 if (tmpf < MIN_VALID_TH)
-                    sband[SR_L8_BAND10][i] = MIN_VALID_TH;
+                    sband[SRL_BAND10][i] = MIN_VALID_TH;
                 else if (tmpf > MAX_VALID_TH)
-                    sband[SR_L8_BAND10][i] = MAX_VALID_TH;
+                    sband[SRL_BAND10][i] = MAX_VALID_TH;
                 else
-                    sband[SR_L8_BAND10][i] = (int) (roundf (tmpf));
+                    sband[SRL_BAND10][i] = (int) (roundf (tmpf));
             }
         }  /* end if band 10 */
 
-        else if (ib == DN_L8_BAND11 && strcmp (instrument, "OLI"))
+        else if (ib == DNL_BAND11 && strcmp (instrument, "OLI"))
         {
             if (get_input_th_lines (input, 1, 0, nlines, uband) != SUCCESS)
             {
@@ -233,7 +233,7 @@ int compute_l8_toa_refl
                 /* If this pixel is fill, continue with the next pixel. */
                 if (level1_qa_is_fill(qaband[i]))
                 {
-                    sband[SR_L8_BAND11][i] = FILL_VALUE;
+                    sband[SRL_BAND11][i] = FILL_VALUE;
                     continue;
                 }
 
@@ -247,11 +247,11 @@ int compute_l8_toa_refl
                 /* Make sure the brightness temp falls within the specified
                    range */
                 if (tmpf < MIN_VALID_TH)
-                    sband[SR_L8_BAND11][i] = MIN_VALID_TH;
+                    sband[SRL_BAND11][i] = MIN_VALID_TH;
                 else if (tmpf > MAX_VALID_TH)
-                    sband[SR_L8_BAND11][i] = MAX_VALID_TH;
+                    sband[SRL_BAND11][i] = MAX_VALID_TH;
                 else
-                    sband[SR_L8_BAND11][i] = (int) (roundf (tmpf));
+                    sband[SRL_BAND11][i] = (int) (roundf (tmpf));
             }
         }  /* end if band 11 */
     }  /* end for ib */
@@ -268,9 +268,9 @@ int compute_l8_toa_refl
 
 
 /******************************************************************************
-MODULE:  compute_l8_sr_refl
+MODULE:  compute_landsat_sr_refl
 
-PURPOSE:  Computes the surface reflectance for all the Landsat 8 reflectance
+PURPOSE:  Computes the surface reflectance for all the Landsat reflectance
 bands.
 
 RETURN VALUE:
@@ -299,7 +299,7 @@ NOTES:
    Those final aerosol values are used for the surface reflectance corrections.
 5. Cloud-based QA information is not processed in this algorithm.
 ******************************************************************************/
-int compute_l8_sr_refl
+int compute_landsat_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -321,9 +321,9 @@ int compute_l8_sr_refl
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 )
 {
-    char errmsg[STR_SIZE];                     /* error message */
-    char FUNC_NAME[] = "compute_l8_sr_refl";   /* function name */
-    Sat_t sat = input->meta.sat;               /* satellite */
+    char errmsg[STR_SIZE];  /* error message */
+    char FUNC_NAME[] = "compute_landsat_sr_refl";   /* function name */
+    Sat_t sat = input->meta.sat;  /* satellite */
     int retval;          /* return status */
     int i, j;            /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
@@ -382,15 +382,15 @@ int compute_l8_sr_refl
                              nlines x nsamps */
     float *taero = NULL;  /* aerosol values for each pixel, nlines x nsamps */
     float *teps = NULL;   /* angstrom coeff for each pixel, nlines x nsamps */
-    uint16 *aerob1 = NULL; /* L8 atmospherically corrected band 1 data
+    uint16 *aerob1 = NULL; /* Landsat atmospherically corrected band 1 data
                               (TOA refl), nlines x nsamps */
-    uint16 *aerob2 = NULL; /* L8 atmospherically corrected band 2 data
+    uint16 *aerob2 = NULL; /* Landsat atmospherically corrected band 2 data
                               (TOA refl), nlines x nsamps */
-    uint16 *aerob4 = NULL; /* L8 atmospherically corrected band 4 data
+    uint16 *aerob4 = NULL; /* Landsat atmospherically corrected band 4 data
                               (TOA refl), nlines x nsamps */
-    uint16 *aerob5 = NULL; /* L8 atmospherically corrected band 5 data
+    uint16 *aerob5 = NULL; /* Landsat atmospherically corrected band 5 data
                               (TOA refl), nlines x nsamps */
-    uint16 *aerob7 = NULL; /* L8 atmospherically corrected band 7 data
+    uint16 *aerob7 = NULL; /* Landsat atmospherically corrected band 7 data
                               (TOA refl), nlines x nsamps */
 
     /* Vars for forward/inverse mapping space */
@@ -510,26 +510,26 @@ int compute_l8_sr_refl
     /* Look up table for atmospheric and geometric quantities.  Taurary comes
        from tauray-ldcm/msi.ASC and the oz, wv, og variables come from
        gascoef-modis/msi.ASC. */
-    float tauray[NSR_L8_BANDS] =  /* molecular optical thickness
-                                     coefficients -- produced by running 6S */
+    float tauray[NSRL_BANDS] =  /* molecular optical thickness coefficients --
+                                   produced by running 6S */
         {0.23638, 0.16933, 0.09070, 0.04827, 0.01563, 0.00129, 0.00037,
          0.07984};
-    double oztransa[NSR_L8_BANDS] =   /* ozone transmission coeff */
+    double oztransa[NSRL_BANDS] =   /* ozone transmission coeff */
         {-0.00255649, -0.0177861, -0.0969872, -0.0611428, 0.0001, 0.0001,
           0.0001, -0.0834061};
-    double wvtransa[NSR_L8_BANDS] =   /* water vapor transmission coeff */
+    double wvtransa[NSRL_BANDS] =   /* water vapor transmission coeff */
         {2.29849e-27, 2.29849e-27, 0.00194772, 0.00404159, 0.000729136,
          0.00067324, 0.0177533, 0.00279738};
-    double wvtransb[NSR_L8_BANDS] =   /* water vapor transmission coeff */
+    double wvtransb[NSRL_BANDS] =   /* water vapor transmission coeff */
         {0.999742, 0.999742, 0.775024, 0.774482, 0.893085, 0.939669, 0.65094,
          0.759952};
-    double ogtransa1[NSR_L8_BANDS] =  /* other gases transmission coeff */
+    double ogtransa1[NSRL_BANDS] =  /* other gases transmission coeff */
         {4.91586e-20, 4.91586e-20, 4.91586e-20, 1.04801e-05, 1.35216e-05,
          0.0205425, 0.0256526, 0.000214329};
-    double ogtransb0[NSR_L8_BANDS] =  /* other gases transmission coeff */
+    double ogtransb0[NSRL_BANDS] =  /* other gases transmission coeff */
         {0.000197019, 0.000197019, 0.000197019, 0.640215, -0.195998, 0.326577,
          0.243961, 0.396322};
-    double ogtransb1[NSR_L8_BANDS] =  /* other gases transmission coeff */
+    double ogtransb1[NSRL_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, -0.348785, 0.275239, 0.0117192,
          0.0616101, 0.04728};
 
@@ -543,8 +543,8 @@ int compute_l8_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
-    retval = l8_memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2, &aerob4,
-        &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi, &sndwi,
+    retval = landsat_memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2,
+        &aerob4, &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi, &sndwi,
         &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2, &intratiob7,
         &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt, &transt,
         &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
@@ -596,9 +596,9 @@ int compute_l8_sr_refl
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
     mytime = time(NULL);
-    printf ("Performing atmospheric corrections for each L8 reflectance "
+    printf ("Performing atmospheric corrections for each Landsat reflectance "
         "band ... %s", ctime(&mytime));
-    for (ib = 0; ib <= SR_L8_BAND7; ib++)
+    for (ib = 0; ib <= SRL_BAND7; ib++)
     {
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
@@ -637,7 +637,7 @@ int compute_l8_sr_refl
                TOA calculations. */
             if (level1_qa_is_fill(qaband[i]))
             {
-                if (ib == DN_L8_BAND1)
+                if (ib == DNL_BAND1)
                     /* Initialize the fill flag, only need to do for band 1 */
                     ipflag[i] = (1 << IPFLAG_FILL);
                 continue;
@@ -645,15 +645,15 @@ int compute_l8_sr_refl
 
             /* Store the scaled TOA reflectance values for later use before
                completing atmospheric corrections */
-            if (ib == DN_L8_BAND1)
+            if (ib == DNL_BAND1)
                 aerob1[i] = sband[ib][i];
-            else if (ib == DN_L8_BAND2)
+            else if (ib == DNL_BAND2)
                 aerob2[i] = sband[ib][i];
-            else if (ib == DN_L8_BAND4)
+            else if (ib == DNL_BAND4)
                 aerob4[i] = sband[ib][i];
-            else if (ib == DN_L8_BAND5)
+            else if (ib == DNL_BAND5)
                 aerob5[i] = sband[ib][i];
-            else if (ib == DN_L8_BAND7)
+            else if (ib == DNL_BAND7)
                 aerob7[i] = sband[ib][i];
 
             /* Apply the atmospheric corrections (ignoring the Rayleigh
@@ -671,7 +671,7 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Starting retrieval of atmospheric correction parameters ... %s",
         ctime(&mytime));
-    for (ib = 0; ib <= SR_L8_BAND7; ib++)
+    for (ib = 0; ib <= SRL_BAND7; ib++)
     {
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
@@ -712,7 +712,7 @@ int compute_l8_sr_refl
         tgo_arr[ib] = tgo;
     }
 
-    for (ib = 0; ib <= SR_L8_BAND7; ib++)
+    for (ib = 0; ib <= SRL_BAND7; ib++)
     {
         /* Determine the maximum AOT index */
         iaMaxTemp = 1;
@@ -747,15 +747,15 @@ int compute_l8_sr_refl
     /* Start the aerosol inversion */
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
-        L8_AERO_WINDOW, L8_AERO_WINDOW, ctime(&mytime));
+        LAERO_WINDOW, LAERO_WINDOW, ctime(&mytime));
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, center_line, center_samp, nearest_line, nearest_samp, curr_pix, center_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, sraot1, sraot3, xc, xf, coefa, coefb, epsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros5, ros4, erelc, troatm)
 #endif
-    for (i = L8_HALF_AERO_WINDOW; i < nlines; i += L8_AERO_WINDOW)
+    for (i = LHALF_AERO_WINDOW; i < nlines; i += LAERO_WINDOW)
     {
-        curr_pix = i * nsamps + L8_HALF_AERO_WINDOW;
-        for (j = L8_HALF_AERO_WINDOW; j < nsamps;
-             j += L8_AERO_WINDOW, curr_pix += L8_AERO_WINDOW)
+        curr_pix = i * nsamps + LHALF_AERO_WINDOW;
+        for (j = LHALF_AERO_WINDOW; j < nsamps;
+             j += LAERO_WINDOW, curr_pix += LAERO_WINDOW)
         {
             /* Keep track of the center pixel for the current aerosol window;
                may need to return here if this is fill, cloudy or water */
@@ -768,7 +768,7 @@ int compute_l8_sr_refl
             {
                 /* Look for other non-fill pixels in the window */
                 if (find_closest_non_fill (qaband, nlines, nsamps, center_line,
-                    center_samp, L8_HALF_AERO_WINDOW, &nearest_line,
+                    center_samp, LHALF_AERO_WINDOW, &nearest_line,
                     &nearest_samp))
                 {
                     /* Use the line/sample location of the non-fill pixel for
@@ -1009,10 +1009,10 @@ int compute_l8_sr_refl
                      intr22 * u_x_v;
 
             /* Calculate NDWI variables for the band ratios */
-            xndwi = ((double) sband[SR_L8_BAND5][curr_pix] -
-                     (double) (sband[SR_L8_BAND7][curr_pix] * 0.5)) /
-                    ((double) sband[SR_L8_BAND5][curr_pix] +
-                     (double) (sband[SR_L8_BAND7][curr_pix] * 0.5));
+            xndwi = ((double) sband[SRL_BAND5][curr_pix] -
+                     (double) (sband[SRL_BAND7][curr_pix] * 0.5)) /
+                    ((double) sband[SRL_BAND5][curr_pix] +
+                     (double) (sband[SRL_BAND7][curr_pix] * 0.5));
 
             if (xndwi > ndwi_th1)
                 xndwi = ndwi_th1;
@@ -1027,19 +1027,19 @@ int compute_l8_sr_refl
             }
 
             /* Compute the band ratio - coastal aerosol, blue, red, SWIR */
-            erelc[DN_L8_BAND1] = (xndwi * slprb1 + intrb1);
-            erelc[DN_L8_BAND2] = (xndwi * slprb2 + intrb2);
-            erelc[DN_L8_BAND4] = 1.0;
-            erelc[DN_L8_BAND7] = (xndwi * slprb7 + intrb7);
+            erelc[DNL_BAND1] = (xndwi * slprb1 + intrb1);
+            erelc[DNL_BAND2] = (xndwi * slprb2 + intrb2);
+            erelc[DNL_BAND4] = 1.0;
+            erelc[DNL_BAND7] = (xndwi * slprb7 + intrb7);
 
             /* Retrieve the TOA reflectance values for the current pixel */
-            troatm[DN_L8_BAND1] = (aerob1[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DN_L8_BAND2] = (aerob2[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DN_L8_BAND4] = (aerob4[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DN_L8_BAND7] = (aerob7[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
+            troatm[DNL_BAND1] = (aerob1[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
+            troatm[DNL_BAND2] = (aerob2[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
+            troatm[DNL_BAND4] = (aerob4[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
+            troatm[DNL_BAND7] = (aerob7[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
 
             /* Retrieve the aerosol information for low eps 1.0 */
-            iband1 = DN_L8_BAND4;   /* red band */
+            iband1 = DNL_BAND4;   /* red band */
             eps1 = LOW_EPS;
             iaots = 0;
             subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
@@ -1111,10 +1111,10 @@ int compute_l8_sr_refl
 
             /* Check the model residual.  Corf represents aerosol impact.
                Test the quality of the aerosol inversion. */
-            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DN_L8_BAND7]))
+            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DNL_BAND7]))
             {
                 /* Test if NIR band 5 makes sense */
-                iband = DN_L8_BAND5;
+                iband = DNL_BAND5;
                 rotoa = (aerob5[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
@@ -1124,7 +1124,7 @@ int compute_l8_sr_refl
                 ros5 = roslamb;
 
                 /* Test if red band 4 makes sense */
-                iband = DN_L8_BAND4;
+                iband = DNL_BAND4;
                 rotoa = (aerob4[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
@@ -1159,20 +1159,20 @@ int compute_l8_sr_refl
                 /* Initialize the band ratios */
                 for (ib = 0; ib < NSR_BANDS; ib++)
                     erelc[ib] = -1.0;
-                troatm[DN_L8_BAND1] = (aerob1[curr_pix] * SCALE_FACTOR) +
+                troatm[DNL_BAND1] = (aerob1[curr_pix] * SCALE_FACTOR) +
                     OFFSET_REFL;
-                troatm[DN_L8_BAND4] = (aerob4[curr_pix] * SCALE_FACTOR) +
+                troatm[DNL_BAND4] = (aerob4[curr_pix] * SCALE_FACTOR) +
                     OFFSET_REFL;
-                troatm[DN_L8_BAND5] = (aerob5[curr_pix] * SCALE_FACTOR) +
+                troatm[DNL_BAND5] = (aerob5[curr_pix] * SCALE_FACTOR) +
                     OFFSET_REFL;
-                troatm[DN_L8_BAND7] = (aerob7[curr_pix] * SCALE_FACTOR) +
+                troatm[DNL_BAND7] = (aerob7[curr_pix] * SCALE_FACTOR) +
                     OFFSET_REFL;
 
                 /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
-                erelc[DN_L8_BAND1] = 1.0;
-                erelc[DN_L8_BAND4] = 1.0;
-                erelc[DN_L8_BAND5] = 1.0;
-                erelc[DN_L8_BAND7] = 1.0;
+                erelc[DNL_BAND1] = 1.0;
+                erelc[DNL_BAND4] = 1.0;
+                erelc[DNL_BAND5] = 1.0;
+                erelc[DNL_BAND7] = 1.0;
 
                 /* Retrieve the water aerosol information for eps 1.5 */
                 eps = 1.5;
@@ -1185,7 +1185,7 @@ int compute_l8_sr_refl
                 corf = raot / xmus;
 
                 /* Test band 1 reflectance to eliminate negative */
-                iband = DN_L8_BAND1;
+                iband = DNL_BAND1;
                 rotoa = (aerob1[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
@@ -1261,8 +1261,8 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Filling invalid aerosol values in the NxN windows %s",
         ctime(&mytime));
-    retval = fix_invalid_aerosols_l8 (ipflag, taero, teps, L8_AERO_WINDOW,
-        L8_HALF_AERO_WINDOW, nlines, nsamps);
+    retval = fix_invalid_aerosols_landsat (ipflag, taero, teps, LAERO_WINDOW,
+        LHALF_AERO_WINDOW, nlines, nsamps);
     if (retval != SUCCESS)
     {
         error_handler (true, FUNC_NAME, errmsg);
@@ -1286,7 +1286,7 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+    aerosol_interp_landsat (xml_metadata, LAERO_WINDOW, LHALF_AERO_WINDOW,
         qaband, ipflag, taero, nlines, nsamps);
 
 #ifdef WRITE_TAERO
@@ -1307,16 +1307,16 @@ int compute_l8_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the teps values in the NxN windows %s",
         ctime(&mytime));
-    aerosol_interp_l8 (xml_metadata, L8_AERO_WINDOW, L8_HALF_AERO_WINDOW,
+    aerosol_interp_landsat (xml_metadata, LAERO_WINDOW, LHALF_AERO_WINDOW,
         qaband, ipflag, teps, nlines, nsamps);
 
     /* Perform the second level of atmospheric correction using the aerosols */
     mytime = time(NULL);
     printf ("Performing atmospheric correction ... %s", ctime(&mytime));
 
-    /* 0 .. DN_L8_BAND7 is the same as 0 .. SR_L8_BAND7 here, since the pan band
+    /* 0 .. DNL_BAND7 is the same as 0 .. SRL_BAND7 here, since the pan band
        isn't spanned */
-    for (ib = 0; ib <= DN_L8_BAND7; ib++)
+    for (ib = 0; ib <= DNL_BAND7; ib++)
     {
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
@@ -1340,7 +1340,7 @@ int compute_l8_sr_refl
 
             /* If this is the coastal aerosol band then set the aerosol
                bits in the QA band */
-            if (ib == DN_L8_BAND1)
+            if (ib == DNL_BAND1)
             {
                 /* Set up aerosol QA bits */
                 tmpf = fabs (rsurf - roslamb);
@@ -1392,7 +1392,7 @@ int compute_l8_sr_refl
     }
 
     /* Loop through the reflectance bands and write the data */
-    for (ib = 0; ib <= DN_L8_BAND7; ib++)
+    for (ib = 0; ib <= DNL_BAND7; ib++)
     {
         if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
             sizeof (uint16)) != SUCCESS)
@@ -1434,9 +1434,9 @@ int compute_l8_sr_refl
     }
 
     /* Write the aerosol QA band */
-    printf ("  Aerosol Band %d: %s\n", SR_L8_AEROSOL+1,
-            sr_output->metadata.band[SR_L8_AEROSOL].file_name);
-    if (put_output_lines (sr_output, ipflag, SR_L8_AEROSOL, 0, nlines,
+    printf ("  Aerosol Band %d: %s\n", SRL_AEROSOL+1,
+            sr_output->metadata.band[SRL_AEROSOL].file_name);
+    if (put_output_lines (sr_output, ipflag, SRL_AEROSOL, 0, nlines,
         sizeof (uint8)) != SUCCESS)
     {
         sprintf (errmsg, "Writing aerosol QA output data");
@@ -1448,7 +1448,7 @@ int compute_l8_sr_refl
     free (ipflag);
 
     /* Create the ENVI header for the aerosol QA band */
-    if (create_envi_struct (&sr_output->metadata.band[SR_L8_AEROSOL],
+    if (create_envi_struct (&sr_output->metadata.band[SRL_AEROSOL],
         &xml_metadata->global, &envi_hdr) != SUCCESS)
     {
         sprintf (errmsg, "Creating ENVI header structure.");
@@ -1457,7 +1457,7 @@ int compute_l8_sr_refl
     }
 
     /* Write the ENVI header */
-    strcpy (envi_file, sr_output->metadata.band[SR_L8_AEROSOL].file_name);
+    strcpy (envi_file, sr_output->metadata.band[SRL_AEROSOL].file_name);
     cptr = strchr (envi_file, '.');
     strcpy (cptr, ".hdr");
     if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
@@ -1468,7 +1468,7 @@ int compute_l8_sr_refl
     }
 
     /* Append the aerosol QA band to the XML file */
-    if (append_metadata (1, &sr_output->metadata.band[SR_L8_AEROSOL],
+    if (append_metadata (1, &sr_output->metadata.band[SRL_AEROSOL],
         xml_infile) != SUCCESS)
     {
         sprintf (errmsg, "Appending aerosol QA band to XML file.");

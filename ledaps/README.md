@@ -1,5 +1,5 @@
-## Ledaps Version ?.?.? Release Notes
-Release Date: June 2020
+## Ledaps Version X.X.X Release Notes
+Release Date: TBD 2020
 
 ### Downloads
 Ledaps source code
@@ -10,7 +10,7 @@ Ledaps auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/ledaps_auxiliary/ledaps_aux.1978-2017.tar.gz
 
-See git tag [ledaps-version_X.X.X]
+See git tag [ledaps-version_dev_C2]
 
 ### Installation
   * Install dependent projects and libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git) and ESPA python library (https://eroslab.cr.usgs.gov/lsrd/espa-python-library.git)

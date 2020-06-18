@@ -66,15 +66,15 @@ void subaeroret_new
     double raotmin;         /* minimum AOT ratio */
     double point_error;     /* residual differences for each pixel */
     int iaot1, iaot2;       /* AOT indices (0-based) */
-    float *tth = NULL;      /* pointer to the L8 or Sentinel tth array */
-    float l8_tth[NSR_L8_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
-                                  1.0e-04, 0.0};
-                            /* constant values for comparing against the
-                               L8 surface reflectance */
-    float s2_tth[NSR_S2_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
-                                  0.0, 0.0, 0.0, 1.0e-04};
-                            /* constant values for comparing against the
-                               S2 surface reflectance (removed band 9&10) */
+    float *tth = NULL;      /* pointer to the Landsat or Sentinel tth array */
+    float landsat_tth[NSRL_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                     1.0e-04, 0.0};
+                            /* constant values for comparing against Landsat
+                               surface reflectance */
+    float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                      0.0, 0.0, 0.0, 0.0, 1.0e-04};
+                            /* constant values for comparing against Sentinel
+                               surface reflectance (removed band 9&10) */
     float aot550nm[NAOT_VALS] = {0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.6,
                                  0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6,
                                  3.0, 3.5, 4.0, 4.5, 5.0}; /* AOT values */
@@ -82,15 +82,15 @@ void subaeroret_new
     /* Initialize variables based on the satellite type */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        tth = l8_tth;
-        start_band = DN_L8_BAND1;
-        end_band = DN_L8_BAND7;
+        tth = landsat_tth;
+        start_band = DNL_BAND1;
+        end_band = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        tth = s2_tth;
-        start_band = DN_S2_BAND1;
-        end_band = DN_S2_BAND12;
+        tth = sentinel_tth;
+        start_band = DNS_BAND1;
+        end_band = DNS_BAND12;
     }
 
     /* Correct input band with increasing AOT (using pre till ratio is equal to

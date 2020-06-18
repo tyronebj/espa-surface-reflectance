@@ -1,8 +1,8 @@
 /******************************************************************************
-FILE: compute_s2_refl.c
+FILE: compute_sentinel_refl.c
 
-PURPOSE: Contains functions for handling the S2 TOA reflectance and surface
-reflectance corrections.
+PURPOSE: Contains functions for handling the Sentinel-2 TOA reflectance and
+surface reflectance corrections.
 
 PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
@@ -20,9 +20,9 @@ NOTES:
 #include "read_level2_qa.h"
 
 /******************************************************************************
-MODULE:  read_s2_toa_refl
+MODULE:  read_sentinel_toa_refl
 
-PURPOSE:  Reads the input TOA S2 reflectance bands and converts all bands
+PURPOSE:  Reads the input TOA Sentinel reflectance bands and converts all bands
 to 10m resolution.
 
 RETURN VALUE:
@@ -37,7 +37,7 @@ at the USGS EROS
 
 NOTES:
 ******************************************************************************/
-int read_s2_toa_refl
+int read_sentinel_toa_refl
 (
     Input_t *input,     /* I: input structure for the Sentinel product */
     Espa_internal_meta_t *xml_metadata,
@@ -45,8 +45,8 @@ int read_s2_toa_refl
     float **toaband     /* O: output TOA reflectance values (unscaled) */
 )
 {
-    char errmsg[STR_SIZE];                   /* error message */
-    char FUNC_NAME[] = "read_s2_toa_refl";   /* function name */
+    char errmsg[STR_SIZE];  /* error message */
+    char FUNC_NAME[] = "read_sentinel_toa_refl";   /* function name */
     int i;               /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
     int nlines10 = -99;  /* number of lines in 10m reflectance bands */
@@ -137,20 +137,21 @@ int read_s2_toa_refl
     }
 
     /* Loop through the Sentinel-2 bands */
-    for (ib = DN_S2_BAND1; ib <= DN_S2_BAND12; ib++)
+    for (ib = DNS_BAND1; ib <= DNS_BAND12; ib++)
     {
         switch (ib)
         {
             /* 10m bands read as-is (4) */
-            case DN_S2_BAND2:
-            case DN_S2_BAND3:
-            case DN_S2_BAND4:
-            case DN_S2_BAND8:
+            case DNS_BAND2:
+            case DNS_BAND3:
+            case DNS_BAND4:
+            case DNS_BAND8:
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines10, nsamps10,
                     tmp_band) != SUCCESS)
                 {
-                    sprintf (errmsg, "Error reading S2 TOA 10m band %d", ib+1);
+                    sprintf (errmsg, "Error reading Sentinel TOA 10m band %d",
+                        ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
                     return (ERROR);
                 }
@@ -158,17 +159,18 @@ int read_s2_toa_refl
                 break;
 
             /* 20m bands convert to 10m (6) */
-            case DN_S2_BAND5:
-            case DN_S2_BAND6:
-            case DN_S2_BAND7:
-            case DN_S2_BAND8A:
-            case DN_S2_BAND11:
-            case DN_S2_BAND12:
+            case DNS_BAND5:
+            case DNS_BAND6:
+            case DNS_BAND7:
+            case DNS_BAND8A:
+            case DNS_BAND11:
+            case DNS_BAND12:
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines20, nsamps20,
                     tmp20_band) != SUCCESS)
                 {
-                    sprintf (errmsg, "Error reading S2 TOA 20m band %d", ib+1);
+                    sprintf (errmsg, "Error reading Sentinel TOA 20m band %d",
+                        ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
                     return (ERROR);
                 }
@@ -185,12 +187,13 @@ int read_s2_toa_refl
                 break;
 
             /* 60m bands convert to 10m (3, but skipping bands 9&10) */
-            case DN_S2_BAND1:
+            case DNS_BAND1:
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines60, nsamps60,
                     tmp60_band) != SUCCESS)
                 {
-                    sprintf (errmsg, "Error reading S2 TOA 60m band %d", ib+1);
+                    sprintf (errmsg, "Error reading Sentinel TOA 60m band %d",
+                        ib+1);
                     error_handler (true, FUNC_NAME, errmsg);
                     return (ERROR);
                 }
@@ -230,7 +233,7 @@ int read_s2_toa_refl
 
 
 /******************************************************************************
-MODULE:  compute_s2_sr_refl
+MODULE:  compute_sentinel_sr_refl
 
 PURPOSE:  Computes the surface reflectance for all the Sentinel-2 reflectance
 bands.
@@ -261,7 +264,7 @@ NOTES:
    Those final aerosol values are used for the surface reflectance corrections.
 5. Cloud-based QA information is not processed in this algorithm.
 ******************************************************************************/
-int compute_s2_sr_refl
+int compute_sentinel_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -284,9 +287,9 @@ int compute_s2_sr_refl
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 )
 {
-    char errmsg[STR_SIZE];                     /* error message */
-    char FUNC_NAME[] = "compute_s2_sr_refl";   /* function name */
-    Sat_t sat = input->meta.sat;               /* satellite */
+    char errmsg[STR_SIZE];   /* error message */
+    char FUNC_NAME[] = "compute_sentinel_sr_refl";   /* function name */
+    Sat_t sat = input->meta.sat;  /* satellite */
     int retval;          /* return status */
     int i, j;            /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
@@ -465,27 +468,27 @@ int compute_s2_sr_refl
        gascoef-modis/msi.ASC. */
     /* NOTE: coefficients for bands 9 and 10 have been removed from these
        arrays since those bands are no longer processed */
-    float tauray[NSR_S2_BANDS] =  /* molecular optical thickness
+    float tauray[NSRS_BANDS] =  /* molecular optical thickness
                                      coefficients -- produced by running 6S */
         {0.23432, 0.15106, 0.09102, 0.04535, 0.03584, 0.02924, 0.02338, 0.01847,
          0.01560, 0.00128, 0.00037};
-    double oztransa[NSR_S2_BANDS] =   /* ozone transmission coeff */
+    double oztransa[NSRS_BANDS] =   /* ozone transmission coeff */
         {-0.00264691, -0.0272572, -0.0986512, -0.0500348, -0.0204295,
          -0.0108641, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001};
-    double wvtransa[NSR_S2_BANDS] =   /* water vapor transmission coeff */
+    double wvtransa[NSRS_BANDS] =   /* water vapor transmission coeff */
         {2.29849e-27, 2.29849e-27, 0.000777307, 0.00361051, 0.0141249,
          0.0137067, 0.00410217, 0.0285871, 0.000390755, 0.000640155, 0.018006};
-    double wvtransb[NSR_S2_BANDS] =   /* water vapor transmission coeff */
+    double wvtransb[NSRS_BANDS] =   /* water vapor transmission coeff */
         {0.999742, 0.999742, 0.891099, 0.754895, 0.75596, 0.763497, 0.74117,
          0.578722, 0.900899, 0.943712, 0.647517};
-    double ogtransa1[NSR_S2_BANDS] =  /* other gases transmission coeff */
+    double ogtransa1[NSRS_BANDS] =  /* other gases transmission coeff */
         {4.91586e-20, 4.91586e-20, 4.91586e-20, 4.91586e-20, 5.3367e-06,
          4.91586e-20, 9.03583e-05, 1.64109e-09, 1.90458e-05, 0.0212751,
          0.0243065};
-    double ogtransb0[NSR_S2_BANDS] =  /* other gases transmission coeff */
+    double ogtransb0[NSRS_BANDS] =  /* other gases transmission coeff */
         {0.000197019, 0.000197019, 0.000197019, 0.000197019, -0.980313,
          0.000197019, 0.0265393, 1.E-10, 0.0322844, 0.000197019, 0.000197019};
-    double ogtransb1[NSR_S2_BANDS] =  /* other gases transmission coeff */
+    double ogtransb1[NSRS_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, 9.57011e-16, 1.33639,
          9.57011e-16, 0.0532256, 1.E-10, -0.0219907, 0.0116062, 0.0604312};
 
@@ -499,15 +502,15 @@ int compute_s2_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
-    retval = s2_memory_allocation_sr (nlines, nsamps, &ipflag, &taero, &teps,
-        &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1,
+    retval = sentinel_memory_allocation_sr (nlines, nsamps, &ipflag, &taero,
+        &teps, &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1,
         &intratiob2, &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv,
         &oz, &rolutt, &transt, &sphalbt, &normext, &tsmax, &tsmin, &nbfic,
         &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
-            "for S2 surface reflectance calculations.");
+            "for Sentinel surface reflectance calculations.");
         error_handler (false, FUNC_NAME, errmsg);
         return (ERROR);
     }
@@ -552,13 +555,13 @@ int compute_s2_sr_refl
     /* Loop through all the reflectance bands and perform atmospheric
        corrections based on climatology */
     mytime = time(NULL);
-    printf ("Performing atmospheric corrections for each S2 reflectance "
+    printf ("Performing atmospheric corrections for each Sentinel reflectance "
         "band ... %s", ctime(&mytime)); fflush(stdout);
     raot550nm = 0.05;
     eps = -1.0;
-    for (ib = 0; ib <= SR_S2_BAND12; ib++)
+    for (ib = 0; ib <= SRS_BAND12; ib++)
     {
-        printf ("  Band %s\n", S2_BANDNAME[ib]); fflush(stdout);
+        printf ("  Band %s\n", SENTINEL_BANDNAME[ib]); fflush(stdout);
 
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
@@ -614,7 +617,7 @@ int compute_s2_sr_refl
     mytime = time(NULL);
     printf ("Starting retrieval of atmospheric correction parameters ... %s",
         ctime(&mytime)); fflush(stdout);
-    for (ib = 0; ib <= SR_S2_BAND12; ib++)
+    for (ib = 0; ib <= SRS_BAND12; ib++)
     {
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
@@ -655,7 +658,7 @@ int compute_s2_sr_refl
         tgo_arr[ib] = tgo;
     }
 
-    for (ib = 0; ib <= SR_S2_BAND12; ib++)
+    for (ib = 0; ib <= SRS_BAND12; ib++)
     {
         /* Determine the maximum AOT index */
         iaMaxTemp = 1;
@@ -699,12 +702,12 @@ int compute_s2_sr_refl
     /* Start the aerosol inversion */
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
-        S2_AERO_WINDOW, S2_AERO_WINDOW, ctime(&mytime)); fflush(stdout);
+        SAERO_WINDOW, SAERO_WINDOW, ctime(&mytime)); fflush(stdout);
     tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
 #endif
-    for (i = 0; i < nlines; i+=S2_AERO_WINDOW)
+    for (i = 0; i < nlines; i+=SAERO_WINDOW)
     {
 #ifndef _OPENMP
         /* update status, but not if multi-threaded */
@@ -721,7 +724,7 @@ int compute_s2_sr_refl
 #endif
 
         curr_pix = i * nsamps;
-        for (j = 0; j < nsamps; j+=S2_AERO_WINDOW, curr_pix+=S2_AERO_WINDOW)
+        for (j = 0; j < nsamps; j+=SAERO_WINDOW, curr_pix+=SAERO_WINDOW)
         {
             /* If this pixel is fill */
             if (level1_qa_is_fill (qaband[curr_pix]))
@@ -952,53 +955,53 @@ int compute_s2_sr_refl
                      intr22 * u_x_v;
 
             /* Calculate NDWI variables for the band ratios */
-            xndwi = ((double) sband[SR_S2_BAND8A][curr_pix] -
-                     (double) (sband[SR_S2_BAND12][curr_pix] * 0.5)) /
-                    ((double) sband[SR_S2_BAND8A][curr_pix] +
-                     (double) (sband[SR_S2_BAND12][curr_pix] * 0.5));
+            xndwi = ((double) sband[SRS_BAND8A][curr_pix] -
+                     (double) (sband[SRS_BAND12][curr_pix] * 0.5)) /
+                    ((double) sband[SRS_BAND8A][curr_pix] +
+                     (double) (sband[SRS_BAND12][curr_pix] * 0.5));
             if (xndwi > ndwi_th1)
                 xndwi = ndwi_th1;
             if (xndwi < ndwi_th2)
                 xndwi = ndwi_th2;
 
             /* Initialize the band ratios */
-            for (ib = 0; ib < NSR_S2_BANDS; ib++)
+            for (ib = 0; ib < NSRS_BANDS; ib++)
             {
                 erelc[ib] = -1.0;
                 troatm[ib] = 0.0;
             }
 
             /* Compute the band ratio - coastal aerosol, blue, red, SWIR */
-            erelc[DN_S2_BAND1] = (xndwi * slprb1 + intrb1);
-            erelc[DN_S2_BAND2] = (xndwi * slprb2 + intrb2);
-            erelc[DN_S2_BAND4] = 1.0;
-            erelc[DN_S2_BAND12] = (xndwi * slprb7 + intrb7);
+            erelc[DNS_BAND1] = (xndwi * slprb1 + intrb1);
+            erelc[DNS_BAND2] = (xndwi * slprb2 + intrb2);
+            erelc[DNS_BAND4] = 1.0;
+            erelc[DNS_BAND12] = (xndwi * slprb7 + intrb7);
 
             /* Retrieve the TOA reflectance values for the current pixel; use
                a NxN average */
             pix_count = 0;
-            for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+            for (iline = i; iline < i+SAERO_WINDOW; iline++)
             {
                 if (iline >= nlines) continue;
-                for (isamp = j; isamp < j+S2_AERO_WINDOW; isamp++)
+                for (isamp = j; isamp < j+SAERO_WINDOW; isamp++)
                 {
                     if (isamp >= nsamps) continue;
                     curr_win_pix = iline * nsamps + isamp;
-                    troatm[DN_S2_BAND1] += toaband[DN_S2_BAND1][curr_win_pix];
-                    troatm[DN_S2_BAND2] += toaband[DN_S2_BAND2][curr_win_pix];
-                    troatm[DN_S2_BAND4] += toaband[DN_S2_BAND4][curr_win_pix];
-                    troatm[DN_S2_BAND12] += toaband[DN_S2_BAND12][curr_win_pix];
+                    troatm[DNS_BAND1] += toaband[DNS_BAND1][curr_win_pix];
+                    troatm[DNS_BAND2] += toaband[DNS_BAND2][curr_win_pix];
+                    troatm[DNS_BAND4] += toaband[DNS_BAND4][curr_win_pix];
+                    troatm[DNS_BAND12] += toaband[DNS_BAND12][curr_win_pix];
                     pix_count++;
                 }
             }
 
-            troatm[DN_S2_BAND1] /= pix_count;
-            troatm[DN_S2_BAND2] /= pix_count;
-            troatm[DN_S2_BAND4] /= pix_count;
-            troatm[DN_S2_BAND12] /= pix_count;
+            troatm[DNS_BAND1] /= pix_count;
+            troatm[DNS_BAND2] /= pix_count;
+            troatm[DNS_BAND4] /= pix_count;
+            troatm[DNS_BAND12] /= pix_count;
 
             /* Retrieve the aerosol information for low eps 1.0 */
-            iband1 = DN_S2_BAND4;  /* red band */
+            iband1 = DNS_BAND4;  /* red band */
             eps = LOW_EPS;
             iaots = 0;
             subaeroret_new (input->meta.sat, false, iband1, erelc, troatm,
@@ -1063,17 +1066,17 @@ int compute_s2_sr_refl
 
             /* Check the model residual.  Corf represents aerosol impact.
                Test the quality of the aerosol inversion. */
-            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DN_S2_BAND7]))
+            if (residual < (0.015 + 0.005 * corf + 0.10 * troatm[DNS_BAND7]))
             {
                 /* Test if NIR band 8a makes sense. Use a NxN window average. */
-                iband = DN_S2_BAND8A;
+                iband = DNS_BAND8A;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+                for (iline = i; iline < i+SAERO_WINDOW; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+S2_AERO_WINDOW;
+                    for (isamp = j; isamp < j+SAERO_WINDOW;
                          isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
@@ -1091,14 +1094,14 @@ int compute_s2_sr_refl
                 ros5 = roslamb;
 
                 /* Test if red band 4 makes sense. Use a NxN window average. */
-                iband = DN_S2_BAND4;
+                iband = DNS_BAND4;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+                for (iline = i; iline < i+SAERO_WINDOW; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+S2_AERO_WINDOW;
+                    for (isamp = j; isamp < j+SAERO_WINDOW;
                          isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
@@ -1145,35 +1148,35 @@ int compute_s2_sr_refl
                 /* Retrieve the TOA reflectance values for the current pixel;
                    use a NxN average */
                 pix_count = 0;
-                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+                for (iline = i; iline < i+SAERO_WINDOW; iline++)
                 {
                     if (iline >= nlines) continue;
-                    for (isamp = j; isamp < j+S2_AERO_WINDOW; isamp++)
+                    for (isamp = j; isamp < j+SAERO_WINDOW; isamp++)
                     {
                         if (isamp >= nsamps) continue;
                         curr_win_pix = iline * nsamps + isamp;
-                        troatm[DN_S2_BAND1] +=
-                            toaband[DN_S2_BAND1][curr_win_pix];
-                        troatm[DN_S2_BAND2] +=
-                            toaband[DN_S2_BAND2][curr_win_pix];
-                        troatm[DN_S2_BAND4] +=
-                            toaband[DN_S2_BAND4][curr_win_pix];
-                        troatm[DN_S2_BAND12] +=
-                            toaband[DN_S2_BAND12][curr_win_pix];
+                        troatm[DNS_BAND1] +=
+                            toaband[DNS_BAND1][curr_win_pix];
+                        troatm[DNS_BAND2] +=
+                            toaband[DNS_BAND2][curr_win_pix];
+                        troatm[DNS_BAND4] +=
+                            toaband[DNS_BAND4][curr_win_pix];
+                        troatm[DNS_BAND12] +=
+                            toaband[DNS_BAND12][curr_win_pix];
                         pix_count++;
                     }
                 }
 
-                troatm[DN_S2_BAND1] /= pix_count;
-                troatm[DN_S2_BAND2] /= pix_count;
-                troatm[DN_S2_BAND4] /= pix_count;
-                troatm[DN_S2_BAND12] /= pix_count;
+                troatm[DNS_BAND1] /= pix_count;
+                troatm[DNS_BAND2] /= pix_count;
+                troatm[DNS_BAND4] /= pix_count;
+                troatm[DNS_BAND12] /= pix_count;
 
                 /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
-                erelc[DN_S2_BAND1] = 1.0;
-                erelc[DN_S2_BAND2] = 1.0;
-                erelc[DN_S2_BAND4] = 1.0;
-                erelc[DN_S2_BAND12] = 1.0;
+                erelc[DNS_BAND1] = 1.0;
+                erelc[DNS_BAND2] = 1.0;
+                erelc[DNS_BAND4] = 1.0;
+                erelc[DNS_BAND12] = 1.0;
 
                 /* Retrieve the water aerosol information for eps 1.5 */
                 eps = 1.5;
@@ -1186,14 +1189,14 @@ int compute_s2_sr_refl
                 corf = raot / xmus;
 
                 /* Test band 1 reflectance to eliminate negative */
-                iband = DN_S2_BAND1;
+                iband = DNS_BAND1;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+S2_AERO_WINDOW; iline++)
+                for (iline = i; iline < i+SAERO_WINDOW; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+S2_AERO_WINDOW;
+                    for (isamp = j; isamp < j+SAERO_WINDOW;
                          isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
@@ -1270,7 +1273,7 @@ int compute_s2_sr_refl
     mytime = time(NULL);
     printf ("Filling invalid aerosol values in the NxN windows %s",
         ctime(&mytime));
-    retval = fix_invalid_aerosols_s2 (ipflag, taero, teps, S2_AERO_WINDOW,
+    retval = fix_invalid_aerosols_sentinel (ipflag, taero, teps, SAERO_WINDOW,
         nlines, nsamps);
     if (retval != SUCCESS)
     {
@@ -1295,14 +1298,16 @@ int compute_s2_sr_refl
     mytime = time(NULL);
     printf ("Interpolating the aerosol values in the NxN windows %s\n",
         ctime(&mytime)); fflush(stdout);
-    aerosol_interp_s2 (S2_AERO_WINDOW, qaband, ipflag, taero, nlines, nsamps);
+    aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, taero, nlines,
+        nsamps);
 
     /* Use the UL corner of the aerosol windows to interpolate the teps values
        (angstrom coefficient) */
     mytime = time(NULL);
     printf ("Interpolating the teps values in the NxN windows %s\n",
         ctime(&mytime)); fflush(stdout);
-    aerosol_interp_s2 (S2_AERO_WINDOW, qaband, ipflag, teps, nlines, nsamps);
+    aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, teps, nlines,
+        nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1321,9 +1326,9 @@ int compute_s2_sr_refl
     printf ("Performing atmospheric correction ... %s\n", ctime(&mytime));
 
     /* Loop through all the bands */
-    for (ib = 0; ib <= DN_S2_BAND12; ib++)
+    for (ib = 0; ib <= DNS_BAND12; ib++)
     {
-        printf ("  Band %s\n", S2_BANDNAME[ib]); fflush(stdout);
+        printf ("  Band %s\n", SENTINEL_BANDNAME[ib]); fflush(stdout);
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
@@ -1344,7 +1349,7 @@ int compute_s2_sr_refl
 
             /* If this is the coastal aerosol band then set the aerosol
                bits in the QA band */
-            if (ib == DN_S2_BAND1)
+            if (ib == DNS_BAND1)
             {
                 /* Set up aerosol QA bits */
                 rsurf = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
@@ -1397,9 +1402,9 @@ int compute_s2_sr_refl
     }
 
     /* Loop through the reflectance bands and write the data */
-    for (ib = 0; ib <= DN_S2_BAND12; ib++)
+    for (ib = 0; ib <= DNS_BAND12; ib++)
     {
-        printf ("  Band %s: %s\n", S2_BANDNAME[ib],
+        printf ("  Band %s: %s\n", SENTINEL_BANDNAME[ib],
             sr_output->metadata.band[ib].file_name);
         if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
             sizeof (uint16)) != SUCCESS)
@@ -1431,7 +1436,7 @@ int compute_s2_sr_refl
     }
 
     /* Append the surface reflectance bands to the XML file */
-    if (append_metadata (NREFL_S2_BANDS, sr_output->metadata.band, xml_infile)
+    if (append_metadata (NREFLS_BANDS, sr_output->metadata.band, xml_infile)
         != SUCCESS)
     {
         sprintf (errmsg, "Appending surface reflectance bands to the "
@@ -1441,9 +1446,9 @@ int compute_s2_sr_refl
     }
 
     /* Write the aerosol QA band */
-    printf ("  Aerosol Band %d: %s\n", SR_S2_AEROSOL+1,
-            sr_output->metadata.band[SR_S2_AEROSOL].file_name);
-    if (put_output_lines (sr_output, ipflag, SR_S2_AEROSOL, 0, nlines,
+    printf ("  Aerosol Band %d: %s\n", SRS_AEROSOL+1,
+            sr_output->metadata.band[SRS_AEROSOL].file_name);
+    if (put_output_lines (sr_output, ipflag, SRS_AEROSOL, 0, nlines,
         sizeof (uint8)) != SUCCESS)
     {
         sprintf (errmsg, "Writing aerosol QA output data");
@@ -1455,7 +1460,7 @@ int compute_s2_sr_refl
     free (ipflag);
 
     /* Create the ENVI header for the aerosol QA band */
-    if (create_envi_struct (&sr_output->metadata.band[SR_S2_AEROSOL],
+    if (create_envi_struct (&sr_output->metadata.band[SRS_AEROSOL],
         &xml_metadata->global, &envi_hdr) != SUCCESS)
     {
         sprintf (errmsg, "Creating ENVI header structure.");
@@ -1464,7 +1469,7 @@ int compute_s2_sr_refl
     }
 
     /* Write the ENVI header */
-    strcpy (envi_file, sr_output->metadata.band[SR_S2_AEROSOL].file_name);
+    strcpy (envi_file, sr_output->metadata.band[SRS_AEROSOL].file_name);
     cptr = strchr (envi_file, '.');
     strcpy (cptr, ".hdr");
     if (write_envi_hdr (envi_file, &envi_hdr) != SUCCESS)
@@ -1475,7 +1480,7 @@ int compute_s2_sr_refl
     }
 
     /* Append the aerosol QA band to the XML file */
-    if (append_metadata (1, &sr_output->metadata.band[SR_S2_AEROSOL],
+    if (append_metadata (1, &sr_output->metadata.band[SRS_AEROSOL],
         xml_infile) != SUCCESS)
     {
         sprintf (errmsg, "Appending aerosol QA band to XML file.");

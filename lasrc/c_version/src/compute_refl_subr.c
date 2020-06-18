@@ -1,8 +1,8 @@
 /******************************************************************************
 FILE: compute_refl_subr.c
 
-PURPOSE: Contains functions for handling the L8 TOA reflectance and L8/S2
-surface reflectance corrections.
+PURPOSE: Contains functions for handling the Landsat TOA reflectance and
+Landsat/Sentinel surface reflectance corrections.
 
 PROJECT:  Land Satellites Data System Science Research and Development (LSRD)
 at the USGS EROS
@@ -261,7 +261,7 @@ bool find_closest_non_fill
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
-    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
+    int half_aero_window, /* I: size of half the aerosol window */
     int *nearest_line, /* O: line for nearest non-fill pix in aerosol window */
     int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
 )

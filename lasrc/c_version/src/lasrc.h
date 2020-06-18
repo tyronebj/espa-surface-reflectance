@@ -47,7 +47,7 @@ bool btest
     byte n            /* I: bit number to be tested (0 is rightmost bit) */
 );
 
-int compute_l8_toa_refl
+int compute_landsat_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -62,7 +62,7 @@ int compute_l8_toa_refl
                               values (scaled) */
 );
 
-int read_s2_toa_refl
+int read_sentinel_toa_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -70,7 +70,7 @@ int read_s2_toa_refl
     float **toaband     /* O: output TOA reflectance values (unscaled) */
 );
 
-int compute_l8_sr_refl
+int compute_landsat_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -92,7 +92,7 @@ int compute_l8_sr_refl
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 );
 
-int compute_s2_sr_refl
+int compute_sentinel_sr_refl
 (
     Input_t *input,     /* I: input structure for the Landsat product */
     Espa_internal_meta_t *xml_metadata,
@@ -186,7 +186,7 @@ bool find_closest_non_fill
     int nsamps,        /* I: number of samps in QA band */
     int center_line,   /* I: line for the center of the aerosol window */
     int center_samp,   /* I: sample for the center of the aerosol window */
-    int half_aero_window, /* I: size of half the aerosol window (S2 or L8) */
+    int half_aero_window, /* I: size of half the aerosol window */
     int *nearest_line, /* O: line for nearest non-fill pix in aerosol window */
     int *nearest_samp  /* O: samp for nearest non-fill pix in aerosol window */
 );

@@ -9,7 +9,7 @@
 #include <stdbool.h>
 #include "lasrc.h"
 
-void aerosol_interp_l8
+void aerosol_interp_landsat
 (
     Espa_internal_meta_t *xml_metadata, /* I: XML metadata information */
     int aero_window,   /* I: size of the aerosol window */
@@ -28,7 +28,7 @@ void aerosol_interp_l8
     int nsamps         /* I: number of samps in qaband & taero bands */
 );
 
-void aerosol_interp_s2
+void aerosol_interp_sentinel
 (
     int aero_window,   /* I: size of the aerosol window */
     uint16 *qaband,    /* I: QA band for the input image, nlines x nsamps */
@@ -45,7 +45,7 @@ void aerosol_interp_s2
     int nsamps         /* I: number of samps in ipflag & taero bands */
 );
 
-int fix_invalid_aerosols_l8
+int fix_invalid_aerosols_landsat
 (
     uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
                              nlines x nsamps.  It is expected that the ipflag
@@ -63,7 +63,7 @@ int fix_invalid_aerosols_l8
     int nsamps         /* I: number of samps in taero band */
 );
 
-int fix_invalid_aerosols_s2
+int fix_invalid_aerosols_sentinel
 (
     uint8 *ipflag,     /* I: QA flag to assist with aerosol interpolation,
                              nlines x nsamps.  It is expected that the ipflag

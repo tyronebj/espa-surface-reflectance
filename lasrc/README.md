@@ -1,5 +1,5 @@
 ## LaSRC Version X.X.X Release Notes
-Release Date: May 2020
+Release Date: TBD 2020
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code

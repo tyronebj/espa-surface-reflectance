@@ -29,8 +29,8 @@ NULL       Error occurred opening or reading the file
 non-NULL   Successful completion
 
 NOTES:
-  1. This routine opens the input L8-9 files.  It also allocates memory for
-     pointers in the input structure.  It is up to the caller to use
+  1. This routine opens the input Landsat 8/9 files. It also allocates memory
+     for pointers in the input structure.  It is up to the caller to use
      close_input and free_input to close the files and free up the memory when
      done using the input data structure.
 ******************************************************************************/
@@ -65,7 +65,7 @@ Input_t *open_input
         return (NULL);
     }
 
-    /* Make sure the metadata satellite is either L8/L9 or S2 */
+    /* Make sure the metadata satellite is either Landsat 8/9 or Sentinel-2 */
     if (this->meta.sat != SAT_LANDSAT_8 && this->meta.sat != SAT_LANDSAT_9 &&
         this->meta.sat != SAT_SENTINEL_2)
     {
@@ -133,7 +133,7 @@ Input_t *open_input
         this->open_qa[ib] = true;
     }
 
-    /* Open the per-pixel solar zenith angle bands for L8/L9 */
+    /* Open the per-pixel solar zenith angle bands for Landsat */
     if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         this->fp_bin_sza = open_raw_binary (this->file_name_sza, "rb");
@@ -166,21 +166,21 @@ Input_t *open_input
         return (NULL);
     }
 
-    /* L8/L9 should have a QA input band */
+    /* Landsat should have a QA input band */
     if ((this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9) &&
          !this->open_qa[0])
     {
-        sprintf (errmsg, "L8/L9 QA band is not open.");
+        sprintf (errmsg, "Landsat QA band is not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
     }
 
-    /* L8/L9 should have a per-pixel angle input bands */
+    /* Landsat should have a per-pixel angle input bands */
     if ((this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9) &&
          !this->open_ppa)
     {
-        sprintf (errmsg, "L8/L9 per-pixel angle bands are not open.");
+        sprintf (errmsg, "Landsat per-pixel angle bands are not open.");
         error_handler (true, FUNC_NAME, errmsg);
         free_input (this);
         return (NULL);
@@ -217,7 +217,7 @@ void close_input
         }
     }
 
-    /* L8/L9 has thermal, pan, QA, and per-pixel angle bands to close */
+    /* Landsat has thermal, pan, QA, and per-pixel angle bands to close */
     if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         /* Close the thermal files */
@@ -293,7 +293,7 @@ void free_input
         for (ib = 0; ib < this->nband; ib++)
             free (this->file_name[ib]);
 
-        /* L8/L9 has thermal, pan, QA, and per-pixel angle bands to close */
+        /* Landsat has thermal, pan, QA, and per-pixel angle bands to close */
         if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
         {
             for (ib = 0; ib < this->nband_th; ib++)
@@ -334,9 +334,9 @@ int get_input_refl_lines
     int iband,       /* I: current refl band to read (0-based) */
     int iline,       /* I: current line to read (0-based) */
     int nlines,      /* I: number of lines to read */
-    int nsamps,      /* I: number of samples to read (S2 nsamps vary depending
-                           on the band); if -99 then use the nsamps in the
-                           input structure */
+    int nsamps,      /* I: number of samples to read (Sentinel nsamps vary
+                           depending on the band); if -99 then use the nsamps
+                           in the input structure */
     uint16 *out_arr  /* O: output array to populate */
 )
 {
@@ -765,9 +765,9 @@ int get_xml_input
         this->fp_bin[ib] = NULL;
     }
 
-    /* use L8 thermal band count since S2 doesn't have thermal */
+    /* use Landsat thermal band count since Sentinel doesn't have thermal */
     this->nband_th = 0;
-    for (ib = 0; ib < NBAND_L8_THM_MAX; ib++)
+    for (ib = 0; ib < NBANDL_THM_MAX; ib++)
     {
         this->meta.gain_th[ib] = GAIN_BIAS_FILL;
         this->meta.bias_th[ib] = GAIN_BIAS_FILL;
@@ -776,9 +776,9 @@ int get_xml_input
         this->fp_bin_th[ib] = NULL;
     }
 
-    /* use L8 pan band count as S2 doesn't have pan */
+    /* use Landsat pan band count as Sentinel doesn't have pan */
     this->nband_pan = 0;
-    for (ib = 0; ib < NBAND_L8_PAN_MAX; ib++)
+    for (ib = 0; ib < NBANDL_PAN_MAX; ib++)
     {
         this->meta.gain_pan[ib] = GAIN_BIAS_FILL;
         this->meta.bias_pan[ib] = GAIN_BIAS_FILL;
@@ -787,9 +787,9 @@ int get_xml_input
         this->fp_bin_pan[ib] = NULL;
     }
 
-    /* use L8 QA band count as S2 doesn't have an input QA band */
+    /* use Landsat QA band count as Sentinel doesn't have an input QA band */
     this->nband_qa = 0;
-    for (ib = 0; ib < NBAND_L8_QA_MAX; ib++)
+    for (ib = 0; ib < NBANDL_QA_MAX; ib++)
     {
         this->file_name_qa[ib] = NULL;
         this->open_qa[ib] = false;
@@ -867,7 +867,7 @@ int get_xml_input
 
     if (this->meta.sat == SAT_SENTINEL_2)
     {
-        /* S2 currently is the only satellite that has the view angles in
+        /* Sentinel currently is the only satellite that has the view angles in
            the metadata */
         this->meta.view_zen = gmeta->view_zenith;
         if (this->meta.view_zen < -180.0 || this->meta.view_zen > 180.0)
@@ -906,27 +906,27 @@ int get_xml_input
 
     if (this->meta.inst == INST_OLI_TIRS)
     {
-        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
-        this->nband_th = NBAND_L8_THM_MAX;   /* number of thermal bands */
-        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
-        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
+        this->nband = NBANDL_REFL_MAX;     /* number of reflectance bands */
+        this->nband_th = NBANDL_THM_MAX;   /* number of thermal bands */
+        this->nband_pan = NBANDL_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBANDL_QA_MAX;    /* number of QA bands */
     }
     else if (this->meta.inst == INST_OLI)
     {  /* No TIRS band */
-        this->nband = NBAND_L8_REFL_MAX;     /* number of reflectance bands */
-        this->nband_th = 0;                  /* number of thermal bands */
-        this->nband_pan = NBAND_L8_PAN_MAX;  /* number of pan bands */
-        this->nband_qa = NBAND_L8_QA_MAX;    /* number of QA bands */
+        this->nband = NBANDL_REFL_MAX;     /* number of reflectance bands */
+        this->nband_th = 0;                /* number of thermal bands */
+        this->nband_pan = NBANDL_PAN_MAX;  /* number of pan bands */
+        this->nband_qa = NBANDL_QA_MAX;    /* number of QA bands */
     }
     else if (this->meta.inst == INST_MSI)
     {
-        this->nband = NBAND_S2_REFL_MAX;     /* number of reflectance bands */
+        this->nband = NBANDS_REFL_MAX;     /* number of reflectance bands */
         this->nband_th = 0;     /* number of thermal bands */
         this->nband_pan = 0;    /* number of pan bands */
         this->nband_qa = 0;     /* number of QA bands */
     }
 
-    /* Band differences between L8/L9 and S2 */
+    /* Band differences between Landsat and Sentinel */
     if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         /* Use band 1 for the representative band */
@@ -942,8 +942,8 @@ int get_xml_input
 
         if (refl_indx == NA)
         {
-            sprintf (errmsg, "Band 1 not found in the input L8 XML metadata "
-                "file to be used as the representative band.");
+            sprintf (errmsg, "Band 1 not found in the input Landsat XML "
+                "metadata file to be used as the representative band.");
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
@@ -961,9 +961,9 @@ int get_xml_input
             if (!strcmp (metadata->band[i].name, "b1"))
             {
                 /* get the band1 info */
-                this->meta.gain[DN_L8_BAND1] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND1] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND1] =
+                this->meta.gain[DNL_BAND1] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND1] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND1] =
                     strdup (metadata->band[i].file_name);
     
                 /* get the production date but only the date portion
@@ -974,58 +974,58 @@ int get_xml_input
             else if (!strcmp (metadata->band[i].name, "b2"))
             {
                 /* get the band2 info */
-                this->meta.gain[DN_L8_BAND2] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND2] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND2] =
+                this->meta.gain[DNL_BAND2] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND2] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND2] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b3"))
             {
                 /* get the band3 info */
-                this->meta.gain[DN_L8_BAND3] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND3] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND3] =
+                this->meta.gain[DNL_BAND3] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND3] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND3] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b4"))
             {
                 /* get the band4 info */
-                this->meta.gain[DN_L8_BAND4] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND4] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND4] =
+                this->meta.gain[DNL_BAND4] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND4] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND4] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b5"))
             {
                 /* get the band5 info */
-                this->meta.gain[DN_L8_BAND5] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND5] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND5] =
+                this->meta.gain[DNL_BAND5] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND5] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND5] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b6"))
             {
                 /* get the band6 info */
-                this->meta.gain[DN_L8_BAND6] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND6] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND6] =
+                this->meta.gain[DNL_BAND6] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND6] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND6] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b7"))
             {
                 /* get the band7 info */
-                this->meta.gain[DN_L8_BAND7] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND7] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND7] =
+                this->meta.gain[DNL_BAND7] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND7] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND7] =
                     strdup (metadata->band[i].file_name);
             }
             else if (!strcmp (metadata->band[i].name, "b9"))
             {
                 /* get the band9 info - store in the reflectance array
                    skipping band 8*/
-                this->meta.gain[DN_L8_BAND9-1] = metadata->band[i].refl_gain;
-                this->meta.bias[DN_L8_BAND9-1] = metadata->band[i].refl_bias;
-                this->file_name[DN_L8_BAND9-1] =
+                this->meta.gain[DNL_BAND9-1] = metadata->band[i].refl_gain;
+                this->meta.bias[DNL_BAND9-1] = metadata->band[i].refl_bias;
+                this->file_name[DNL_BAND9-1] =
                     strdup (metadata->band[i].file_name);
             }
     
@@ -1130,14 +1130,14 @@ int get_xml_input
 
             /* Obtain band-related info */
             if (!strcmp (metadata->band[i].name, "B01"))
-                this->file_name[DN_S2_BAND1] =
+                this->file_name[DNS_BAND1] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B02"))
             {
                 /* This is the index we'll use for reflectance band info,
                    since it is a 30m band. */
                 refl_indx = i;
-                this->file_name[DN_S2_BAND2] =
+                this->file_name[DNS_BAND2] =
                     strdup (metadata->band[i].file_name);
 
                 /* Get the production date of the level-1 data */
@@ -1145,38 +1145,38 @@ int get_xml_input
                 prod_date[10] = '\0';
             }
             else if (!strcmp (metadata->band[i].name, "B03"))
-                this->file_name[DN_S2_BAND3] =
+                this->file_name[DNS_BAND3] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B04"))
-                this->file_name[DN_S2_BAND4] =
+                this->file_name[DNS_BAND4] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B05"))
-                this->file_name[DN_S2_BAND5] =
+                this->file_name[DNS_BAND5] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B06"))
-                this->file_name[DN_S2_BAND6] =
+                this->file_name[DNS_BAND6] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B07"))
-                this->file_name[DN_S2_BAND7] =
+                this->file_name[DNS_BAND7] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B08"))
-                this->file_name[DN_S2_BAND8] =
+                this->file_name[DNS_BAND8] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B8A"))
-                this->file_name[DN_S2_BAND8A] =
+                this->file_name[DNS_BAND8A] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B11"))
-                this->file_name[DN_S2_BAND11] =
+                this->file_name[DNS_BAND11] =
                     strdup (metadata->band[i].file_name);
             else if (!strcmp (metadata->band[i].name, "B12"))
-                this->file_name[DN_S2_BAND12] =
+                this->file_name[DNS_BAND12] =
                     strdup (metadata->band[i].file_name);
         }
 
         if (refl_indx == NA)
         {
-            sprintf (errmsg, "Band 2 not found in the input S2 XML metadata "
-                "file to be used as the representative band.");
+            sprintf (errmsg, "Band 2 not found in the input Sentinel XML "
+                "metadata file to be used as the representative band.");
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
@@ -1209,7 +1209,7 @@ int get_xml_input
         this->scale_factor_th = 0;
     }
 
-    /* L8/L9-specific input params -- including pan and QA bands */
+    /* Landsat-specific input params -- including pan and QA bands */
     if (this->meta.sat == SAT_LANDSAT_8 || this->meta.sat == SAT_LANDSAT_9)
     {
         this->size_pan.nsamps = metadata->band[pan_indx].nsamps;
