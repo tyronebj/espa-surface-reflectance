@@ -21,7 +21,6 @@
 #define BAND_OFFSET_TH (-OFFSET_TH)
 
 /* min/max valid values */
-//#define MIN_VALID (-0.20 + BAND_OFFSET) * MULT_FACTOR
 #define MIN_VALID (0.0 + BAND_OFFSET) * MULT_FACTOR
 #define MAX_VALID (1.60 + BAND_OFFSET) * MULT_FACTOR
 #define MIN_VALID_TH (150 + BAND_OFFSET_TH) * MULT_FACTOR_TH

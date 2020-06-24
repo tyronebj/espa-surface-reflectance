@@ -58,18 +58,18 @@ int compute_landsat_toa_refl
     char FUNC_NAME[] = "compute_landsat_toa_refl";   /* function name */
     int i;               /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
+    int th_indx;         /* index of thermal band and K constants */
     int sband_ib;        /* looping variable for output bands */
     int iband;           /* current band */
+    long npixels;        /* number of pixels to process */
     float rotoa;         /* top of atmosphere reflectance */
     float tmpf;          /* temporary floating point value */
     float refl_mult;     /* reflectance multiplier for bands 1-9 */
     float refl_add;      /* reflectance additive for bands 1-9 */
     float xcals;         /* radiance multiplier for bands 10 and 11 */
     float xcalo;         /* radiance additive for bands 10 and 11 */
-    float k1b10;         /* K1 temperature constant for band 10 */
-    float k1b11;         /* K1 temperature constant for band 11 */
-    float k2b10;         /* K2 temperature constant for band 10 */
-    float k2b11;         /* K2 temperature constant for band 11 */
+    float k1;            /* K1 temperature constant for thermal bands */
+    float k2;            /* K2 temperature constant for thermal bands */
     float xmus;          /* cosine of solar zenith angle (per-pixel) */
     float sza_mult;      /* sza gain value (for unscaling) */
     float sza_add;       /* sza offset value (for unscaling) */
@@ -82,7 +82,8 @@ int compute_landsat_toa_refl
     printf ("Start TOA reflectance corrections: %s", ctime(&mytime));
 
     /* Allocate memory for band data */
-    uband = calloc (nlines*nsamps, sizeof (uint16));
+    npixels = nlines * nsamps;
+    uband = calloc (npixels, sizeof (uint16));
     if (uband == NULL)
     {
         sprintf (errmsg, "Error allocating memory for uband");
@@ -132,7 +133,7 @@ int compute_landsat_toa_refl
 #ifdef _OPENMP
             #pragma omp parallel for private (i, xmus, rotoa)
 #endif
-            for (i = 0; i < nlines * nsamps; i++)
+            for (i = 0; i < npixels; i++)
             {
                 /* If this pixel is fill, continue with the next pixel. */
                 if (level1_qa_is_fill(qaband[i]))
@@ -161,9 +162,24 @@ int compute_landsat_toa_refl
 
         /* Read the current band and calibrate thermal bands.  Not available
            for OLI-only scenes. */
-        else if (ib == DNL_BAND10 && strcmp (instrument, "OLI"))
+        else if ((ib == DNL_BAND10 || ib == DNL_BAND11) &&
+                 strcmp (instrument, "OLI"))
         {
-            if (get_input_th_lines (input, 0, 0, nlines, uband) != SUCCESS)
+            /* Handle index differences between bands */
+            if (ib == DNL_BAND10)
+            {
+               th_indx = 0;
+               sband_ib = SRL_BAND10;
+            }
+            else
+            {  /* if (ib == DNL_BAND11) */
+               th_indx = 1;
+               sband_ib = SRL_BAND11;
+            }
+
+            /* Read the input thermal lines */
+            if (get_input_th_lines (input, th_indx, 0, nlines, uband)
+                != SUCCESS)
             {
                 sprintf (errmsg, "Reading band %d", ib+1);
                 error_handler (true, FUNC_NAME, errmsg);
@@ -171,22 +187,22 @@ int compute_landsat_toa_refl
             }
 
             /* Get brightness temp coefficients for this band from XML file */
-            xcals = input->meta.gain_th[0];
-            xcalo = input->meta.bias_th[0];
-            k1b10 = input->meta.k1_const[0];
-            k2b10 = input->meta.k2_const[0];
+            xcals = input->meta.gain_th[th_indx];
+            xcalo = input->meta.bias_th[th_indx];
+            k1 = input->meta.k1_const[th_indx];
+            k2 = input->meta.k2_const[th_indx];
 
             /* Compute brightness temp for band 10.  Make sure it falls
                within the min/max range for the thermal bands. */
 #ifdef _OPENMP
             #pragma omp parallel for private (i, tmpf)
 #endif
-            for (i = 0; i < nlines*nsamps; i++)
+            for (i = 0; i < npixels; i++)
             {
                 /* If this pixel is fill, continue with the next pixel. */
                 if (level1_qa_is_fill(qaband[i]))
                 {
-                    sband[SRL_BAND10][i] = FILL_VALUE;
+                    sband[sband_ib][i] = FILL_VALUE;
                     continue;
                 }
 
@@ -194,66 +210,19 @@ int compute_landsat_toa_refl
                 tmpf = xcals * uband[i] + xcalo;
 
                 /* Compute TOA brightness temp (K) and scale for output */
-                tmpf = k2b10 / log (k1b10 / tmpf + 1.0);
+                tmpf = k2 / log (k1 / tmpf + 1.0);
                 tmpf = (tmpf + BAND_OFFSET_TH) * MULT_FACTOR_TH;
 
                 /* Make sure the brightness temp falls within the specified
                    range */
                 if (tmpf < MIN_VALID_TH)
-                    sband[SRL_BAND10][i] = MIN_VALID_TH;
+                    sband[sband_ib][i] = MIN_VALID_TH;
                 else if (tmpf > MAX_VALID_TH)
-                    sband[SRL_BAND10][i] = MAX_VALID_TH;
+                    sband[sband_ib][i] = MAX_VALID_TH;
                 else
-                    sband[SRL_BAND10][i] = (int) (roundf (tmpf));
+                    sband[sband_ib][i] = (int) (roundf (tmpf));
             }
-        }  /* end if band 10 */
-
-        else if (ib == DNL_BAND11 && strcmp (instrument, "OLI"))
-        {
-            if (get_input_th_lines (input, 1, 0, nlines, uband) != SUCCESS)
-            {
-                sprintf (errmsg, "Reading band %d", ib+1);
-                error_handler (true, FUNC_NAME, errmsg);
-                return (ERROR);
-            }
-
-            /* Get brightness temp coefficients for this band from XML file */
-            xcals = input->meta.gain_th[1];
-            xcalo = input->meta.bias_th[1];
-            k1b11 = input->meta.k1_const[1];
-            k2b11 = input->meta.k2_const[1];
-
-            /* Compute brightness temp for band 11.  Make sure it falls
-               within the min/max range for the thermal bands. */
-#ifdef _OPENMP
-            #pragma omp parallel for private (i, tmpf)
-#endif
-            for (i = 0; i < nlines*nsamps; i++)
-            {
-                /* If this pixel is fill, continue with the next pixel. */
-                if (level1_qa_is_fill(qaband[i]))
-                {
-                    sband[SRL_BAND11][i] = FILL_VALUE;
-                    continue;
-                }
-
-                /* Compute the TOA spectral radiance */
-                tmpf = xcals * uband[i] + xcalo;
-
-                /* Compute TOA brightness temp (K) and scale for output */
-                tmpf = k2b11 / log (k1b11 / tmpf + 1.0);
-                tmpf = (tmpf + BAND_OFFSET_TH) * MULT_FACTOR_TH;
-
-                /* Make sure the brightness temp falls within the specified
-                   range */
-                if (tmpf < MIN_VALID_TH)
-                    sband[SRL_BAND11][i] = MIN_VALID_TH;
-                else if (tmpf > MAX_VALID_TH)
-                    sband[SRL_BAND11][i] = MAX_VALID_TH;
-                else
-                    sband[SRL_BAND11][i] = (int) (roundf (tmpf));
-            }
-        }  /* end if band 11 */
+        }  /* end if band 10 || band 11*/
     }  /* end for ib */
     printf ("\n");
 
@@ -337,6 +306,7 @@ int compute_landsat_sr_refl
                             aerosol window */
     int nearest_samp;    /* samp for nearest non-fill/cloud pixel in the
                             aerosol window */
+    long npixels;        /* number of pixels to process */
     float tmpf;          /* temporary floating point value */
     float rotoa;         /* top of atmosphere reflectance */
     float roslamb;       /* lambertian surface reflectance */
@@ -344,6 +314,8 @@ int compute_landsat_sr_refl
     float roatm;         /* intrinsic atmospheric reflectance */
     float ttatmg;        /* total atmospheric transmission */
     float satm;          /* atmosphere spherical albedo */
+    float tgo_x_roatm;   /* variable for tgo * roatm */
+    float tgo_x_ttatmg;  /* variable for tgo * ttatmg */
     float xrorayp;       /* reflectance of the atmosphere due to molecular
                             (Rayleigh) scattering */
     float next;
@@ -543,6 +515,7 @@ int compute_landsat_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
+    npixels = nlines * nsamps;
     retval = landsat_memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2,
         &aerob4, &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi, &sndwi,
         &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2, &intratiob7,
@@ -626,12 +599,14 @@ int compute_landsat_sr_refl
         broatm[ib] = roatm;
         bttatmg[ib] = ttatmg;
         bsatm[ib] = satm;
+        tgo_x_roatm = tgo * roatm;
+        tgo_x_ttatmg = tgo * ttatmg;
 
         /* Perform atmospheric corrections for bands 1-7 */
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rotoa, roslamb)
 #endif
-        for (i = 0; i < nlines*nsamps; i++)
+        for (i = 0; i < npixels; i++)
         {
             /* Skip fill pixels, which have already been marked in the
                TOA calculations. */
@@ -661,8 +636,8 @@ int compute_landsat_sr_refl
                scaled value for further corrections.  (NOTE: the full
                computations are in atmcorlamb2) */
             rotoa = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
-            roslamb = rotoa - tgo*roatm;
-            roslamb /= tgo*ttatmg + satm*roslamb;
+            roslamb = rotoa - tgo_x_roatm;
+            roslamb /= tgo_x_ttatmg + satm * roslamb;
             sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) * MULT_FACTOR);
         }  /* end for i */
     }  /* for ib */
@@ -1247,12 +1222,12 @@ int compute_landsat_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1272,12 +1247,12 @@ int compute_landsat_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag_filled.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols_filled.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1292,12 +1267,12 @@ int compute_landsat_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag_final.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols_final.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1321,7 +1296,7 @@ int compute_landsat_sr_refl
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
-        for (i = 0; i < nlines * nsamps; i++)
+        for (i = 0; i < npixels; i++)
         {
             /* If this pixel is fill, then don't process */
             if (level1_qa_is_fill (qaband[i]))
@@ -1344,13 +1319,13 @@ int compute_landsat_sr_refl
             {
                 /* Set up aerosol QA bits */
                 tmpf = fabs (rsurf - roslamb);
-                if (tmpf <= 0.015)
+                if (tmpf <= LOW_AERO_THRESH)
                 {  /* Set the first aerosol bit (low aerosols) */
                     ipflag[i] |= (1 << AERO1_QA);
                 }
                 else
                 {
-                    if (tmpf < 0.03)
+                    if (tmpf < AVG_AERO_THRESH)
                     {  /* Set the second aerosol bit (average aerosols) */
                         ipflag[i] |= (1 << AERO2_QA);
                     }

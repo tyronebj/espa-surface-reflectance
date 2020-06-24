@@ -294,11 +294,14 @@ int compute_sentinel_sr_refl
     int i, j;            /* looping variable for pixels */
     int ib;              /* looping variable for input bands */
     int iband;           /* current band */
-    int curr_pix;        /* current pixel in 1D arrays of nlines * nsamps */
+    int curr_pix;        /* current pixel in 1D arrays of nlines x nsamps */
     int iline;           /* current line in the 6x6 window for atm corr */
     int isamp;           /* current sample in the 6x6 window for atm corr */
+    int ew_line;         /* ending line in the 6x6 window for atm corr */
+    int ew_samp;         /* ending sample in the 6x6 window for atm corr */
     int curr_win_pix;    /* current pixel in the 6x6 window for atm corr */
     int pix_count;       /* count of valid pixels in the 5x5 window */
+    long npixels;        /* number of pixels to process */
     float tmpf;          /* temporary floating point value */
     float rotoa;         /* top of atmosphere reflectance */
     float roslamb;       /* lambertian surface reflectance */
@@ -306,6 +309,8 @@ int compute_sentinel_sr_refl
     float roatm;         /* intrinsic atmospheric reflectance */
     float ttatmg;        /* total atmospheric transmission */
     float satm;          /* atmosphere spherical albedo */
+    float tgo_x_roatm;   /* variable for tgo * roatm */
+    float tgo_x_ttatmg;  /* variable for tgo * ttatmg */
     float xrorayp;       /* reflectance of the atmosphere due to molecular
                             (Rayleigh) scattering */
     float next;
@@ -502,6 +507,7 @@ int compute_sentinel_sr_refl
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
+    npixels = nlines * nsamps;
     retval = sentinel_memory_allocation_sr (nlines, nsamps, &ipflag, &taero,
         &teps, &dem, &andwi, &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1,
         &intratiob2, &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv,
@@ -582,12 +588,14 @@ int compute_sentinel_sr_refl
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
+        tgo_x_roatm = tgo * roatm;
+        tgo_x_ttatmg = tgo * ttatmg;
 
         /* Perform atmospheric corrections for reflectance bands */
 #ifdef _OPENMP
         #pragma omp parallel for private (i, roslamb)
 #endif
-        for (i = 0; i < nlines*nsamps; i++)
+        for (i = 0; i < npixels; i++)
         {
             /* If this pixel is not fill then handle the atmospheric
                correction */
@@ -598,8 +606,8 @@ int compute_sentinel_sr_refl
                    scaled value for further corrections.  (NOTE: the full
                    computations are in atmcorlamb2) */
                 rotoa = toaband[ib][i];
-                roslamb = rotoa - tgo * roatm;
-                roslamb /= tgo * ttatmg + satm * roslamb;
+                roslamb = rotoa - tgo_x_roatm;
+                roslamb /= tgo_x_ttatmg + satm * roslamb;
                 sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) *
                     MULT_FACTOR);
             }
@@ -705,7 +713,7 @@ int compute_sentinel_sr_refl
         SAERO_WINDOW, SAERO_WINDOW, ctime(&mytime)); fflush(stdout);
     tmp_percent = 0;
 #ifdef _OPENMP
-    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
+    #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, ew_line, ew_samp, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
 #endif
     for (i = 0; i < nlines; i+=SAERO_WINDOW)
     {
@@ -980,10 +988,12 @@ int compute_sentinel_sr_refl
             /* Retrieve the TOA reflectance values for the current pixel; use
                a NxN average */
             pix_count = 0;
-            for (iline = i; iline < i+SAERO_WINDOW; iline++)
+            ew_line = i+SAERO_WINDOW;
+            for (iline = i; iline < ew_line; iline++)
             {
                 if (iline >= nlines) continue;
-                for (isamp = j; isamp < j+SAERO_WINDOW; isamp++)
+                ew_samp = j+SAERO_WINDOW;
+                for (isamp = j; isamp < ew_samp; isamp++)
                 {
                     if (isamp >= nsamps) continue;
                     curr_win_pix = iline * nsamps + isamp;
@@ -1072,12 +1082,13 @@ int compute_sentinel_sr_refl
                 iband = DNS_BAND8A;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+SAERO_WINDOW; iline++)
+                ew_line = i+SAERO_WINDOW;
+                for (iline = i; iline < ew_line; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+SAERO_WINDOW;
-                         isamp++, curr_win_pix++)
+                    ew_samp = j+SAERO_WINDOW;
+                    for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
                         rotoa += toaband[iband][curr_win_pix];
@@ -1097,12 +1108,13 @@ int compute_sentinel_sr_refl
                 iband = DNS_BAND4;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+SAERO_WINDOW; iline++)
+                ew_line = i+SAERO_WINDOW;
+                for (iline = i; iline < ew_line; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+SAERO_WINDOW;
-                         isamp++, curr_win_pix++)
+                    ew_samp = j+SAERO_WINDOW;
+                    for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
                         rotoa += toaband[iband][curr_win_pix];
@@ -1148,13 +1160,15 @@ int compute_sentinel_sr_refl
                 /* Retrieve the TOA reflectance values for the current pixel;
                    use a NxN average */
                 pix_count = 0;
-                for (iline = i; iline < i+SAERO_WINDOW; iline++)
+                ew_line = i+SAERO_WINDOW;
+                for (iline = i; iline < ew_line; iline++)
                 {
                     if (iline >= nlines) continue;
-                    for (isamp = j; isamp < j+SAERO_WINDOW; isamp++)
+                    curr_win_pix = iline * nsamps + j;
+                    ew_samp = j+SAERO_WINDOW;
+                    for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
-                        curr_win_pix = iline * nsamps + isamp;
                         troatm[DNS_BAND1] +=
                             toaband[DNS_BAND1][curr_win_pix];
                         troatm[DNS_BAND2] +=
@@ -1192,12 +1206,13 @@ int compute_sentinel_sr_refl
                 iband = DNS_BAND1;
                 rotoa = 0.0;
                 pix_count = 0;
-                for (iline = i; iline < i+SAERO_WINDOW; iline++)
+                ew_line = i+SAERO_WINDOW;
+                for (iline = i; iline < ew_line; iline++)
                 {
                     if (iline >= nlines) continue;
                     curr_win_pix = iline * nsamps + j;
-                    for (isamp = j; isamp < j+SAERO_WINDOW;
-                         isamp++, curr_win_pix++)
+                    ew_samp = j+SAERO_WINDOW;
+                    for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
                         rotoa += toaband[iband][curr_win_pix];
@@ -1259,12 +1274,12 @@ int compute_sentinel_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1284,12 +1299,12 @@ int compute_sentinel_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag2.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols2.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1312,12 +1327,12 @@ int compute_sentinel_sr_refl
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
     aero_fptr = fopen ("ipflag3.img", "w");
-    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fwrite (ipflag, npixels, sizeof (uint8), aero_fptr);
     fclose (aero_fptr);
 
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols3.img", "w");
-    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
+    fwrite (taero, npixels, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 
@@ -1332,7 +1347,7 @@ int compute_sentinel_sr_refl
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif
-        for (i = 0; i < nlines * nsamps; i++)
+        for (i = 0; i < npixels; i++)
         {
             /* If this pixel is fill, then don't process */
             if (level1_qa_is_fill (qaband[i]))
@@ -1354,13 +1369,13 @@ int compute_sentinel_sr_refl
                 /* Set up aerosol QA bits */
                 rsurf = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
                 tmpf = fabs (rsurf - roslamb);
-                if (tmpf <= 0.015)
+                if (tmpf <= LOW_AERO_THRESH)
                 {  /* Set first aerosol bit (low aerosols) */
                     ipflag[i] |= (1 << AERO1_QA);
                 }
                 else
                 {
-                    if (tmpf < 0.03)
+                    if (tmpf < AVG_AERO_THRESH)
                     {  /* Set second aerosol bit (average aerosols) */
                         ipflag[i] |= (1 << AERO2_QA);
                     }

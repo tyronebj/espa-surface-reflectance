@@ -952,9 +952,8 @@ int get_xml_input
            band-related information for reflectance, thermal, and pan bands */
         for (i = 0; i < metadata->nbands; i++)
         {
-            /* Check the band offset against a value of -3333, which means
-               it isn't valid or it's fill. In this case set it to 0. */
-            if (metadata->band[i].add_offset == -3333.)
+            /* Check the band offset for not valid. In this case set it to 0. */
+            if (metadata->band[i].add_offset == NOT_VALID)
                 metadata->band[i].add_offset = 0.;
 
             /* Obtain band-related info */
@@ -1082,7 +1081,7 @@ int get_xml_input
                 this->file_name_sza = strdup (metadata->band[i].file_name);
                 this->meta.gain_sza = metadata->band[i].scale_factor;
                 this->meta.bias_sza = metadata->band[i].add_offset;
-                if (this->meta.bias_sza == -3333)
+                if (this->meta.bias_sza == NOT_VALID)
                     this->meta.bias_sza = 0;
             }
         }  /* for i */
@@ -1123,9 +1122,8 @@ int get_xml_input
            processed. */
         for (i = 0; i < metadata->nbands; i++)
         {
-            /* Check the band offset against a value of -3333, which means
-               it isn't valid or it's fill. In this case set it to 0. */
-            if (metadata->band[i].add_offset == -3333.)
+            /* Check the band offset for not valid. In this case set it to 0. */
+            if (metadata->band[i].add_offset == NOT_VALID)
                 metadata->band[i].add_offset = 0.;
 
             /* Obtain band-related info */

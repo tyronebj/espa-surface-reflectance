@@ -44,7 +44,7 @@ void aerosol_interp_landsat
 {
     int i;                 /* looping variable for the bands */
     int line, samp;        /* looping variable for lines and samples */
-    int curr_pix;          /* current pixel in 1D arrays of nlines * nsamps */
+    int curr_pix;          /* current pixel in 1D arrays of nlines x nsamps */
     int center_line;       /* line for the center of the aerosol window */
     int center_line1;      /* line+1 for the center of the aerosol window */
     int center_lindex;     /* center line array index */
@@ -60,6 +60,7 @@ void aerosol_interp_landsat
                               [lcmg2][scmg] */
     int aero_pix22;        /* pixel location for aerosol window values
                               [lcmg2][scmg2] */
+    long npixels;          /* number of pixels to process */
     float xaero, yaero;    /* x/y location for aerosol pixel within the overall
                               larger aerosol window grid */
     float aero11;          /* aerosol value at window line, samp */
@@ -68,7 +69,6 @@ void aerosol_interp_landsat
     float aero22;          /* aerosol value at window line+1, samp+1 */
     float u, v;            /* line, sample fractional distance from current
                               pixel (weight applied to furthest line, sample) */
-    float u_x_v;           /* u * v */
     int aero_window_index_step = aero_window*nsamps; /* aerosol window array
                                                         step size */
     float aero_step = 1.0/aero_window; /* fraction of window size representing
@@ -132,6 +132,10 @@ void aerosol_interp_landsat
             }
         }
 
+        /* Make the fractional line distance positive, regardless of where it
+           is in the window. */
+        u = fabsf (u);
+
         for (samp = 0; samp < nsamps; samp++, curr_pix++)
         {
             /* If this pixel is fill, then don't process */
@@ -150,7 +154,7 @@ void aerosol_interp_landsat
                 continue;
 
             /* Determine fractional location of this sample in the aerosol
-               window.  Negative values are at the left of the window. */
+               window. Negative values are at the left of the window. */
             xaero = (samp - center_samp) * aero_step;
             v = xaero - (int) xaero;
 
@@ -192,17 +196,15 @@ void aerosol_interp_landsat
             aero21 = taero[aero_pix21];
             aero22 = taero[aero_pix22];
 
-            /* From here make the fractional distance positive, regardless of
+            /* Make the fractional sample distance positive, regardless of
                where it is in the window. */
-            u = fabsf(u);
             v = fabsf(v);
-            u_x_v = u * v;
 
             /* Interpolate the aerosol */
             taero[curr_pix] = aero11  +
                               u * (aero21 - aero11) +
                               v * (aero12 - aero11) +
-                              u_x_v * (aero11 - aero12 - aero21 + aero22);
+                              u * v * (aero11 - aero12 - aero21 + aero22);
 
             /* Set the aerosol to window interpolated. Clear anything else. */
             ipflag[curr_pix] = (1 << IPFLAG_INTERP_WINDOW);
@@ -222,7 +224,8 @@ void aerosol_interp_landsat
        pixels. If an NxN window is a mixture of fill and non-fill, the center
        of the window can be flagged as fill and some other QA based on the
        other pixels in that window. At the end, we want fill to be fill. */
-    for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
+    npixels = nlines * nsamps;
+    for (curr_pix = 0; curr_pix < npixels; curr_pix++)
     {
         if (level1_qa_is_fill (qaband[curr_pix]))
             ipflag[curr_pix] = (1 << IPFLAG_FILL);
@@ -262,7 +265,8 @@ static void fill_with_local_average_landsat
     uint8 *ipflag,       /* I: QA flag to assist with aerosol interpolation,
                             nlines x nsamps.  */
     bool *smflag,        /* I/O: flag to indicate if the pixel was an invalid
-                            aerosol and filled (true) or not filled (false) */
+                            aerosol and filled (true) or not filled (false),
+                            nlines x nsamps */
     float *taero,        /* I/O: aerosol values for each pixel, nlines x nsamps
                             It is expected that the aerosol values are computed
                             for the center of the aerosol windows */
@@ -436,7 +440,8 @@ static void fill_with_local_average_sentinel
     uint8 *ipflag,       /* I: QA flag to assist with aerosol interpolation,
                             nlines x nsamps.  */
     bool *smflag,        /* I/O: flag to indicate if the pixel was an invalid
-                            aerosol and filled (true) or not filled (false) */
+                            aerosol and filled (true) or not filled (false),
+                            nlines x nsamps */
     float *taero,        /* I/O: aerosol values for each pixel, nlines x nsamps
                             It is expected that the aerosol values are computed
                             for the center of the aerosol windows */
@@ -605,7 +610,7 @@ void aerosol_interp_sentinel
     int line, samp;    /* looping variable for lines and samples */
     int iline, isamp;  /* looping variable for lines and samples in the
                           aerosol window */
-    int curr_pix;      /* current pixel in 1D arrays of nlines * nsamps */
+    int curr_pix;      /* current pixel in 1D arrays of nlines x nsamps */
     int curr_win_pix;  /* current pixel in the nxn window for atm corr */
     int next_samp_pix; /* pixel location of the next sample */
     int next_line_pix; /* pixel location of the next line */
@@ -615,6 +620,7 @@ void aerosol_interp_sentinel
     int sq_aero_win;   /* square of the aerosol window */
     int awline_iline;  /* awline - iline */
     int iline_line;    /* iline - line */
+    long npixels;      /* number of pixels to process */
 
     /* Use the UL corner of the aerosol windows to interpolate the remaining
        pixels in the window */
@@ -630,16 +636,14 @@ void aerosol_interp_sentinel
         for (samp = 0; samp < nsamps; samp += aero_window,
                                       curr_pix += aero_window)
         {
-            /* Determine the next line and next sample to be used for
-               interpolating */
-            next_samp_pix = line * nsamps + (samp + aero_window);
-            next_line_pix = (line + aero_window) * nsamps + samp;
-            next_line_samp_pix = (line + aero_window) * nsamps +
-                (samp + aero_window);
-
             /* Determine the sample for the next aerosol window */
             awsamp = samp + aero_window;
-//printf ("line, samp: %d, %d\n", line, samp);
+
+            /* Determine the next line and next sample to be used for
+               interpolating */
+            next_samp_pix = line * nsamps + awsamp;
+            next_line_pix = awline * nsamps + samp;
+            next_line_samp_pix = awline * nsamps + awsamp;
 
             /* Loop through an NxN window with the current pixel being the UL
                corner of the window. Skip the UL corner of the current window,
@@ -659,7 +663,6 @@ void aerosol_interp_sentinel
                     /* Skip the UL corner of the current window, since its
                        aerosol has already been computed. */
                     if (iline == line && isamp == samp) continue;
-//printf ("    iline, isamp: %d, %d\n", iline, isamp);
  
                     /* Set the aerosol to window interpolated. Clear anything
                        else. */
@@ -745,7 +748,8 @@ void aerosol_interp_sentinel
     }  /* for line */
 
     /* Clean up the ipflag for the fill pixels */
-    for (curr_pix = 0; curr_pix < nlines * nsamps; curr_pix++)
+    npixels = nlines * nsamps;
+    for (curr_pix = 0; curr_pix < npixels; curr_pix++)
     {
         if (level1_qa_is_fill (qaband[curr_pix]))
             ipflag[curr_pix] = (1 << IPFLAG_FILL);
@@ -792,7 +796,8 @@ int fix_invalid_aerosols_landsat
     char errmsg[STR_SIZE];                        /* error message */
     char FUNC_NAME[] = "fix_invalid_aerosols_landsat"; /* function name */
     bool *smflag = NULL;  /* flag to indicate if the pixel was an invalid
-                             aerosol and filled (true) or not filled (false) */
+                             aerosol and filled (true) or not filled (false),
+                             nlines x nsamps */
     int nbpixnf;          /* number of pixels not filled in this scene */
     int nbpixtot;         /* number of non-fill pixels in this scene */
 

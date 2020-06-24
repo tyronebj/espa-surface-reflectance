@@ -135,6 +135,8 @@ typedef char byte;
 #define NSUNANGLE_VALS 22
 #define NVIEW_ZEN_VALS 20
 #define NSOLAR_ZEN_VALS 22
+#define NAOTxNSOLAR_VALS (NAOT_VALS * NSOLAR_VALS)
+#define NAOTxNSUNANGLE_VALS (NAOT_VALS * NSUNANGLE_VALS)
 
 /* Coefficients for determining atmospheric values */
 #define NCOEF 4
@@ -175,6 +177,10 @@ extern char SENTINEL_BANDNAME[NREFLS_BANDS][3];  /* defined in output.c */
 
 /* High confidence Level-1 QA values */
 #define L1QA_HIGH_CONF 3
+
+/* Low and average aerosol reflectance thresholds */
+#define LOW_AERO_THRESH 0.015
+#define AVG_AERO_THRESH 0.03
 
 /* Bit values of ipflag (interpolation flag) QA, which includes aerosol
    levels */

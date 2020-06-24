@@ -20,8 +20,11 @@
 #define WRS2_NPATH 233
 #define WRS2_NROW 248
 
+#define NOT_VALID (-3333)
+
 /* band indices which aren't defined */
 #define NA -9
+
 
 /* Structure for the input metadata */
 typedef struct {
