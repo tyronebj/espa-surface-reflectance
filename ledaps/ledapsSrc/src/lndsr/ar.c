@@ -19,10 +19,9 @@
 void chand(float *phi, float *muv, float *mus, float *tau_ray,
            float *actual_rho_ray);
 void csalbr(float *tau_ray,float *actual_S_r);
-
-int compute_aot(int band, float rho_toa, float rho_surf_est, float ts,
-                float tv, float phi, float uoz, float uwv, float spres,
-                sixs_tables_t *sixs_tables, float *aot);
+int compute_aot(float toarhoblue, float toarhored, float ts, float tv,
+    float phi, float uoz, float uwv, float spres, sixs_tables_t *sixs_tables,
+    float *aot);
 
 static int cmp_collects(const void *p1, const void *p2)
 {
@@ -125,14 +124,14 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
         for (il = 0; il < lut->ar_region_size.l; il++) {
             for (is = is_start; is < (is_end + 1); is++) {
                 nb_all_pixs++;
-                if (ddv_line[il][is]&0x08) {
+                if (ddv_line[il][is] & AR_FILL) {  /* fill */
                     nb_fill_pixs++;
                     continue;
                 }
 
                 is_fill = false;
 
-                water = ((ddv_line[il][is] & 0x10)==0);
+                water = ((ddv_line[il][is] & AR_WATER)==0);  /* water */
                 if (water) {
                     nb_water_pixs++;
                     is_fill= true; 
@@ -142,16 +141,18 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
                   Exclude clouds, cloud shadow & snow pixels flagged by
                   the internal cloud mask.
                  ***/
-                if ((ddv_line[il][is] & 0x24) != 0) { /* clouds or
-                                                         adjacent clouds */
+                if ((ddv_line[il][is] & AR_CLOUD_OR_ADJ_CLOUD) != 0)
+                { /* clouds or adjacent clouds */
                     is_fill=true;
                     nb_cld_pixs++;
                 }
-                if ((ddv_line[il][is] & 0x40)!=0) { /* cloud shadow */
+                if ((ddv_line[il][is] & AR_CLOUD_SHADOW) != 0)
+                { /* cloud shadow */
                     is_fill=true;
                     nb_cldshadow_pixs++;
                 }
-                if ((ddv_line[il][is] & 0x80)!=0) { /* snow */
+                if ((ddv_line[il][is] & AR_SNOW) != 0)
+                { /* snow */
                     is_fill=true;
                     nb_snow_pixs++;
                 }
@@ -160,13 +161,15 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
                     continue;
 
                 /* band 7 water vapor correction */
-                rho7=line_in[il][5][is] * lut->scale_factor + lut->add_offset;
-                rho4=line_in[il][3][is] * lut->scale_factor + lut->add_offset;
+                rho7=line_in[il][AR_B7][is] * lut->scale_factor +
+                    lut->add_offset;
+                rho4=line_in[il][AR_B4][is] * lut->scale_factor +
+                    lut->add_offset;
                 rho7 /= T_g_b7;  /* correct for water vapor and other gases*/
 
                 /* update sums if dark target, dark target if not water
                    and 0.015 < rho7 < 0.05 */
-                ddv_line[il][is] &= 0xfe;  /* set bit 0 to 0 */
+                ddv_line[il][is] &= 0xfe;  /* unset DDV bit 0 */
 
                 if ((rho7>0.015) && (rho4 >0.10) /* &&(rho7<0.05) */) {
                     n++;
@@ -182,7 +185,7 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
 
                     collect_nbsamps++;
                     if (rho7<0.05)
-                        ddv_line[il][is] |= 0x01; /* set bit 0 to 1 */
+                        ddv_line[il][is] |= AR_DDV; /* set DDV bit */
                 }
              }  /* end for is */
         }  /* end for il */
@@ -262,7 +265,7 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
                     nb_snow_pixs < 5 && fraction_water < 0.3 &&
                     fraction_clouds < 1e-10) {
                 
-                    compute_aot(0, avg_band[0], avg_band[2], fts, ftv, phi,
+                    compute_aot(avg_band[0], avg_band[2], fts, ftv, phi,
                                 uoz, uwv, spres, sixs_tables, &avg_aot);
         
                     line_ar[0][is_ar] = (int)(avg_aot*1000.);
@@ -282,8 +285,8 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
                     ipt=il_ar*lut->ar_size.s+is_ar;
                     for (il = 0; il < lut->ar_region_size.l; il++) {
                         for (is = is_start; is < (is_end + 1); is++) {
-                            if (!(ddv_line[il][is]&0x08)) {
-                                rho7 = (float)line_in[il][5][is] 
+                            if (!(ddv_line[il][is] & AR_FILL)) {  /* fill */
+                                rho7 = (float)line_in[il][AR_B7][is] 
                                     * lut->scale_factor + lut->add_offset;
                                 rho7 /= T_g_b7;  /* correct for water vapor
                                                     and other gases*/
@@ -340,67 +343,58 @@ bool Ar(int il_ar, Lut_t *lut, Img_coord_int_t *size_in, uint16_t ***line_in,
 }
 
 
-int compute_aot(int band, float toarhoblue, float toarhored, float ts,
-                float tv, float phi, float uoz, float uwv, float spres,
-                sixs_tables_t *sixs_tables, float *aot) {
+void aot_correct_band(int band, float toarho, float phi, float mus, float muv,
+    float tau_ray, sixs_tables_t *sixs_tables, float surrho[SIXS_NB_AOT])
+{
+    int i;
+    float actual_rho_ray,actual_T_ray,actual_S_r;
+
+    chand(&phi,&muv,&mus,&tau_ray,&actual_rho_ray);
+
+    actual_T_ray = (2./3. + mus + (2./3. - mus)*exp(-tau_ray/mus))
+                 / (4./3. + tau_ray); /* downward */
+    actual_T_ray *= (2./3. + muv + (2./3. - muv)*exp(-tau_ray/muv))
+                  / (4./3. + tau_ray); /* total */
+
+    csalbr(&tau_ray,&actual_S_r);
+
+    for (i=0;i<SIXS_NB_AOT;i++) {
+        surrho[i] = toarho/sixs_tables->T_g_og[band];
+        surrho[i] -= actual_rho_ray + sixs_tables->rho_ra[band][i]
+                      - sixs_tables->rho_r[band];
+        surrho[i] *= sixs_tables->T_a[band][i]/actual_T_ray
+                     * sixs_tables->T_g_wv[band];
+        surrho[i] /= 1 + (actual_S_r + sixs_tables->S_ra[band][i] -
+                             sixs_tables->S_r[band])*surrho[i];
+    }
+}
+
+
+int compute_aot(float toarhoblue, float toarhored, float ts, float tv,
+    float phi, float uoz, float uwv, float spres, sixs_tables_t *sixs_tables,
+    float *aot)
+{
     int i,iaot;
     float minimum,temp,eratio;
     float slope;
     float surrhoblue[SIXS_NB_AOT],surrhored[SIXS_NB_AOT];
         float temp1,temp2;
-    float actual_rho_ray,actual_T_ray,actual_S_r;
     float mus,muv,tau_ray,ratio;
     float tau_ray_sealevel[7] = {0.16511,0.08614,0.04716,0.01835,0.00113,
-                                 0.00037}; /* index=5 => band 7 */
+                                 0.00037}; /* bands 1,2,3,4,5,7 */
     
 /* correct the blue band */ 
-    band=0;
     mus=cos(ts*RAD);
     muv=cos(tv*RAD);
     ratio=spres/1013.;
-    tau_ray=tau_ray_sealevel[band]*ratio;
-    
-    chand(&phi,&muv,&mus,&tau_ray,&actual_rho_ray);
+    tau_ray=tau_ray_sealevel[AR_B1]*ratio;
+    aot_correct_band (AR_B1, toarhoblue, phi, mus, muv, tau_ray, sixs_tables,
+        surrhoblue);
 
-    actual_T_ray = (2./3. + mus + (2./3. - mus)*exp(-tau_ray/mus))
-                 / (4./3. + tau_ray); /* downward */
-    actual_T_ray *= (2./3. + muv + (2./3. - muv)*exp(-tau_ray/muv))
-                  / (4./3. + tau_ray); /* total */
-
-    csalbr(&tau_ray,&actual_S_r);
-
-    for (i=0;i<SIXS_NB_AOT;i++) {
-        surrhoblue[i] = toarhoblue/sixs_tables->T_g_og[band];
-        surrhoblue[i] -= actual_rho_ray + sixs_tables->rho_ra[band][i]
-                       - sixs_tables->rho_r[band];
-        surrhoblue[i] *= sixs_tables->T_a[band][i]/actual_T_ray
-                       * sixs_tables->T_g_wv[band];
-        surrhoblue[i] /= 1 + (actual_S_r + sixs_tables->S_ra[band][i] -
-                              sixs_tables->S_r[band])*surrhoblue[i];
-    }
-    
     /* correct the red band */  
-    band=2;
-    tau_ray=tau_ray_sealevel[band]*ratio;
-    
-    chand(&phi,&muv,&mus,&tau_ray,&actual_rho_ray);
-
-    actual_T_ray = (2./3. + mus + (2./3. - mus)*exp(-tau_ray/mus))
-                 / (4./3. + tau_ray); /* downward */
-    actual_T_ray *= (2./3. + muv + (2./3. - muv)*exp(-tau_ray/muv))
-                  / (4./3. + tau_ray); /* total */
-
-    csalbr(&tau_ray,&actual_S_r);
-
-    for (i=0;i<SIXS_NB_AOT;i++) {
-        surrhored[i] = toarhored/sixs_tables->T_g_og[band];
-        surrhored[i] -= actual_rho_ray + sixs_tables->rho_ra[band][i]
-                      - sixs_tables->rho_r[band];
-        surrhored[i] *= sixs_tables->T_a[band][i]/actual_T_ray
-                     * sixs_tables->T_g_wv[band];
-        surrhored[i] /= 1 + (actual_S_r + sixs_tables->S_ra[band][i] -
-                             sixs_tables->S_r[band])*surrhored[i];
-    }
+    tau_ray=tau_ray_sealevel[AR_B3]*ratio;
+    aot_correct_band (AR_B3, toarhored, phi, mus, muv, tau_ray, sixs_tables,
+        surrhored);
     
 /* compute aot based on empirical ratio */  
     minimum=9999999;
@@ -434,8 +428,6 @@ int compute_aot(int band, float toarhoblue, float toarhored, float ts,
         /* Calculate wavelength where temp = 0 */
         *aot = sixs_tables->aot_wavelength[1][iaot-1] - temp1*slope;
     }
-/*        printf(" variables in compaot toarhored %f toarhoblue %f aot %f\n",
-          toarhored,toarhoblue,*aot); */
     if (*aot < 0.01)
         *aot=0.01;
 

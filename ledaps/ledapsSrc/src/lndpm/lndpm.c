@@ -179,7 +179,7 @@ int main (int argc, char *argv[])
     if (find_file(full_path, NULL))
     {
         strcpy (ozone, full_path);
-        printf ("using DEM : %s\n", ozone);
+        printf ("using TOMS: %s\n", ozone);
     }
     else if (find_file (path_buf, ozone))
     {
@@ -201,7 +201,7 @@ int main (int argc, char *argv[])
     if (find_file(full_path, NULL))
     {
         strcpy (reanalysis, full_path);
-        printf ("using DEM : %s\n", reanalysis);
+        printf ("using REANALYSIS : %s\n", reanalysis);
     }
     else if (find_file (path_buf, reanalysis))
     {

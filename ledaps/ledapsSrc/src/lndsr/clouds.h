@@ -6,6 +6,8 @@
 #include "lut.h"
 #include "sixs_runs.h"
 
+#define CLOUD_FILL -9999
+#define FOUR_PTS 4
 #define CLDDIAGS_CELLHEIGHT_1KM 40
 #define CLDDIAGS_CELLWIDTH_1KM 40
 #define CLDDIAGS_CELLHEIGHT_5KM 160

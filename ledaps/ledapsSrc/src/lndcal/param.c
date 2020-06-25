@@ -164,7 +164,7 @@ Param_t *GetParam(int argc, char *argv[], int *odometer_flag)
         param_file_name = strdup (optarg);
         break;
 
-      case 'm':
+      case 'm':  /* offset reflectance bands */
         offset_refl = strtod(optarg, &end);
         if ((errno != 0) || (*end != '\0'))
         {
@@ -173,7 +173,7 @@ Param_t *GetParam(int argc, char *argv[], int *odometer_flag)
         }
         break;
 
-      case 'n':
+      case 'n':  /* offset thermal bands */
         offset_therm = strtod(optarg, &end);
         if ((errno != 0) || (*end != '\0'))
         {
@@ -182,7 +182,7 @@ Param_t *GetParam(int argc, char *argv[], int *odometer_flag)
         }
         break;
 
-      case 'r':
+      case 'r':  /* scale factor reflectance bands */
         scale_refl = strtod(optarg, &end);
         if ((errno != 0) || (*end != '\0'))
         {
@@ -191,7 +191,7 @@ Param_t *GetParam(int argc, char *argv[], int *odometer_flag)
         }
         break;
 
-      case 't':
+      case 't':  /* scale factor thermal bands */
         scale_therm = strtod(optarg, &end);
         if ((errno != 0) || (*end != '\0'))
         {

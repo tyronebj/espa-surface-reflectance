@@ -1263,23 +1263,23 @@ int main (int argc, char *argv[]) {
                    aerosol and surface reflectance computations. We are not
                    interested in post-processing of the QA information, as
                    there are better QA products available. */
-                if (ddv_line[0][is]&0x01)
+                if (ddv_line[0][is] & AR_DDV)
                     line_out[lut->nband+CLOUD][is] |= (1 << DDV_BIT);
 
-                if (ddv_line[0][is]&0x04)
+                if (ddv_line[0][is] & AR_ADJ_CLOUD)
                     line_out[lut->nband+CLOUD][is] |= (1 << ADJ_CLOUD_BIT);
 
-                if (!(ddv_line[0][is]&0x10))  /* if water, turn on */
+                if (!(ddv_line[0][is] & AR_WATER))  /* if water, turn on */
                     line_out[lut->nband+CLOUD][is] |= (1 << LAND_WATER_BIT);
 
-                if (ddv_line[0][is]&0x20)
+                if (ddv_line[0][is] & AR_CLOUD)
                     line_out[lut->nband+CLOUD][is] |= (1 << CLOUD_BIT);
 
-                if (ddv_line[0][is]&0x40)
+                if (ddv_line[0][is] & AR_CLOUD_SHADOW)
                     line_out[lut->nband+CLOUD][is] |=
                         (1 << CLOUD_SHADOW_BIT);
 
-                if (ddv_line[0][is]&0x80)
+                if (ddv_line[0][is] & AR_SNOW)
                     line_out[lut->nband+CLOUD][is] |= (1 << SNOW_BIT);
             }
             else {

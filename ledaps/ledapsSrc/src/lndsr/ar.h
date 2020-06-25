@@ -6,6 +6,31 @@
 #include "lut.h"
 #include "sixs_runs.h"
 
+/* QA values for ddv_line */
+#define AR_DDV 0x01
+#define AR_ADJ_CLOUD 0x04
+#define AR_FILL 0x08
+#define AR_WATER 0x10
+#define AR_CLOUD 0x20
+#define AR_CLOUD_OR_ADJ_CLOUD 0x24
+#define AR_CLOUD_SHADOW 0x40
+#define AR_ADJ_CLOUD_OR_SHADOW 0x44
+#define AR_CLOUD_OR_ADJ_CLOUD_OR_SHADOW 0x64
+#define AR_SNOW 0x80
+#define AR_RESET_ADJ_CLOUD 0xfb
+#define AR_RESET_SHADOW 0xbf
+#define AR_RESET_CLOUD 0xdf
+#define AR_RESET_WATER 0xef
+#define AR_CLEAR
+
+/* Band number index for access to line_in */
+#define AR_B1 0
+#define AR_B2 1
+#define AR_B3 2
+#define AR_B4 3
+#define AR_B5 4
+#define AR_B7 5
+
 typedef struct {
   bool first;
   int ar_min;
