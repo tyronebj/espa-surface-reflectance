@@ -110,3 +110,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
     computed aerosol value is used as-is.
 14. All pixels are corrected for surface reflectance, except fill. Previously
     cloud pixels were not corrected.
+15. Intermediate TOA values are now stored as unscaled, floating point vs. the
+    previous scaled uint16 values. Note, this almost doubles the memory usage.
