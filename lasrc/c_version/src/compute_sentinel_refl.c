@@ -275,7 +275,8 @@ int compute_sentinel_sr_refl
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
     float **toaband,    /* I: unscaled TOA reflectance bands, nlines x nsamps */
-    uint16 **sband,     /* O: output SR bands, nlines x nsamps */
+    float **sband,      /* O: output unscaled SR bands, nlines x nsamps */
+    uint16 *out_band,   /* I: allocated array for writing scaled output */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
@@ -608,8 +609,7 @@ int compute_sentinel_sr_refl
                 rotoa = toaband[ib][i];
                 roslamb = rotoa - tgo_x_roatm;
                 roslamb /= tgo_x_ttatmg + satm * roslamb;
-                sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) *
-                    MULT_FACTOR);
+                sband[ib][i] = roslamb;
             }
             else
             { /* fill value - if any of the bands are fill this pixel is
@@ -1367,7 +1367,7 @@ int compute_sentinel_sr_refl
             if (ib == DNS_BAND1)
             {
                 /* Set up aerosol QA bits */
-                rsurf = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
+                rsurf = sband[ib][i];
                 tmpf = fabs (rsurf - roslamb);
                 if (tmpf <= LOW_AERO_THRESH)
                 {  /* Set first aerosol bit (low aerosols) */
@@ -1387,15 +1387,13 @@ int compute_sentinel_sr_refl
                 }
             }  /* end if this is the coastal aerosol band */
 
-            /* Save the scaled surface reflectance value, but make sure
-               it falls within the defined valid range. */
-            roslamb = (roslamb + BAND_OFFSET) * MULT_FACTOR;
-            if (roslamb < MIN_VALID)
-                sband[ib][i] = MIN_VALID;
-            else if (roslamb > MAX_VALID)
-                sband[ib][i] = MAX_VALID;
+            /* Save the unscaled surface reflectance value */
+            if (roslamb < MIN_VALID_REFL)
+                sband[ib][i] = MIN_VALID_REFL;
+            else if (roslamb > MAX_VALID_REFL)
+                sband[ib][i] = MAX_VALID_REFL;
             else
-                sband[ib][i] = (int) (roundf (roslamb));
+                sband[ib][i] = roslamb;
         }  /* end for i */
     }  /* end for ib */
 
@@ -1419,9 +1417,13 @@ int compute_sentinel_sr_refl
     /* Loop through the reflectance bands and write the data */
     for (ib = 0; ib <= DNS_BAND12; ib++)
     {
+        /* Scale the output data from float to int16 */
         printf ("  Band %s: %s\n", SENTINEL_BANDNAME[ib],
             sr_output->metadata.band[ib].file_name);
-        if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
+        convert_output (sband, ib, nlines, nsamps, false, out_band);
+
+        /* Write the scaled product */
+        if (put_output_lines (sr_output, out_band, ib, 0, nlines,
             sizeof (uint16)) != SUCCESS)
         {
             sprintf (errmsg, "Writing output data for band %d", ib);

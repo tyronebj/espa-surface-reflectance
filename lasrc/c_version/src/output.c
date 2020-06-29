@@ -14,6 +14,7 @@ NOTES:
 
 #include <time.h>
 #include <ctype.h>
+#include <math.h>
 #include "output.h"
 char SENTINEL_BANDNAME[NREFLS_BANDS][3] =
     {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "11", "12"};
@@ -286,15 +287,19 @@ Output_t *open_output
             {  /* Landsat thermal bands */
                 bmeta[ib].scale_factor = SCALE_FACTOR_TH;
                 bmeta[ib].add_offset = OFFSET_TH;
-                bmeta[ib].valid_range[0] = (float) MIN_VALID_TH;
-                bmeta[ib].valid_range[1] = (float) MAX_VALID_TH;
+                bmeta[ib].valid_range[0] = (MIN_VALID_TH + BAND_OFFSET_TH) *
+                    MULT_FACTOR_TH;
+                bmeta[ib].valid_range[1] = (MAX_VALID_TH + BAND_OFFSET_TH) *
+                    MULT_FACTOR_TH;
             }
             else
-            {  /* reflectance bands */
-                bmeta[ib].scale_factor = SCALE_FACTOR;
+            {  /* Landsat/Sentinel reflectance bands */
+                bmeta[ib].scale_factor = SCALE_FACTOR_REFL;
                 bmeta[ib].add_offset = OFFSET_REFL;
-                bmeta[ib].valid_range[0] = (float) MIN_VALID;
-                bmeta[ib].valid_range[1] = (float) MAX_VALID;
+                bmeta[ib].valid_range[0] = (MIN_VALID_REFL + BAND_OFFSET_REFL) *
+                    MULT_FACTOR_REFL;
+                bmeta[ib].valid_range[1] = (MAX_VALID_REFL + BAND_OFFSET_REFL) *
+                    MULT_FACTOR_REFL;
             }
 
             if ((input->meta.sat == SAT_LANDSAT_8 ||
@@ -616,5 +621,76 @@ char *upper_case_str
     }
 
     return up_str;
+}
+
+
+/******************************************************************************
+MODULE:  convert_output
+
+PURPOSE: Applies a scale and offset to the input data and assigns the output
+    to a uint16 array
+
+RETURN VALUE: none
+
+NOTES:
+******************************************************************************/
+void convert_output
+(
+    float **sband,      /* I: unscaled SR or TOA bands */
+    int band,           /* I: band number to convert */
+    int nlines,         /* I: number of lines */
+    int nsamps,         /* I: number of samples */
+    bool thermal,       /* I: flag to specifiy if processing a thermal band,
+                              for correct scale/offset */
+    uint16 *out_band    /* O: scaled output for the processed band */
+)
+{
+    int curr_pix;           /* pixel loop counter */
+    int npixels;            /* number of pixels in the scene */
+    float tmpf;             /* scaled output value */
+    double min_value;       /* minimum scaled value */
+    double max_value;       /* maximum scaled value */
+    float offset_value;     /* offset to apply */
+    float mult_value;       /* scale value to apply */
+
+    /* Set valid ranges for thermal or reflective bands as appropriate */
+    if (thermal)
+    {
+        offset_value = BAND_OFFSET_TH;
+        mult_value = MULT_FACTOR_TH;
+        min_value = (MIN_VALID_TH + offset_value) * mult_value;
+        max_value = (MAX_VALID_TH + offset_value) * mult_value;
+    }
+    else
+    {
+        offset_value = BAND_OFFSET_REFL;
+        mult_value = MULT_FACTOR_REFL;
+        min_value = (MIN_VALID_REFL + offset_value) * mult_value;
+        max_value = (MAX_VALID_REFL + offset_value) * mult_value;
+    }
+    if (min_value < 0)
+        min_value = 0;
+    if (max_value > USHRT_MAX)
+        max_value = USHRT_MAX;
+
+    /* Scale and validate the output */
+    npixels = nlines * nsamps;
+    for (curr_pix = 0; curr_pix < npixels; curr_pix++)
+    {
+        if (sband[band][curr_pix] != FILL_VALUE)
+        {
+            tmpf = (sband[band][curr_pix] + offset_value) * mult_value;
+
+            /* Verify the value falls within the specified range */
+            if (tmpf < min_value)
+                out_band[curr_pix] = min_value;
+            else if (tmpf > max_value)
+                out_band[curr_pix] = max_value;
+            else
+                out_band[curr_pix] = roundf (tmpf);
+        }
+        else
+            out_band[curr_pix] = FILL_VALUE;
+    }
 }
 

@@ -58,8 +58,8 @@ int compute_landsat_toa_refl
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
     int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
                               nlines x nsamps */
-    uint16 **sband      /* O: output TOA reflectance and brightness temp
-                              values (scaled) */
+    float **sband       /* O: output TOA reflectance and brightness temp
+                              values (unscaled) */
 );
 
 int read_sentinel_toa_refl
@@ -77,17 +77,19 @@ int compute_landsat_sr_refl
                         /* I: XML metadata structure */
     char *xml_infile,   /* I: input XML filename */
     uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
+    uint16 *out_band,   /* I: allocated array for writing scaled output */
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
-    uint16 **sband,     /* I/O: input TOA and output surface reflectance */
-    float xts,          /* I: solar zenith angle (deg) */
+    float **sband,      /* I/O: input TOA (unscaled) and output surface
+                                reflectance (unscaled) */
+    float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
     char *intrefnm,     /* I: intrinsic reflectance filename */
     char *transmnm,     /* I: transmission filename */
     char *spheranm,     /* I: spherical albedo filename */
-    char *cmgdemnm,     /* I: climate modeling grid DEM filename */
+    char *cmgdemnm,     /* I: climate modeling grid (CMG) DEM filename */
     char *rationm,      /* I: ratio averages filename */
     char *auxnm         /* I: auxiliary filename for ozone and water vapor */
 );
@@ -98,13 +100,13 @@ int compute_sentinel_sr_refl
     Espa_internal_meta_t *xml_metadata,
                         /* I: XML metadata structure */
     char *xml_infile,   /* I: input XML filename */
-    uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
+    uint16 *qaband,     /* O: QA band generated for image, nlines x nsamps */
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
-    float **toaband,    /* I: input unscaled TOA reflectance bands,
-                              nlines x nsamps */
-    uint16 **sband,     /* O: output SR bands, nlines x nsamps */
+    float **toaband,    /* I: unscaled TOA reflectance bands, nlines x nsamps */
+    float **sband,      /* O: output unscaled SR bands, nlines x nsamps */
+    uint16 *out_band,   /* I: allocated array for writing scaled output */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */

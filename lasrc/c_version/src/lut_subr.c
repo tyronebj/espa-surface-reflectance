@@ -1706,8 +1706,9 @@ int memory_allocation_main
     int nsamps,          /* I: number of samples in the scene */
     int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
-    uint16 ***sband,     /* O: output surface reflectance and brightness temp
-                               bands */
+    uint16 **out_band,   /* O: scaled output, nlines x nsamps */
+    float ***sband,      /* O: unscaled surface reflectance and brightness temp
+                               bands, nlines x nsamps */
     float ***toaband     /* O: Sentinel unscaled TOA reflectance bands,
                                nlines x nsamps */
 )
@@ -1760,9 +1761,17 @@ int memory_allocation_main
         return (ERROR);
     }
 
+    *out_band = calloc (nlines*nsamps, sizeof (uint16));
+    if (*out_band == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for out_band");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
     /* Given that the QA band is its own separate array of uint16s, we need
        one less band for the output image data */
-    *sband = calloc (nband_ttl-1, sizeof (uint16*));
+    *sband = calloc (nband_ttl-1, sizeof (float*));
     if (*sband == NULL)
     {
         sprintf (errmsg, "Error allocating memory for sband");
@@ -1771,7 +1780,7 @@ int memory_allocation_main
     }
     for (i = 0; i < nband_ttl-1; i++)
     {
-        (*sband)[i] = calloc (nlines*nsamps, sizeof (uint16));
+        (*sband)[i] = calloc (nlines*nsamps, sizeof (float));
         if ((*sband)[i] == NULL)
         {
             sprintf (errmsg, "Error allocating memory for sband");
@@ -1808,16 +1817,16 @@ int landsat_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
-    uint16 **aerob1,     /* O: atmospherically corrected band 1 data
-                              (TOA refl), nlines x nsamps */
-    uint16 **aerob2,     /* O: atmospherically corrected band 2 data
-                              (TOA refl), nlines x nsamps */
-    uint16 **aerob4,     /* O: atmospherically corrected band 4 data
-                              (TOA refl), nlines x nsamps */
-    uint16 **aerob5,     /* O: atmospherically corrected band 5 data
-                              (TOA refl), nlines x nsamps */
-    uint16 **aerob7,     /* O: atmospherically corrected band 7 data
-                              (TOA refl), nlines x nsamps */
+    float **aerob1,      /* O: atmospherically corrected band 1 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob2,      /* O: atmospherically corrected band 2 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob4,      /* O: atmospherically corrected band 4 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob5,      /* O: atmospherically corrected band 5 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob7,      /* O: atmospherically corrected band 7 data
+                              (unscaled TOA refl), nlines x nsamps */
     uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
@@ -1865,7 +1874,7 @@ int landsat_memory_allocation_sr
     /* Setup Landsat number of SR bands */
     nsr_bands = NSRL_BANDS;
 
-    *aerob1 = calloc (nlines*nsamps, sizeof (uint16));
+    *aerob1 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob1 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob1");
@@ -1873,7 +1882,7 @@ int landsat_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob2 = calloc (nlines*nsamps, sizeof (uint16));
+    *aerob2 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob2 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob2");
@@ -1881,7 +1890,7 @@ int landsat_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob4 = calloc (nlines*nsamps, sizeof (uint16));
+    *aerob4 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob4 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob4");
@@ -1889,7 +1898,7 @@ int landsat_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob5 = calloc (nlines*nsamps, sizeof (uint16));
+    *aerob5 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob5 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob5");
@@ -1897,7 +1906,7 @@ int landsat_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob7 = calloc (nlines*nsamps, sizeof (uint16));
+    *aerob7 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob7 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob7");

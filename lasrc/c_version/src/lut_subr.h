@@ -327,25 +327,27 @@ int memory_allocation_main
     int nsamps,          /* I: number of samples in the scene */
     int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
-    uint16 ***sband,     /* O: output surface reflectance and brightness temp
-                               bands */
-    float ***toaband     /* O: Sentinel TOA unscaled reflectance bands */
+    uint16 **out_band,   /* O: scaled output, nlines x nsamps */
+    float ***sband,      /* O: unscaled surface reflectance and brightness temp
+                               bands, nlines x nsamps */
+    float ***toaband     /* O: Sentinel unscaled TOA reflectance bands,
+                               nlines x nsamps */
 );
 
 int landsat_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
-    uint16 **aerob1,     /* O: atmospherically corrected band 1 data
-                               (TOA refl), nlines x nsamps */
-    uint16 **aerob2,     /* O: atmospherically corrected band 2 data
-                               (TOA refl), nlines x nsamps */
-    uint16 **aerob4,     /* O: atmospherically corrected band 4 data
-                               (TOA refl), nlines x nsamps */
-    uint16 **aerob5,     /* O: atmospherically corrected band 5 data
-                               (TOA refl), nlines x nsamps */
-    uint16 **aerob7,     /* O: atmospherically corrected band 7 data
-                               (TOA refl), nlines x nsamps */
+    float **aerob1,      /* O: atmospherically corrected band 1 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob2,      /* O: atmospherically corrected band 2 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob4,      /* O: atmospherically corrected band 4 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob5,      /* O: atmospherically corrected band 5 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob7,      /* O: atmospherically corrected band 7 data
+                              (unscaled TOA refl), nlines x nsamps */
     uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
@@ -366,11 +368,9 @@ int landsat_memory_allocation_sr
     uint16 **wv,         /* O: water vapor values [CMG_NBLAT x CMG_NBLON] */
     uint8 **oz,          /* O: ozone values [CMG_NBLAT x CMG_NBLON] */
     float **rolutt,      /* O: intrinsic reflectance table
-                               [NSR_BANDS x NPRES_VALS x NAOT_VALS x
-                                NSOLAR_VALS] */
+                         [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS] */
     float **transt,      /* O: transmission table
-                               [NSR_BANDS x NPRES_VALS x NAOT_VALS x
-                                NSUNANGLE_VALS] */
+                        [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSUNANGLE_VALS] */
     float **sphalbt,     /* O: spherical albedo table
                                [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float **normext,     /* O: aerosol extinction coefficient at the current

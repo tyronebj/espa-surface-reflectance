@@ -9,22 +9,22 @@
 #define CLOUD_FILL_VALUE 0
 
 /* written to XML file for users of the SR data */
-#define SCALE_FACTOR 0.0000275
+#define SCALE_FACTOR_REFL 0.0000275
 #define OFFSET_REFL -0.20
 #define SCALE_FACTOR_TH 0.00341802
 #define OFFSET_TH 149.0
 
 /* applied to the SR data before writing to the output file */
-#define MULT_FACTOR (1.0 / SCALE_FACTOR)
-#define BAND_OFFSET (-OFFSET_REFL)
+#define MULT_FACTOR_REFL (1.0 / SCALE_FACTOR_REFL)
+#define BAND_OFFSET_REFL (-OFFSET_REFL)
 #define MULT_FACTOR_TH (1.0 / SCALE_FACTOR_TH)
 #define BAND_OFFSET_TH (-OFFSET_TH)
 
-/* min/max valid values */
-#define MIN_VALID (0.0 + BAND_OFFSET) * MULT_FACTOR
-#define MAX_VALID (1.60 + BAND_OFFSET) * MULT_FACTOR
-#define MIN_VALID_TH (150 + BAND_OFFSET_TH) * MULT_FACTOR_TH
-#define MAX_VALID_TH (350 + BAND_OFFSET_TH) * MULT_FACTOR_TH
+/* min/max valid values (unscaled) */
+#define MIN_VALID_REFL -0.2
+#define MAX_VALID_REFL 1.60
+#define MIN_VALID_TH 150.0
+#define MAX_VALID_TH 350.0
 
 /* Define the output product types */
 typedef enum {OUTPUT_TOA=0, OUTPUT_SR=1} Myoutput_t;
@@ -89,6 +89,17 @@ int get_output_lines
 char *upper_case_str
 (
     char *str    /* I: string to be converted to upper case */
+);
+
+void convert_output
+(
+    float **sband,      /* I: unscaled SR or TOA bands */
+    int band,           /* I: band number to convert */
+    int nlines,         /* I: number of lines */
+    int nsamps,         /* I: number of samples */
+    bool thermal,       /* I: flag to specifiy if processing a thermal band,
+                              for correct scale/offset */
+    uint16 *out_band    /* O: scaled output for the processed band */
 );
 
 #endif

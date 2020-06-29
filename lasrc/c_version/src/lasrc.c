@@ -79,8 +79,9 @@ int main (int argc, char *argv[])
                                 nlines x nsamps */
     float **toaband = NULL;  /* Sentinel TOA unscaled reflectance bands,
                                 nlines x nsamps */
-    uint16 **sband = NULL;   /* output surface reflectance and brightness
+    float **sband = NULL;    /* output surface reflectance and brightness
                                 temp bands, qa band is separate as a uint16 */
+    uint16 *out_band = NULL; /* scaled output */
     uint16 *qaband = NULL;   /* Landsat input QA band, Sentinel generated QA
                                 band, nlines x nsamps */
     float xts;               /* scene center solar zenith angle (deg) */
@@ -236,7 +237,7 @@ int main (int argc, char *argv[])
     if (verbose)
         printf ("Allocating memory for the data arrays ...\n");
     retval = memory_allocation_main (sat, nlines, nsamps, &sza, &qaband,
-        &sband, &toaband);
+        &out_band, &sband, &toaband);
     if (retval != SUCCESS)
     {   /* get_args already printed the error message */
         sprintf (errmsg, "Error allocating memory for the data arrays from "
@@ -426,9 +427,13 @@ int main (int argc, char *argv[])
         {
             for (ib = SRL_BAND1; ib <= SRL_BAND7; ib++)
             {
+                /* Convert and scale the floating point values */
                 printf ("  Band %d: %s\n", ib+1,
                     toa_output->metadata.band[ib].file_name);
-                if (put_output_lines (toa_output, sband[ib], ib, 0, nlines,
+                convert_output (sband, ib, nlines, nsamps, false, out_band);
+
+                /* Write the scaled integers */
+                if (put_output_lines (toa_output, out_band, ib, 0, nlines,
                     sizeof (uint16)) != SUCCESS)
                 {
                     sprintf (errmsg, "Writing output TOA data for band %d",
@@ -542,8 +547,9 @@ int main (int argc, char *argv[])
         if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
         {
             retval = compute_landsat_sr_refl (input, &xml_metadata, xml_infile,
-                qaband, nlines, nsamps, pixsize, sband, xts, xmus, anglehdf,
-                intrefnm, transmnm, spheranm, cmgdemnm, rationm, auxnm);
+                qaband, out_band, nlines, nsamps, pixsize, sband, xts, xmus,
+                anglehdf, intrefnm, transmnm, spheranm, cmgdemnm, rationm,
+                auxnm);
             if (retval != SUCCESS)
             {
                 sprintf (errmsg, "Error computing Landat surface reflectance");
@@ -554,8 +560,8 @@ int main (int argc, char *argv[])
         else if (sat == SAT_SENTINEL_2)
         {
             retval = compute_sentinel_sr_refl (input, &xml_metadata, xml_infile,
-                qaband, nlines, nsamps, pixsize, toaband, sband, xts, xmus,
-                anglehdf, intrefnm, transmnm, spheranm, cmgdemnm, rationm,
+                qaband, nlines, nsamps, pixsize, toaband, sband, out_band, xts,
+                xmus, anglehdf, intrefnm, transmnm, spheranm, cmgdemnm, rationm,
                 auxnm);
             if (retval != SUCCESS)
             {
@@ -581,6 +587,7 @@ int main (int argc, char *argv[])
 
     /* Free memory for band data */
     free (qaband);
+    free (out_band);
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         free (sza);

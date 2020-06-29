@@ -50,8 +50,8 @@ int compute_landsat_toa_refl
     char *instrument,   /* I: instrument to be processed (OLI, TIRS) */
     int16 *sza,         /* I: scaled per-pixel solar zenith angles (degrees),
                               nlines x nsamps */
-    uint16 **sband      /* O: output TOA reflectance and brightness temp
-                              values (scaled) */
+    float **sband       /* O: output TOA reflectance and brightness temp
+                              values (unscaled) */
 )
 {
     char errmsg[STR_SIZE];                   /* error message */
@@ -143,20 +143,20 @@ int compute_landsat_toa_refl
                 }
 
                 /* Compute the TOA reflectance based on the per-pixel
-                   sun angle (need to unscale). Scale the TOA value for
-                   output. */
+                   sun angle (need to unscale the DN value) */
                 xmus = cos((sza[i] * sza_mult + sza_add) * DEG2RAD);
                 rotoa = (uband[i] * refl_mult) + refl_add;
-                rotoa = ((rotoa / xmus) + BAND_OFFSET) * MULT_FACTOR;
+                rotoa /= xmus;
 
                 /* Save the scaled TOA reflectance value, but make
-                   sure it falls within the defined valid range. */
-                if (rotoa < MIN_VALID)
-                    sband[sband_ib][i] = MIN_VALID;
-                else if (rotoa > MAX_VALID)
-                    sband[sband_ib][i] = MAX_VALID;
+                   sure it falls within the defined valid range since it will
+                   get used for SR computations */
+                if (rotoa < MIN_VALID_REFL)
+                    sband[sband_ib][i] = MIN_VALID_REFL;
+                else if (rotoa > MAX_VALID_REFL)
+                    sband[sband_ib][i] = MAX_VALID_REFL;
                 else
-                    sband[sband_ib][i] = (int) (roundf (rotoa));
+                    sband[sband_ib][i] = rotoa;
             }  /* for i */
         }  /* end if band <= band 9 */
 
@@ -209,18 +209,17 @@ int compute_landsat_toa_refl
                 /* Compute the TOA spectral radiance */
                 tmpf = xcals * uband[i] + xcalo;
 
-                /* Compute TOA brightness temp (K) and scale for output */
+                /* Compute TOA brightness temp (K) */
                 tmpf = k2 / log (k1 / tmpf + 1.0);
-                tmpf = (tmpf + BAND_OFFSET_TH) * MULT_FACTOR_TH;
 
                 /* Make sure the brightness temp falls within the specified
-                   range */
+                   range, since it will get used for the SR computations */
                 if (tmpf < MIN_VALID_TH)
                     sband[sband_ib][i] = MIN_VALID_TH;
                 else if (tmpf > MAX_VALID_TH)
                     sband[sband_ib][i] = MAX_VALID_TH;
                 else
-                    sband[sband_ib][i] = (int) (roundf (tmpf));
+                    sband[sband_ib][i] = tmpf;
             }
         }  /* end if band 10 || band 11*/
     }  /* end for ib */
@@ -275,10 +274,12 @@ int compute_landsat_sr_refl
                         /* I: XML metadata structure */
     char *xml_infile,   /* I: input XML filename */
     uint16 *qaband,     /* I: QA band for the input image, nlines x nsamps */
+    uint16 *out_band,   /* I: allocated array for writing scaled output */
     int nlines,         /* I: number of lines in reflectance, thermal bands */
     int nsamps,         /* I: number of samps in reflectance, thermal bands */
     float pixsize,      /* I: pixel size for the reflectance bands */
-    uint16 **sband,     /* I/O: input TOA and output surface reflectance */
+    float **sband,      /* I/O: input TOA (unscaled) and output surface
+                                reflectance (unscaled) */
     float xts,          /* I: scene center solar zenith angle (deg) */
     float xmus,         /* I: cosine of solar zenith angle */
     char *anglehdf,     /* I: angle HDF filename */
@@ -354,16 +355,16 @@ int compute_landsat_sr_refl
                              nlines x nsamps */
     float *taero = NULL;  /* aerosol values for each pixel, nlines x nsamps */
     float *teps = NULL;   /* angstrom coeff for each pixel, nlines x nsamps */
-    uint16 *aerob1 = NULL; /* Landsat atmospherically corrected band 1 data
-                              (TOA refl), nlines x nsamps */
-    uint16 *aerob2 = NULL; /* Landsat atmospherically corrected band 2 data
-                              (TOA refl), nlines x nsamps */
-    uint16 *aerob4 = NULL; /* Landsat atmospherically corrected band 4 data
-                              (TOA refl), nlines x nsamps */
-    uint16 *aerob5 = NULL; /* Landsat atmospherically corrected band 5 data
-                              (TOA refl), nlines x nsamps */
-    uint16 *aerob7 = NULL; /* Landsat atmospherically corrected band 7 data
-                              (TOA refl), nlines x nsamps */
+    float *aerob1 = NULL; /* atmospherically corrected band 1 data
+                             (unscaled TOA refl), nlines x nsamps */
+    float *aerob2 = NULL; /* atmospherically corrected band 2 data
+                             (unscaled TOA refl), nlines x nsamps */
+    float *aerob4 = NULL; /* atmospherically corrected band 4 data
+                             (unscaled TOA refl), nlines x nsamps */
+    float *aerob5 = NULL; /* atmospherically corrected band 5 data
+                             (unscaled TOA refl), nlines x nsamps */
+    float *aerob7 = NULL; /* atmospherically corrected band 7 data
+                             (unscaled TOA refl), nlines x nsamps */
 
     /* Vars for forward/inverse mapping space */
     Geoloc_t *space = NULL;       /* structure for geolocation information */
@@ -517,10 +518,10 @@ int compute_landsat_sr_refl
        computations */
     npixels = nlines * nsamps;
     retval = landsat_memory_allocation_sr (nlines, nsamps, &aerob1, &aerob2,
-        &aerob4, &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi, &sndwi,
-        &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2, &intratiob7,
-        &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt, &transt,
-        &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
+        &aerob4, &aerob5, &aerob7, &ipflag, &taero, &teps, &dem, &andwi,
+        &sndwi, &ratiob1, &ratiob2, &ratiob7, &intratiob1, &intratiob2,
+        &intratiob7, &slpratiob1, &slpratiob2, &slpratiob7, &wv, &oz, &rolutt,
+        &transt, &sphalbt, &normext, &tsmax, &tsmin, &nbfic, &nbfi, &ttv);
     if (retval != SUCCESS)
     {
         sprintf (errmsg, "Error allocating memory for the data arrays needed "
@@ -618,7 +619,7 @@ int compute_landsat_sr_refl
                 continue;
             }
 
-            /* Store the scaled TOA reflectance values for later use before
+            /* Store the unscaled TOA reflectance values for later use before
                completing atmospheric corrections */
             if (ib == DNL_BAND1)
                 aerob1[i] = sband[ib][i];
@@ -633,12 +634,18 @@ int compute_landsat_sr_refl
 
             /* Apply the atmospheric corrections (ignoring the Rayleigh
                scattering component and water vapor), and store the
-               scaled value for further corrections.  (NOTE: the full
+               unscaled value for further corrections.  (NOTE: the full
                computations are in atmcorlamb2) */
-            rotoa = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
-            roslamb = rotoa - tgo_x_roatm;
+            roslamb = sband[ib][i] - tgo_x_roatm;
             roslamb /= tgo_x_ttatmg + satm * roslamb;
-            sband[ib][i] = (int) roundf((roslamb + BAND_OFFSET) * MULT_FACTOR);
+
+            /* Save the unscaled surface reflectance value */
+            if (roslamb < MIN_VALID_REFL)
+                sband[ib][i] = MIN_VALID_REFL;
+            else if (roslamb > MAX_VALID_REFL)
+                sband[ib][i] = MAX_VALID_REFL;
+            else
+                sband[ib][i] = roslamb;
         }  /* end for i */
     }  /* for ib */
 
@@ -1008,10 +1015,10 @@ int compute_landsat_sr_refl
             erelc[DNL_BAND7] = (xndwi * slprb7 + intrb7);
 
             /* Retrieve the TOA reflectance values for the current pixel */
-            troatm[DNL_BAND1] = (aerob1[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DNL_BAND2] = (aerob2[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DNL_BAND4] = (aerob4[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
-            troatm[DNL_BAND7] = (aerob7[curr_pix]*SCALE_FACTOR) + OFFSET_REFL;
+            troatm[DNL_BAND1] = aerob1[curr_pix];
+            troatm[DNL_BAND2] = aerob2[curr_pix];
+            troatm[DNL_BAND4] = aerob4[curr_pix];
+            troatm[DNL_BAND7] = aerob7[curr_pix];
 
             /* Retrieve the aerosol information for low eps 1.0 */
             iband1 = DNL_BAND4;   /* red band */
@@ -1090,7 +1097,7 @@ int compute_landsat_sr_refl
             {
                 /* Test if NIR band 5 makes sense */
                 iband = DNL_BAND5;
-                rotoa = (aerob5[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
+                rotoa = aerob5[curr_pix];
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
                     aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
@@ -1100,7 +1107,7 @@ int compute_landsat_sr_refl
 
                 /* Test if red band 4 makes sense */
                 iband = DNL_BAND4;
-                rotoa = (aerob4[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
+                rotoa = aerob4[curr_pix];
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
                     aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
@@ -1134,14 +1141,10 @@ int compute_landsat_sr_refl
                 /* Initialize the band ratios */
                 for (ib = 0; ib < NSR_BANDS; ib++)
                     erelc[ib] = -1.0;
-                troatm[DNL_BAND1] = (aerob1[curr_pix] * SCALE_FACTOR) +
-                    OFFSET_REFL;
-                troatm[DNL_BAND4] = (aerob4[curr_pix] * SCALE_FACTOR) +
-                    OFFSET_REFL;
-                troatm[DNL_BAND5] = (aerob5[curr_pix] * SCALE_FACTOR) +
-                    OFFSET_REFL;
-                troatm[DNL_BAND7] = (aerob7[curr_pix] * SCALE_FACTOR) +
-                    OFFSET_REFL;
+                troatm[DNL_BAND1] = aerob1[curr_pix];
+                troatm[DNL_BAND4] = aerob4[curr_pix];
+                troatm[DNL_BAND5] = aerob5[curr_pix];
+                troatm[DNL_BAND7] = aerob7[curr_pix];
 
                 /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
                 erelc[DNL_BAND1] = 1.0;
@@ -1161,7 +1164,7 @@ int compute_landsat_sr_refl
 
                 /* Test band 1 reflectance to eliminate negative */
                 iband = DNL_BAND1;
-                rotoa = (aerob1[curr_pix] * SCALE_FACTOR) + OFFSET_REFL;
+                rotoa = aerob1[curr_pix];
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
                     aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
@@ -1303,7 +1306,7 @@ int compute_landsat_sr_refl
                 continue;
 
             /* Correct all pixels */
-            rsurf = (sband[ib][i] * SCALE_FACTOR) + OFFSET_REFL;
+            rsurf = sband[ib][i];
             rotoa = (rsurf * bttatmg[ib] / (1.0 - bsatm[ib] * rsurf) +
                 broatm[ib]) * btgo[ib];
             raot550nm = taero[i];
@@ -1337,15 +1340,13 @@ int compute_landsat_sr_refl
                 }
             }  /* end if this is the coastal aerosol band */
 
-            /* Save the scaled surface reflectance value, but make sure it
-               falls within the defined valid range. */
-            roslamb = (roslamb + BAND_OFFSET) * MULT_FACTOR;
-            if (roslamb < MIN_VALID)
-                sband[ib][i] = MIN_VALID;
-            else if (roslamb > MAX_VALID)
-                sband[ib][i] = MAX_VALID;
+            /* Save the unscaled surface reflectance value */
+            if (roslamb < MIN_VALID_REFL)
+                sband[ib][i] = MIN_VALID_REFL;
+            else if (roslamb > MAX_VALID_REFL)
+                sband[ib][i] = MAX_VALID_REFL;
             else
-                sband[ib][i] = (int) (roundf (roslamb));
+                sband[ib][i] = roslamb;
         }  /* end for i */
     }  /* end for ib */
 
@@ -1369,7 +1370,11 @@ int compute_landsat_sr_refl
     /* Loop through the reflectance bands and write the data */
     for (ib = 0; ib <= DNL_BAND7; ib++)
     {
-        if (put_output_lines (sr_output, sband[ib], ib, 0, nlines,
+        /* Scale the output data from float to int16 */
+        convert_output (sband, ib, nlines, nsamps, false, out_band);
+
+        /* Write the scaled product */
+        if (put_output_lines (sr_output, out_band, ib, 0, nlines,
             sizeof (uint16)) != SUCCESS)
         {
             sprintf (errmsg, "Writing output data for band %d", ib);
