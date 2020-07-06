@@ -8,7 +8,6 @@ from osgeo import gdalconst
 from gdalconst import *
 import sys
 import os
-import commands
 import datetime
 import logging
 from optparse import OptionParser
@@ -159,8 +158,7 @@ class MaskAngles():
         try:
             # Determine the name of the band 4 solar azimuth file and check if
             # it exists
-            solar_az_file = base_xml_file.replace(
-                            '.xml', '_b4_solar_azimuth.img')
+            solar_az_file = base_xml_file.replace('.xml', '_saa.img')
             if not os.path.isfile(solar_az_file):
                 logger.error('Band 4 solar azimuth file does not exist in the '
                              'XML directory. {}'.format(xml_dir))
@@ -168,8 +166,7 @@ class MaskAngles():
     
             # Determine the name of the band 4 solar zenith file and check if
             # it exists
-            solar_zen_file = base_xml_file.replace(
-                             '.xml', '_b4_solar_zenith.img')
+            solar_zen_file = base_xml_file.replace('.xml', '_sza.img')
             if not os.path.isfile(solar_zen_file):
                 logger.error('Band 4 solar zenith file does not exist in the '
                              'XML directory. {}'.format(xml_dir))
@@ -177,8 +174,7 @@ class MaskAngles():
     
             # Determine the name of the band 4 sensor azimuth file and check if
             # it exists
-            sensor_az_file = base_xml_file.replace(
-                             '.xml', '_b4_sensor_azimuth.img')
+            sensor_az_file = base_xml_file.replace('.xml', '_vaa.img')
             if not os.path.isfile(sensor_az_file):
                 logger.error('Band 4 sensor azimuth file does not exist in the '
                              'XML directory. {}'.format(xml_dir))
@@ -186,8 +182,7 @@ class MaskAngles():
     
             # Determine the name of the band 4 sensor zenith file and check if
             # it exists
-            sensor_zen_file = base_xml_file.replace(
-                              '.xml', '_b4_sensor_zenith.img')
+            sensor_zen_file = base_xml_file.replace('.xml', '_vza.img')
             if not os.path.isfile(sensor_zen_file):
                 logger.error('Band 4 sensor zenith file does not exist in the '
                              'XML directory. {}'.format(xml_dir))
@@ -195,29 +190,29 @@ class MaskAngles():
     
             # Determine the name of the Level-1 band quality file and check if
             # it exists
-            bqa_file = base_xml_file.replace('.xml', '_bqa.img')
+            bqa_file = base_xml_file.replace('.xml', '_qa_pixel.img')
             if not os.path.isfile(bqa_file):
                 logger.error('Level-1 band quality file does not exist in the '
                              'XML directory. {}'.format(xml_dir))
                 return ERROR
     
-            # Open connection to the BQA (read-only) band, since it's used for
-            # all the masks.  No need to open/reopen and read/re-read multiple
-            # times.
+            # Open connection to the pixel QA (read-only) band, since it's used
+            # for all the masks.  No need to open/reopen and read/re-read
+            # multiple times.
             bqa_ds = gdal.Open(bqa_file)
             if bqa_ds is None:
-                logger.error('GDAL could not open BQA file: {}'
+                logger.error('GDAL could not open QA pixel file: {}'
                              .format(bqa_file))
                 return ERROR
 
-            # Create a connection to the BQA band
+            # Create a connection to the pixel QA band
             bqa_band = bqa_ds.GetRasterBand(1)
             if bqa_band is None:
-                logger.error('Could not connect to BQA file: {}'
+                logger.error('Could not connect to QA pixel file: {}'
                              .format(bqa_file))
                 return ERROR
 
-            # Read the BQA band
+            # Read the pixel QA band
             bqa = bqa_band.ReadAsArray(0, 0, bqa_ds.RasterXSize,
                                        bqa_ds.RasterYSize)
 
@@ -238,7 +233,7 @@ class MaskAngles():
                 logger.error('Error masking sensor zenith file')
                 return ERROR
 
-            # Close the BQA dataset, file, and array
+            # Close the pixel QA dataset, file, and array
             bqa = None
             bqa_band = None
             bqa_ds = None

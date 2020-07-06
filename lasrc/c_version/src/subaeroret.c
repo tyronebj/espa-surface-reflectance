@@ -28,15 +28,12 @@ NOTES:
 void subaeroret_new
 (
     Sat_t sat,                             /* I: satellite */
+    bool water,                            /* I: water pixel flag */
     int iband1,                            /* I: band 1 index (0-based) */
-    int iband3,                            /* I: band 3 index (0-based) */
     float erelc[NSR_BANDS],                /* I: band ratio variable */
     float troatm[NSR_BANDS],               /* I: toa reflectance */
     float tgo_arr[NREFL_BANDS],            /* I: per-band other gaseous
                                                  transmittance */
-    float xrorayp_arr[NREFL_BANDS],        /* I: per-band reflectance of the
-                                                 atmosphere due to molecular
-                                                 (Rayleigh) scattering */
     int roatm_iaMax[NREFL_BANDS],          /* I: roatm_iaMax */
     float roatm_coef[NREFL_BANDS][NCOEF],  /* I: per band polynomial
                                                  coefficients for roatm */
@@ -65,39 +62,39 @@ void subaeroret_new
     double residualm;       /* local model residual */
     int nbval;              /* number of values meeting criteria */
     bool testth;            /* surface reflectance test variable */
-    double xa, xb, xc, xd, xe, xf;  /* AOT ratio values */
-    double coefa, coefb;    /* AOT ratio coefficients */
+    double xa, xb;          /* AOT ratio values */
     double raotmin;         /* minimum AOT ratio */
+    double point_error;     /* residual differences for each pixel */
     int iaot1, iaot2;       /* AOT indices (0-based) */
-    float *tth = NULL;      /* pointer to the L8 or Sentinel tth array */
-    float l8_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
-                               1.0e-04, 0.0};
-                            /* constant values for comparing against the
-                               L8 surface reflectance */
-    float s2_tth[NSR_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
-                               0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
-                            /* constant values for comparing against the
-                               Sentinel surface reflectance */
+    float *tth = NULL;      /* pointer to the Landsat or Sentinel tth array */
+    float landsat_tth[NSRL_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                     1.0e-04, 0.0};
+                            /* constant values for comparing against Landsat
+                               surface reflectance */
+    float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                      0.0, 0.0, 0.0, 0.0, 1.0e-04};
+                            /* constant values for comparing against Sentinel
+                               surface reflectance (removed band 9&10) */
     float aot550nm[NAOT_VALS] = {0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.6,
                                  0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6,
                                  3.0, 3.5, 4.0, 4.5, 5.0}; /* AOT values */
 
     /* Initialize variables based on the satellite type */
-    if (sat == SAT_LANDSAT_8)
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        tth = l8_tth;
-        start_band = DN_L8_BAND1;
-        end_band = DN_L8_BAND7;
+        tth = landsat_tth;
+        start_band = DNL_BAND1;
+        end_band = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        tth = s2_tth;
-        start_band = DN_S2_BAND1;
-        end_band = DN_S2_BAND12;
+        tth = sentinel_tth;
+        start_band = DNS_BAND1;
+        end_band = DNS_BAND12;
     }
 
-    /* Correct band 3 and band 1 with increasing AOT (using pre till ratio is
-       equal to erelc[2]) */
+    /* Correct input band with increasing AOT (using pre till ratio is equal to
+       erelc[2]) */
     iaot = *iaots;
     residual1 = 2000.0;
     residual2 = 1000.0;
@@ -108,35 +105,43 @@ void subaeroret_new
     ros1 = 1.0;
     raot550nm = aot550nm[iaot];
     testth = false;
+    *residual = 0.0;
+    nbval = 0;
 
     /* Atmospheric correction for band 1 */
     ib = iband1;
-    atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-        aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0], &ttatmg_coef[ib][0],
-        &satm_coef[ib][0], raot550nm, ib, normext_p0a3_arr[ib], troatm[ib],
-        &roslamb, eps);
+    atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+        &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm,
+        ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
 
     if (roslamb - tth[iband1] < 0.0)
         testth = true;
     ros1 = roslamb;
+    if (water && erelc[ib] > 0.0)
+    {
+        *residual += (roslamb * roslamb);
+        nbval++;
+    }
 
     /* Atmospheric correction for each band */
-    nbval = 0;
-    *residual = 0.0;
     for (ib = start_band; ib <= end_band; ib++)
     {
         /* Don't reprocess iband1 */
-        if ((erelc[ib] > 0.0) && (ib != iband1))
+        if (ib != iband1 && erelc[ib] > 0.0)
         {
-            atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-                aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
-                &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
-                normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
+            atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+                &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+                raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
 
             if (roslamb - tth[ib] < 0.0)
                 testth = true;
-            *residual += (roslamb - erelc[ib] * ros1) *
-                         (roslamb - erelc[ib] * ros1);
+            if (water)
+                *residual += roslamb*roslamb;
+            else
+            {
+                point_error = roslamb - erelc[ib] * ros1;
+                *residual += point_error * point_error;
+            }
             nbval++;
         }
     }
@@ -154,36 +159,45 @@ void subaeroret_new
         raot1 = raot550nm;
         iaot1 = iaot;
         raot550nm = aot550nm[iaot];
+        *residual = 0.0;
+        nbval = 0;
 
         /* Atmospheric correction for band 1 */
         ib = iband1;
         testth = false;
-        atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-            aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0], &ttatmg_coef[ib][0],
-            &satm_coef[ib][0], raot550nm, ib, normext_p0a3_arr[ib], troatm[ib],
-            &roslamb, eps);
+        atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+            &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+            raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
 
         if (roslamb - tth[iband1] < 0.0)
             testth = true;
         ros1 = roslamb;
+        if (water && erelc[ib] > 0.0)
+        {
+            *residual += (roslamb * roslamb);
+            nbval++;
+        }
 
         /* Atmospheric correction for each band */
-        nbval = 0;
-        *residual = 0.0;
         for (ib = start_band; ib <= end_band; ib++)
         {
             /* Don't reprocess iband1 */
-            if ((erelc[ib] > 0.0) && (ib != iband1))
+            if (ib != iband1 && erelc[ib] > 0.0)
             {
-                atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-                    aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
-                    &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
-                    normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
+                atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+                    &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+                    raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb,
+                    eps);
 
                 if (roslamb - tth[ib] < 0.0)
                     testth = true;
-                *residual += (roslamb - erelc[ib] * ros1) *
-                             (roslamb - erelc[ib] * ros1);
+                if (water)
+                    *residual += roslamb*roslamb;
+                else
+                {
+                    point_error = roslamb - erelc[ib] * ros1;
+                    *residual += point_error * point_error;
+                }
                 nbval++;
             }
         }
@@ -201,18 +215,22 @@ void subaeroret_new
     }
     else
     {
-        /* Refine the AOT ratio */
+        /* Refine the AOT ratio.  This is performed by applying a parabolic
+           (quadratic) fit to the three (raot, residual) pairs found above:
+                   res = a(raot)^2 + b(raot) + c
+               The minimum occurs where the first derivative is zero:
+                   res' = 2a(raot) + b = 0
+                   raot_min = -b/2a
+
+               The a and b coefficients are solved for in the three
+               residual equations by eliminating c:
+                   r_1 - r = a(raot_1^2 - raot^2) + b(raot_1 - raot)
+                   r_2 - r = a(raot_2^2 - raot^2) + b(raot_2 - raot) */
         *raot = raot550nm;
         raotsaved = *raot;
-        xa = (raot1 * raot1) - (*raot * *raot);
-        xd = (raot2 * raot2) - (*raot * *raot);
-        xb = raot1 - *raot;
-        xe = raot2 - *raot;
-        xc = residual1 - *residual;
-        xf = residual2 - *residual;
-        coefa = (xc * xe - xb * xf) / (xa * xe - xb * xd);
-        coefb = (xa * xf - xc * xd) / (xa * xe - xb * xd);
-        raotmin = -coefb / (2.0 * coefa);
+        xa = (residual1 - *residual)*(raot2 - *raot);
+        xb = (residual2 - *residual)*(raot1 - *raot);
+        raotmin = 0.5*(xa*(raot2 + *raot) - xb*(raot1 + *raot))/(xa - xb);
 
         /* Validate the min AOT ratio */
         if (raotmin < 0.01 || raotmin > 4.0)
@@ -222,32 +240,41 @@ void subaeroret_new
         raot550nm = raotmin;
         ib = iband1;
         testth = false;
-        atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-            aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0], &ttatmg_coef[ib][0],
-            &satm_coef[ib][0], raot550nm, ib, normext_p0a3_arr[ib], troatm[ib],
-            &roslamb, eps);
+        residualm = 0.0;
+        nbval = 0;
+        atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+            &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+            raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
 
         if (roslamb - tth[iband1] < 0.0)
             testth = true;
         ros1 = roslamb;
+        if (water && erelc[ib] > 0.0)
+        {
+            residualm += (roslamb * roslamb);
+            nbval++;
+        }
 
         /* Atmospheric correction for each band */
-        nbval = 0;
-        residualm = 0.0;
         for (ib = start_band; ib <= end_band; ib++)
         {
             /* Don't reprocess iband1 */
-            if ((erelc[ib] > 0.0) && (ib != iband1))
+            if (ib != iband1 && erelc[ib] > 0.0)
             {
-                atmcorlamb2_new (sat, tgo_arr[ib], xrorayp_arr[ib],
-                    aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
-                    &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
-                    normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
+                atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+                    &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+                    raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb,
+                    eps);
 
                 if (roslamb - tth[ib] < 0.0)
                     testth = true;
-                residualm += (roslamb - erelc[ib] * ros1) *
-                             (roslamb - erelc[ib] * ros1);
+                if (water)
+                    residualm += (roslamb * roslamb);
+                else
+                {
+                    point_error = roslamb - erelc[ib] * ros1;
+                    residualm += point_error * point_error;
+                }
                 nbval++;
             }
         }
@@ -271,8 +298,12 @@ void subaeroret_new
             residualm = residual2;
             *raot = raot2;
         }
-
         *residual = residualm;
-        *iaots = MAX ((iaot2 - 3), 0);
+
+        /* Check the iaot values */
+        if (water && iaot == 1)
+            *iaots = 0;
+        else
+            *iaots = MAX ((iaot2 - 3), 0);
     }
 }

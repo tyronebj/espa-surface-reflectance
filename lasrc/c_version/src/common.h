@@ -1,6 +1,7 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include <stdlib.h>
 #include "hdf.h"
 #include "mfhdf.h"
 typedef char byte;
@@ -13,9 +14,9 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "2.0.0"
+#define SR_VERSION "3.0.0 (Collection 2)"
 
-/* Define the default aerosol value */
+/* Define the default aerosol and EPS value */
 #define DEFAULT_AERO 0.05
 #define DEFAULT_EPS 1.5
 
@@ -23,7 +24,7 @@ typedef char byte;
    aerosol inversion.  The aerosols will be inverted for the center of the
    NxN window (with special handling for fill, clouds, water) and then used
    to fill the rest of the window.  Aerosols are fairly homogenious over a
-   reasonable area.  Landsat windows represent the UL corner.
+   reasonable area.  Landsat windows represent the center of the window.
    The following are example NxN window setups:
    9x9: AERO_WINDOW 9 and HALF_AERO_WINDOW 4
    7x7: AERO_WINDOW 7 and HALF_AERO_WINDOW 3
@@ -31,9 +32,28 @@ typedef char byte;
    3x3: AERO_WINDOW 3 and HALF_AERO_WINDOW 1
    1x1: AERO_WINDOW 1 and HALF_AERO_WINDOW 0
 */
-#define L8_AERO_WINDOW 3
-#define L8_HALF_AERO_WINDOW 1
-#define S2_AERO_WINDOW 6
+#define LAERO_WINDOW 3
+#define LHALF_AERO_WINDOW 1
+#define SAERO_WINDOW 6
+
+/* Define the size of the window used for fixing the invalid aerosols, using
+   an average of the representative pixels in this window. Define the minimum
+   number of clear/valid pixels needed in the window in order for the average
+   to be valid. The MIN_CLEAR_PIX is ~16.7% of the number of representative
+   pixels in the FIX_AERO_WINDOW.
+   Landsat ==> 15 x 30m pixels = 450m window for average
+               There are 25 (5x5) possible representative pixels in a window
+               of 15x15 using 3x3 representative pixel windows. 4/24 = .167
+   Sentinel ==> 45 x 10m pixels = 450m window for average
+               There are 49 (7x7) possible representative pixels in a window
+               of 45x45 using 6x6 representative pixel windows. 8/48 = .167
+*/
+#define LFIX_AERO_WINDOW 15
+#define LHALF_FIX_AERO_WINDOW 7
+#define LMIN_CLEAR_PIX 4
+#define SFIX_AERO_WINDOW 45
+#define SHALF_FIX_AERO_WINDOW 22
+#define SMIN_CLEAR_PIX 8
 
 /* How many lines of data should be processed at one time */
 #define PROC_NLINES 10
@@ -47,48 +67,52 @@ typedef char byte;
 #define RAD2DEG 57.29577951
 
 /* For divisions - to minimize processing time */
-#define ONE_DIV_1013 0.000987166
+#define ATMOS_PRES_0 1013.0 /* mean atmospheric pressure (mbar) at sea level */
+#define ONE_DIV_ATMOS_PRES_0 0.000987166
 #define ONE_DIV_8500 0.000117647
 
 /* Number of bands corrected to surface reflectance
-   Landsat 8 (bands 1-7).  The atmospheric correction variables store
+   * Landsat 8 (bands 1-7).  The atmospheric correction variables store
    information for 8 bands, so we will go with that for the array size.
-   Sentinel-2 (bands 1-13).  The atmospheric correction variables store
-   information for 13 bands, so we will go with that for the array size. */
-#define NSR_L8_BANDS 8
-#define NSR_S2_BANDS 13
+   * Sentinel-2 (bands 1-13, skipping band 9 and 10).  The atmospheric
+   correction variables store information for 11 bands, so we will go with
+   that for the array size. */
+#define NSRL_BANDS 8
+#define NSRS_BANDS 11
 
-/* Sentinel currently has the most bands */
-#define NSR_BANDS NSR_S2_BANDS
+/* Get the larger number of bands between the two instruments */
+#define NSR_BANDS MAX(NSRL_BANDS, NSRS_BANDS)
 
-/* L8 Level-1 products have 8 reflectance bands (bands 1-7, and 9),
+/* Landsat-8/9 Level-1 products have 8 reflectance bands (bands 1-7, and 9),
    2 thermal bands (band 10 and 11), 1 pan band (band 8), and 1 QA band
    (band 12)
-   Sentinel-2 Level-1 products have 13 reflectance bands */
-#define NBAND_L8_REFL_MAX 8
-#define NBAND_L8_THM_MAX 2
-#define NBAND_L8_PAN_MAX 1
-#define NBAND_L8_QA_MAX 1
-#define NBAND_L8_TTL_MAX (NBAND_L8_REFL_MAX + NBAND_L8_THM_MAX + NBAND_L8_PAN_MAX + NBAND_L8_QA_MAX)
+   Sentinel-2 Level-1 products have 13 reflectance bands, but we will not
+   process bands 9 and 10 */
+#define NBANDL_REFL_MAX 8
+#define NBANDL_THM_MAX 2
+#define NBANDL_PAN_MAX 1
+#define NBANDL_QA_MAX 1
+#define NBANDL_TTL_MAX (NBANDL_REFL_MAX + NBANDL_THM_MAX + NBANDL_PAN_MAX + NBANDL_QA_MAX)
 
-#define NBAND_S2_REFL_MAX 13
-#define NBAND_S2_TTL_MAX (NBAND_S2_REFL_MAX)
+#define NBANDS_REFL_MAX 11
+#define NBANDS_TTL_MAX NBANDS_REFL_MAX
 
-/* Sentinel currently has the most bands */
-#define NBAND_REFL_MAX NBAND_S2_REFL_MAX
+/* Get the larger number of bands between the two instruments */
+#define NBAND_REFL_MAX MAX(NBANDL_REFL_MAX, NBANDS_REFL_MAX)
 
-/* L8 surface reflectance products have 8 reflectance bands, 2 thermal bands, 
-   0 pan bands, and 1 QA band.
+/* Landsat-8/9 surface reflectance products have 8 reflectance bands, 2 thermal
+   bands, 0 pan bands, and 1 QA band.
    Sentinel-2 surface reflectance products have 13 reflectance bands, and
-   1 QA band */
-#define NBAND_L8_REFL_OUT 8
-#define NBAND_L8_THM_OUT 2
-#define NBAND_L8_PAN_OUT 0
-#define NBAND_L8_QA_OUT 1
-#define NBAND_L8_TTL_OUT (NBAND_L8_REFL_OUT + NBAND_L8_THM_OUT + NBAND_L8_PAN_OUT + NBAND_L8_QA_OUT)
-#define NBAND_S2_REFL_OUT 13
-#define NBAND_S2_QA_OUT 1
-#define NBAND_S2_TTL_OUT (NBAND_S2_REFL_OUT + NBAND_S2_QA_OUT)
+   1 QA band. Bands 9 (water vapor) and 10 (cirrus) will not be processed. */
+#define NBANDL_REFL_OUT 8
+#define NBANDL_THM_OUT 2
+#define NBANDL_PAN_OUT 0
+#define NBANDL_QA_OUT 1
+#define NBANDL_TTL_OUT (NBANDL_REFL_OUT + NBANDL_THM_OUT + NBANDL_PAN_OUT + NBANDL_QA_OUT)
+
+#define NBANDS_REFL_OUT 11
+#define NBANDS_QA_OUT 1
+#define NBANDS_TTL_OUT (NBANDS_REFL_OUT + NBANDS_QA_OUT)
 
 /* CMG and DEM files are lat/long images where each pixel represents 0.05 deg x
    0.05 deg */
@@ -111,58 +135,66 @@ typedef char byte;
 #define NSUNANGLE_VALS 22
 #define NVIEW_ZEN_VALS 20
 #define NSOLAR_ZEN_VALS 22
+#define NAOTxNSOLAR_VALS (NAOT_VALS * NSOLAR_VALS)
+#define NAOTxNSUNANGLE_VALS (NAOT_VALS * NSUNANGLE_VALS)
 
 /* Coefficients for determining atmospheric values */
 #define NCOEF 4
-#define NREFL_L8_BANDS 7
-#define NREFL_S2_BANDS 13 
+#define NREFLL_BANDS 7
+#define NREFLS_BANDS 11 
 
-/* Sentinel currently has the most bands */
-#define NREFL_BANDS NREFL_S2_BANDS
+/* Get the larger number of bands between the two instruments */
+#define NREFL_BANDS MAX(NREFLL_BANDS, NREFLS_BANDS)
 
-/* Define the input products to be processed.  NOTE: DN_TTL should be the same
-   as NBAND_TTL_MAX. */
-typedef enum {DN_L8_BAND1=0, DN_L8_BAND2, DN_L8_BAND3, DN_L8_BAND4,
-    DN_L8_BAND5, DN_L8_BAND6, DN_L8_BAND7, DN_L8_BAND8, DN_L8_BAND9,
-    DN_L8_BAND10, DN_L8_BAND11, DN_L8_QA, DN_L8_TTL} Mydn_l8_band_t;
-typedef enum {DN_S2_BAND1=0, DN_S2_BAND2, DN_S2_BAND3, DN_S2_BAND4,
-    DN_S2_BAND5, DN_S2_BAND6, DN_S2_BAND7, DN_S2_BAND8, DN_S2_BAND8A,
-    DN_S2_BAND9, DN_S2_BAND10, DN_S2_BAND11, DN_S2_BAND12, DN_S2_QA,
-    DN_S2_TTL} Mydn_s2_band_t;
+/* Define the full list of bands for Sentinel-2, even though we aren't
+   processing all these bands. Some look-up tables and input arrays are
+   defined for the full list of bands. */
+typedef enum {SBAND1=0, SBAND2, SBAND3, SBAND4, SBAND5, SBAND6,
+    SBAND7, SBAND8, SBAND8A, SBAND9, SBAND10, SBAND11, SBAND12,
+    SENTINEL_TTL} Mysband_t;
+extern char SENTINEL_FULL_BANDNAME[SENTINEL_TTL][3]; /* defined in lut_subr.c */
+
+/* Define the input products to be processed */
+typedef enum {DNL_BAND1=0, DNL_BAND2, DNL_BAND3, DNL_BAND4,
+    DNL_BAND5, DNL_BAND6, DNL_BAND7, DNL_BAND8, DNL_BAND9,
+    DNL_BAND10, DNL_BAND11, DNL_QA, DNL_TTL} Mydnl_band_t;
+typedef enum {DNS_BAND1=0, DNS_BAND2, DNS_BAND3, DNS_BAND4,
+    DNS_BAND5, DNS_BAND6, DNS_BAND7, DNS_BAND8, DNS_BAND8A,
+    DNS_BAND11, DNS_BAND12, DNS_QA, DNS_TTL} Mydns_band_t;
 
 /* Define the output products to be processed */
-typedef enum {SR_L8_BAND1=0, SR_L8_BAND2, SR_L8_BAND3, SR_L8_BAND4, SR_L8_BAND5,
-    SR_L8_BAND6, SR_L8_BAND7, SR_L8_BAND9, SR_L8_BAND10, SR_L8_BAND11,
-    SR_L8_AEROSOL, SR_L8_TTL} Mysr_l8_band_t;
-typedef enum {SR_S2_BAND1=0, SR_S2_BAND2, SR_S2_BAND3, SR_S2_BAND4, SR_S2_BAND5,
-    SR_S2_BAND6, SR_S2_BAND7, SR_S2_BAND8, SR_S2_BAND8A, SR_S2_BAND9,
-    SR_S2_BAND10, SR_S2_BAND11, SR_S2_BAND12, SR_S2_AEROSOL,
-    SR_S2_TTL} Mysr_s2_band_t;
+typedef enum {SRL_BAND1=0, SRL_BAND2, SRL_BAND3, SRL_BAND4, SRL_BAND5,
+    SRL_BAND6, SRL_BAND7, SRL_BAND9, SRL_BAND10, SRL_BAND11, SRL_AEROSOL,
+    SRL_TTL} Mysrl_band_t;
+typedef enum {SRS_BAND1=0, SRS_BAND2, SRS_BAND3, SRS_BAND4, SRS_BAND5,
+    SRS_BAND6, SRS_BAND7, SRS_BAND8, SRS_BAND8A, SRS_BAND11,
+    SRS_BAND12, SRS_AEROSOL, SRS_TTL} Mysrs_band_t;
+extern char SENTINEL_BANDNAME[NREFLS_BANDS][3];  /* defined in output.c */
 
 /* For the minimal arrays that use this value, we will just use the largest
-   of the L8 and S2 number of output bands */
-#define NBAND_TTL_OUT SR_S2_TTL
-
-/* Definte the RADSAT band */
-#define SR_RADSAT 0
+   of the Landsat and Sentinel number of output bands */
+#define NBAND_TTL_OUT SRS_TTL
 
 /* High confidence Level-1 QA values */
 #define L1QA_HIGH_CONF 3
 
+/* Low and average aerosol reflectance thresholds */
+#define LOW_AERO_THRESH 0.015
+#define AVG_AERO_THRESH 0.03
+
 /* Bit values of ipflag (interpolation flag) QA, which includes aerosol
    levels */
 typedef enum {
-  IPFLAG_FILL=0,            /* fill value */
-  IPFLAG_CLEAR=1,           /* aerosol retrieval was valid (land pixel) */
-  IPFLAG_WATER=2,           /* water pixel */
-  IPFLAG_FAILED=2,          /* flags failed aerosol retrieval pixels for S2 */
-  IPFLAG_CLOUD=3,           /* pixel was flagged as cloud in the Level-1 QA */
-  IPFLAG_FAILED_TMP=3,      /* temp flag for expanding possible failed pixels
-                               for S2 */
-  IPFLAG_SHADOW=4,          /* pixel was flagged as cloud shadow in the
-                               Level-1 QA */
-  IPFLAG_INTERP_WINDOW=5,   /* aerosol was interpolated using the center (L8) or
-                               UL (S2) of the NxN windows */
+  IPFLAG_FILL=0,        /* fill value */
+  IPFLAG_CLEAR=1,       /* aerosol retrieval was valid (land or water) */
+  IPFLAG_WATER=2,       /* water pixel */
+  IPFLAG_FAILED=2,      /* flags failed aerosol retrieval pixels for Sentinel */
+  IPFLAG_FIXED=3,       /* invalid retrieval which was fixed with a local
+                           average of valid aerosols (internal use only) */
+  IPFLAG_FAILED_TMP=3,  /* temp flag for expanding possible failed pixels for
+                           Sentinel */
+  IPFLAG_INTERP_WINDOW=5, /* aerosol was interpolated using the center (Landsat)
+                             or UL (Sentinel) of the NxN windows */
   AERO1_QA=6,    /* these two AERO bits mark the amount of aerosols and = 64 */
   AERO2_QA=7     /* reflect the level of atmospheric correction made    = 128 */
 } Ipflag_t;
@@ -172,8 +204,8 @@ typedef enum {
 typedef enum {
   SAT_NULL = -1,
   SAT_LANDSAT_8 = 0, 
+  SAT_LANDSAT_9, 
   SAT_SENTINEL_2,
-  SAT_MAX
 } Sat_t;
 
 /* Instrument type definition */
@@ -182,7 +214,6 @@ typedef enum {
   INST_OLI_TIRS = 0, 
   INST_OLI, 
   INST_MSI,
-  INST_MAX
 } Inst_t;
 
 /* World Reference System (WRS) type definition */
@@ -190,7 +221,6 @@ typedef enum {
   WRS_NULL = -1,
   WRS_1 = 0, 
   WRS_2,
-  WRS_MAX
 } Wrs_t;
 
 typedef struct {

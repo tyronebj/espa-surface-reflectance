@@ -1,20 +1,20 @@
-## LaSRC Version 2.0.0 Release Notes
-Release Date: Sept. 2019
+## LaSRC Version 3.0.0 Release Notes
+Release Date: TBD 2020
 
 ### Downloads
 LaSRC (Landsat Surface Reflectance Code) source code
 
-    git clone https://github.com/USGS-EROS/espa-surface-reflectance.git
+    git clone https://eroslab.cr.usgs.gov/lsrd/espa-surface-reflectance.git
 
 LaSRC auxiliary files
 
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [lasrc-version_2.0.0]
+See git tag [version_3.0.0]
 
 ### Installation
-  * Install dependent libraries - ESPA product formatter (https://github.com/USGS-EROS/espa-product-formatter)
+  * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
   * Set up environment variables.  Can create an environment shell file or add the following to your bash shell.  For C shell, use 'setenv VAR "directory"'.
 ```
     export PREFIX="path_to_directory_for_lasrc_build_data"
@@ -61,12 +61,13 @@ See git tag [lasrc-version_2.0.0]
   * Note that the FORTRAN version contains the code as delivered from Eric Vermote and team at NASA Goddard Space Flight Center.  The C version contains the converted FORTRAN code into C to work in the ESPA environment.  It also contains any bug fixes, agreed upon by Eric's team, along with performance enhancements.  The FORTRAN code contains debugging and validation code, which is not needed for production processing.
 
 ### Dependencies
+  * Python >= 3.6.X
   * ESPA raw binary and ESPA common libraries from ESPA product formatter and associated dependencies
   * XML2 library
   * Auxiliary data products
     1. LAADS Terra and Aqua CMG and CMA data
     2. CMGDEM HDF file
-    3. Various input files and model information provided with the LaSRC auxiliary .tar.gz files
+    3. Various input files and model information provided with the LaSRC auxiliary .tar.gz file
 
 ### Auxiliary Data Updates
 The baseline auxiliary files provided don't include the daily climate data.  In order to generate or update the auxiliary files to the most recent day of year (actually the most current auxiliary files available will be 2-3 days prior to the current day of year do to the latency of the underlying LAADS products) the user will want to run the updatelads.py script available in $PREFIX/bin.  This script can be run with the "--help" argument to print the usage information.  In general the --quarterly argument will reprocess/update all the LAADS data back to 2013.  This is good to do every once in a while to make sure any updates to the LAADS data products are captured.  The --today command-line argument will process the LAADS data for the most recent year.  In general, it is suggested to run the script with --quarterly once a quarter.  Then run the script with --today on a nightly basis.  This should provide an up-to-date version of the auxiliary input data for LaSRC.  The easiest way to accomplish this is to set up a nightly and quarterly cron job.
@@ -86,7 +87,28 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Modified the LaSRC executable to work with Sentinel-2 products.
-2. Added Sentinel-2 support to the do\_lasrc.py and surface\_reflectance.py scripts.
-3. Fixed a bug in the lat/long code when identifying the center of the pixel. This may have a slight affect on the Landsat-8 results.
-4. Copy the level-1 filenames for each of the reflectance bands to the level-2 bands for provenance of the old filenames, given that Sentinel-2 files are renamed in ESPA.
+1. Converted the scripts to utilize Python 3, since Python 2.x is obsolete.
+2. Allow OLI-only products to be processed for surface reflectance corrections.
+3. Support Collection 2 products.
+4. Removed the saturation band output in lieu of the Level-1 RADSAT band.
+5. Supported L8 and L9.
+6. Added some computational efficiences from the LPGS code.
+7. Write out data type, scale factor, add offset, etc. similar to the
+   Collection 2 products.
+8. Support the new pixel QA band from Collection 2.
+9. Added Landsat 9 satellite support from the input metadata.
+10. Removed the input Level-1 QA which was used to designate clouds, shadows,
+    and cirrus. Instead all pixels are considered for aerosol inversion. Cloud,
+    shadows, and cirrus are pixels are no longer masked in the aerosol QA band.
+11. Pixels which fail the clear land inversion fall into the "water category"
+    and are now subject to aerosol inversion for water pixels, similar to the
+    original FORTRAN code. If aerosol inversion is successful, these pixels are
+    masked with valid aerosol retrieval and as water in the aerosol QA band.
+12. Removed pixel size x/y from aerosol interpolation, since it wasn't used.
+13. Pixels which fail the aerosol inversion checks are no longer given a default
+    value then filled with the median of the clear land pixels. Instead the
+    computed aerosol value is used as-is.
+14. All pixels are corrected for surface reflectance, except fill. Previously
+    cloud pixels were not corrected.
+15. Intermediate TOA values are now stored as unscaled, floating point vs. the
+    previous scaled uint16 values. Note, this almost doubles the memory usage.

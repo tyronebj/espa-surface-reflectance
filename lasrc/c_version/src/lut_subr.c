@@ -15,9 +15,17 @@ NOTES:
 #include "hdf.h"
 #include "mfhdf.h"
 
-float l8_lambda[] = {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
-float s2_lambda[] = {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783,
-                     0.842, 0.865, 0.945, 1.375, 1.61, 2.19};
+/* Define the full list of band names for Sentinel-2 for the input files */
+char SENTINEL_FULL_BANDNAME[SENTINEL_TTL][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9", "10", "11", "12"};
+
+/* Removed bands 9 and 10 from the Sentinel array */
+float landsat_lambda[NREFLL_BANDS] =
+    {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+float sentinel_lambda[NREFLS_BANDS] =
+    {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 1.61, 2.19};
+
+#define FOUR_PTS 4
 
 /******************************************************************************
 MODULE:  atmcorlamb2_new
@@ -34,8 +42,6 @@ void atmcorlamb2_new
 (
     Sat_t sat,                /* I: satellite */
     float tgo,                /* I: other gaseous transmittance  */
-    float xrorayp,            /* I: reflectance of the atmosphere due to
-                                    molecular (Rayleigh) scattering */
     float roatm_upper,        /* I: roatm upper bound poly_fit, given band */
     float roatm_coef[NCOEF],  /* I: poly_fit coefficients for roatm  */
     float ttatmg_coef[NCOEF], /* I: poly_fit coefficients for ttatmg */
@@ -45,45 +51,39 @@ void atmcorlamb2_new
     float normext_ib_0_3,     /* I: normext[iband][0][3] */
     float rotoa,              /* I: top of atmosphere reflectance */
     float *roslamb,           /* O: lambertian surface reflectance */
-    float eps                 /* I: angstroem coefficient; spectral dependency
+    float eps                 /* I: angstrom coefficient; spectral dependency
                                     of the AOT */
 )
 {
     float mraot550nm;      /* nearest value of AOT -- modified local variable */
     float mraot550nm_sq;   /* mraot550nm squared */
     float mraot550nm_cube; /* mraot550nm cubed */
-    int max_band_indx = 0; /* maximum band index for L8 or S2 */
-    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
+    int max_band_indx = 0; /* maximum band index for Landsat or Sentinel */
+    float *lambda = NULL;  /* band wavelength pointer for Landsat or Sentinel */
+    static const float lambda_sf = 1/0.55; /* lambda scale factor */
     float roatm;           /* intrinsic atmospheric reflectance */
     float ttatmg;          /* total atmospheric transmission */
     float satm;            /* spherical albedo */
 
-    /* Setup L8 or S2 variables */
-    if (sat == SAT_LANDSAT_8)
+    /* Setup Landsat or Sentinel variables */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        lambda = l8_lambda;
-        max_band_indx = DN_L8_BAND7;
+        lambda = landsat_lambda;
+        max_band_indx = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        lambda = s2_lambda;
-        max_band_indx = DN_S2_BAND12;
+        lambda = sentinel_lambda;
+        max_band_indx = DNS_BAND12;
     }
 
-    /* Modifiy the AOT value based on the angstroem coefficient and lambda
+    /* Modify the AOT value based on the angstrom coefficient and lambda
        values */
-    if  (eps < 0.0)
+    if  (eps < 0.0 || iband > max_band_indx)
         mraot550nm = raot550nm;
     else
-    {
-        if (iband <= max_band_indx)
-        {
-            mraot550nm = (raot550nm / normext_ib_0_3) *
-                (pow ((lambda[iband] / 0.55), -eps));
-        }
-        else
-            mraot550nm = raot550nm;
-    }
+        mraot550nm = (raot550nm / normext_ib_0_3) *
+            pow (lambda[iband] * lambda_sf, -eps);
 
     /* Check the upper limit of the modified AOT value */
     if (mraot550nm >= roatm_upper)
@@ -91,7 +91,7 @@ void atmcorlamb2_new
 
     /* Store the square and cube of the modified AOT value for multiple use */
     mraot550nm_sq = mraot550nm * mraot550nm;
-    mraot550nm_cube = mraot550nm * mraot550nm *mraot550nm;
+    mraot550nm_cube = mraot550nm_sq * mraot550nm;
 
     /* Compute the intrinsic atmospheric reflectance from the coefficients */
     roatm = roatm_coef[3] +
@@ -112,10 +112,8 @@ void atmcorlamb2_new
            satm_coef[0] * mraot550nm_cube;
 
     /* Perform atmospheric correction */
-    *roslamb = (double) rotoa / tgo;
-    *roslamb = *roslamb - roatm;
-    *roslamb = *roslamb / ttatmg;
-    *roslamb = *roslamb / (1.0 + satm * (*roslamb));
+    *roslamb = rotoa - tgo*roatm;
+    *roslamb /= tgo*ttatmg + satm*(*roslamb);
 }
 
 
@@ -163,7 +161,7 @@ int atmcorlamb2
                                        [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float *normext,              /* I: aerosol extinction coefficient at
                                        the current wavelength (normalized
-                                       at 550nm) 
+                                       at 550nm)
                                        [NSR_BANDS x NPRES_VALS x NAOT_VALS] */
     float *tsmax,                /* I: maximum scattering angle table
                                        [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
@@ -196,7 +194,7 @@ int atmcorlamb2
     float *xrorayp,              /* O: reflectance of the atmosphere due to
                                        molecular (Rayleigh) scattering */
     float *next,                 /* O: */
-    float eps                    /* I: angstroem coefficient; spectral
+    float eps                    /* I: angstrom coefficient; spectral
                                        dependency of the AOT */
 )
 {
@@ -220,35 +218,31 @@ int atmcorlamb2
     int its;            /* index for the sun angle table */
     int itv;            /* index for the view angle table */
     int indx;           /* index for normext array */
-    int max_band_indx = 0; /* maximum band index for L8 or S2 */
-    float *lambda = NULL;  /* band wavelength pointer for L8 or S2 */
+    int max_band_indx = 0; /* maximum band index for Landsat or Sentinel */
+    float *lambda = NULL;  /* band wavelength pointer for Landsat or Sentinel */
+    static const float lambda_sf = 1/0.55; /* lambda scale factor */
 
-    /* Setup L8 or S2 variables */
-    if (sat == SAT_LANDSAT_8)
+    /* Setup Landsat or Sentinel variables */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        lambda = l8_lambda;
-        max_band_indx = DN_L8_BAND7;
+        lambda = landsat_lambda;
+        max_band_indx = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        lambda = s2_lambda;
-        max_band_indx = DN_S2_BAND12;
+        lambda = sentinel_lambda;
+        max_band_indx = DNS_BAND12;
     }
 
-    /* Modifiy the AOT value based on the angstroem coefficient and lambda
+    /* Modifiy the AOT value based on the angstrom coefficient and lambda
        values */
-    if  (eps < 0.0)
+    if  (eps < 0.0 || iband > max_band_indx)
         mraot550nm = raot550nm;
     else
     {
-        if (iband <= max_band_indx)
-        {
-            indx = iband * NPRES_VALS * NAOT_VALS + 3;
-            mraot550nm = (raot550nm / normext[indx]) *
-                (pow ((lambda[iband] / 0.55), -eps));
-        }
-        else
-            mraot550nm = raot550nm;
+        indx = iband * NPRES_VALS * NAOT_VALS + 3;
+        mraot550nm = (raot550nm / normext[indx]) *
+            (pow ((lambda[iband] * lambda_sf), -eps));
     }
 
     /* Get the pressure and AOT related values for the current surface pressure
@@ -263,7 +257,7 @@ int atmcorlamb2
             ip1 = ip;
     }
     ip2 = ip1 + 1;
-      
+
     /* Look for the appropriate AOT index in the AOT table.
        Stop at the second to last item in the table, so that we have the last
        two elements to use as iaot1 and iaot2, if needed. */
@@ -282,7 +276,7 @@ int atmcorlamb2
         itv = (int) ((xtv - xtvmin) / xtvstep + 1.0);
 
     /* Determine the index in the sun angle table */
-    if (xts <= xtsmin) 
+    if (xts <= xtsmin)
         its = 0;
     else
         its = (int) ((xts - xtsmin) / xtsstep);
@@ -296,8 +290,7 @@ int atmcorlamb2
     /* This routine returns variables for calculating roslamb */
     comproatm (ip1, ip2, iaot1, iaot2, xts, xtv, xmus, xmuv, cosxfi,
         mraot550nm, iband, pres, tpres, aot550nm, rolutt, tsmax, tsmin, nbfic,
-        nbfi, tts, indts, ttv, xtsstep, xtsmin, xtvstep, xtvmin, its, itv,
-        roatm);
+        nbfi, tts, indts, ttv, xtsstep, xtvstep, xtvmin, its, itv, roatm);
 
     /* Compute the transmission for the solar zenith angle */
     comptrans (ip1, ip2, iaot1, iaot2, xts, mraot550nm, iband, pres, tpres,
@@ -309,15 +302,15 @@ int atmcorlamb2
 
     /* Compute total transmission (product downward by upward) */
     ttatm = xtts * xttv;
-    
+
     /* Compute spherical albedo */
     compsalb (ip1, ip2, iaot1, iaot2, mraot550nm, iband, pres, tpres, aot550nm,
         sphalbt, normext, satm, next);
 
-    atm_pres = pres * ONE_DIV_1013;
-    comptg (iband, xts, xtv, xmus, xmuv, uoz, uwv, atm_pres, ogtransa1,
-        ogtransb0, ogtransb1, wvtransa, wvtransb, oztransa, &tgoz, &tgwv,
-        &tgwvhalf, &tgog);
+    atm_pres = pres * ONE_DIV_ATMOS_PRES_0;
+    comptg (iband, xmus, xmuv, uoz, uwv, atm_pres, ogtransa1, ogtransb0,
+        ogtransb1, wvtransa, wvtransb, oztransa, &tgoz, &tgwv, &tgwvhalf,
+        &tgog);
 
     /* Compute rayleigh component (intrinsic reflectance, at p=pres).
        Pressure in the atmosphere is pres / 1013. */
@@ -325,14 +318,11 @@ int atmcorlamb2
     local_chand (xfi, xmuv, xmus, xtaur, xrorayp);
 
     /* Perform atmospheric correction */
-    *roslamb = (double) rotoa / (tgog * tgoz);
-    *roslamb = (*roslamb) - ((*roatm) - (*xrorayp)) * tgwvhalf - (*xrorayp);
-    *roslamb = (*roslamb) / (ttatm * tgwv);
-    *roslamb = (*roslamb) / (1.0 + (*satm) * (*roslamb));
-
     *tgo = tgog * tgoz;
-    *roatm = ((*roatm) - (*xrorayp)) * tgwvhalf + (*xrorayp);
+    *roatm = (*roatm - *xrorayp)*tgwvhalf + *xrorayp;
     *ttatmg = ttatm * tgwv;
+    *roslamb = rotoa/(*tgo) - *roatm;
+    *roslamb /= *ttatmg + *satm*(*roslamb);
 
     /* Successful completion */
     return (SUCCESS);
@@ -390,8 +380,8 @@ void local_chand
     const float as1[2] = {0.19666292, -5.439061e-02};
     const float as2[2] = {0.14545937, -2.910845e-02};
 
-    phios = (180.0 - xphi) * DEG2RAD;
-    xcosf2 = cos (phios);
+    phios = xphi * DEG2RAD;
+    xcosf2 = -cos (phios);
     xcosf3 = cos (2.0 * phios);
 
     /* xmus and xmuv squared is used frequently */
@@ -399,13 +389,15 @@ void local_chand
     xmuv2 = xmuv * xmuv;
 
     xph1 = 1.0 + (3.0 * xmus2 - 1.0) * (3.0 * xmuv2 - 1.0) * xfd * 0.125;
-    xph2 = -xmus * xmuv * sqrt(1.0 - xmus2) * sqrt(1.0 - xmuv2);
-    xph2 = xph2 * xfd * 0.5 * 1.5;
     xph3 = (1.0 - xmus2) * (1.0 - xmuv2);
-    xph3 = xph3 * xfd * 0.5 * 0.375;
+    xph2 = -xmus * xmuv * sqrt(xph3);
+    xph2 = xph2 * xfd * 0.75;
+    xph3 = xph3 * xfd * 0.1875;
 
-    xitm = (1.0 - exp(-xtau * (1.0 / xmus + 1.0 / xmuv))) *
-        xmus / (4.0 * (xmus + xmuv));
+    /* The original xitm below has an xmus factor that has been removed from
+       the following in order to reduce multiplications and the final
+       division by xmus in xrray. */
+    xitm = (1.0 - exp(-xtau * (1.0 / xmus + 1.0 / xmuv)))/(4*(xmus + xmuv));
     xp1 = xph1 * xitm;
     xp2 = xph2 * xitm;
     xp3 = xph3 * xitm;
@@ -432,14 +424,11 @@ void local_chand
         fs0 += pl[i] * as0[i];
     fs1 = pl[0] * as1[0] + pl[1] * as1[1];
     fs2 = pl[0] * as2[0] + pl[1] * as2[1];
-    xitot1 = xp1 + cfonc1 * fs0 * xmus;
-    xitot2 = xp2 + cfonc2 * fs1 * xmus;
-    xitot3 = xp3 + cfonc3 * fs2 * xmus;
+    xitot1 = xp1 + cfonc1 * fs0;
+    xitot2 = xp2 + cfonc2 * fs1;
+    xitot3 = xp3 + cfonc3 * fs2;
 
-    *xrray = xitot1;
-    *xrray += xitot2 * xcosf2 * 2.0;
-    *xrray += xitot3 * xcosf3 * 2.0;
-    *xrray /= xmus;
+    *xrray = xitot1 + 2*(xitot2*xcosf2 + xitot3*xcosf3);
 }
 
 
@@ -457,8 +446,6 @@ NOTES:
 void comptg
 (
     int iband,                   /* I: band index (0-based) */
-    float xts,                   /* I: solar zenith angle */
-    float xtv,                   /* I: view zenith angle */
     float xmus,                  /* I: cosine of solar zenith angle */
     float xmuv,                  /* I: cosine of view zenith angle */
     float uoz,                   /* I: total column ozone */
@@ -491,14 +478,14 @@ void comptg
 
     x = m * uwv;
     if (x > 1.0E-06)
-        *tgwv = exp(-a * exp(log(x) * b));
+        *tgwv = exp(-a * pow(x, b));
     else
         *tgwv = 1.0;
 
     /* Compute water vapor transmission half the content */
     x *= 0.5;
     if (x > 1.0E-06)
-        *tgwvhalf = exp(-a * exp(log(x) * b));
+        *tgwvhalf = exp(-a * pow(x, b));
     else
         *tgwvhalf = 1.0;
 
@@ -662,9 +649,9 @@ void comptrans
     }
 
     /* Compute the ipX and iaotX indices for transt */
-    iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
-    ip1_indx = ip1 * NAOT_VALS * NSUNANGLE_VALS;
-    ip2_indx = ip2 * NAOT_VALS * NSUNANGLE_VALS;
+    iband_indx = iband * NPRES_VALS * NAOTxNSUNANGLE_VALS;
+    ip1_indx = ip1 * NAOTxNSUNANGLE_VALS;
+    ip2_indx = ip2 * NAOTxNSUNANGLE_VALS;
     iaot1_indx = iaot1 * NSUNANGLE_VALS;
     iaot2_indx = iaot2 * NSUNANGLE_VALS;
     iband_ip1_iaot1_indx = iband_indx + ip1_indx + iaot1_indx;
@@ -704,6 +691,88 @@ void comptrans
 
 
 /******************************************************************************
+MODULE:  interp_refl_using_scat_angle
+
+PURPOSE:  Interpolate the reflectance as a function of the scattering angle
+given four points in the scattering grid.
+
+RETURN VALUE:
+Type = float
+Value          Description
+-----          -----------
+any            interpolated reflectance
+******************************************************************************/
+static float interp_refl_using_scat_angle
+(
+    int its,          /* I: index for the sun angle table */
+    int itv,          /* I: index for the view angle table */
+    float *xtsmax,    /* I: tsmax[itv][its], tsmax[itv][its+1],
+                            tsmax[itv+1][its], tsmax[itv+1][its+1] */
+    float *xtsmin,    /* I: tsmin[itv][its], tsmin[itv][its+1],
+                            tsmin[itv+1][its], tsmin[itv+1][its+1] */
+    float scaa,       /* I: scattering angle */
+    float *nbfic,     /* I: nbfic values */
+    float *nbfi,      /* I: nbfi values */
+    int32 *indts,     /* I: index for the sun angle table */
+    float *rolutt,    /* I: intrinsic reflectance table
+                            [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS]*/
+    int rolutt_indx,  /* I: index into rolutt array */
+    float t,          /* I: sun angle interpolation parameter */
+    float u           /* I: view angle interpolation parameter */
+)
+{
+    int i;           /* loop counter */
+    int isca;        /* rolutt array index adjustment */
+    float sca1;
+    float sca2;
+    float roinf;
+    float rosup;
+    float ro[FOUR_PTS]; /* reflectance at four points */
+    float ro_interp;    /* interpolated value */
+
+    for (i = 0; i < FOUR_PTS; i++)
+    {
+        int is = its + i%2; /* its or its + 1 array index */
+        int iv = (i < 2) ? itv : itv + 1; /* itv or itv + 1 array index */
+        int j = indts[is] + nbfic[i] - nbfi[i]; /* convenience rolutt array
+                                                   index offset */
+
+        if (is != 0 && iv != 0)
+        {
+            isca = (int) ((xtsmax[i] - scaa) * 0.25 + 1); /* * 0.25 vs / 4.0 */
+            if (isca <= 0)
+                isca = 1;
+            if (isca + 1 < nbfi[i])
+            {
+                sca1 = xtsmax[i] - (isca - 1) * 4.0;
+                sca2 = sca1 - 4;
+            }
+            else
+            {
+                isca = nbfi[i] - 1;
+                sca1 = xtsmax[i] - (isca - 1) * 4.0;
+                sca2 = xtsmin[i];
+            }
+
+            roinf = rolutt[rolutt_indx + j + isca - 1];
+            rosup = rolutt[rolutt_indx + j + isca];
+            ro[i] = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
+        }
+        else
+        {
+            ro[i] = rolutt[rolutt_indx + j];
+        }
+    }
+
+    ro_interp = ro[3]
+              + u*(ro[1] - ro[3])
+              + t*(ro[2] - ro[3])
+              + u*t*(ro[0] - ro[1] - ro[2] + ro[3]);
+    return ro_interp;
+}
+
+
+/******************************************************************************
 MODULE:  comproatm
 
 PURPOSE:  Computes the atmospheric reflectance
@@ -738,7 +807,7 @@ void comproatm
     float aot550nm[NAOT_VALS], /* I: AOT look-up table */
     float *rolutt,    /* I: intrinsic reflectance table
                             [NSR_BANDS x NPRES_VALS x NAOT_VALS x NSOLAR_VALS]*/
-    float *tsmax,     /* I: maximum scattering angle table 
+    float *tsmax,     /* I: maximum scattering angle table
                             [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float *tsmin,     /* I: minimum scattering angle table
                             [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
@@ -751,7 +820,6 @@ void comproatm
     float *ttv,       /* I: view angle table
                             [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
     float xtsstep,    /* I: solar zenith step value */
-    float xtsmin,     /* I: minimum solar zenith value */
     float xtvstep,    /* I: observation step value */
     float xtvmin,     /* I: minimum observation value */
     int its,          /* I: index for the sun angle table */
@@ -759,29 +827,17 @@ void comproatm
     float *roatm      /* O: intrinsic atmospheric reflectance */
 )
 {
-    int isca;
-    int iindex;
-    float nbfic1, nbfic2, nbfic3, nbfic4;
-    float nbfi1, nbfi2, nbfi3, nbfi4;
-    float ro, rop1, rop2;           /* reflectance at p1 and p2 */
-    float xtsmax;
-    float xtsmax00;                 /* tsmax[itv][its] */
-    float xtsmax01;                 /* tsmax[itv][its+1] */
-    float xtsmax10;                 /* tsmax[itv+1][its] */
-    float xtsmax11;                 /* tsmax[itv+1][its+1] */
-    float xtsmin00;                 /* tsmin[itv][its] */
-    float xtsmin01;                 /* tsmin[itv][its+1] */
-    float xtsmin10;                 /* tsmin[itv+1][its] */
-    float xtsmin11;                 /* tsmin[itv+1][its+1] */
+    float nbficl[FOUR_PTS]; /* local array of nbfic values */
+    float nbfil[FOUR_PTS];  /* local array of nbfi values */
+    float rop1, rop2;       /* reflectance at p1 and p2 */
+    float xtsmax[FOUR_PTS]; /* tsmax[itv][its], tsmax[itv][its+1],
+                               tsmax[itv+1][its], tsmax[itv+1][its+1] */
+    float xtsmin[FOUR_PTS]; /* tsmin[itv][its], tsmin[itv][its+1],
+                               tsmin[itv+1][its], tsmin[itv+1][its+1] */
     float cscaa;
     float scaa;                     /* scattering angle */
-    float sca1;
-    float sca2;
     float dpres;                    /* pressure ratio */
     float deltaaot;                 /* AOT ratio */
-    float roinf;
-    float rosup;
-    float ro1, ro2, ro3, ro4;
     float roiaot1, roiaot2;
     float t, u;
     float logaot550nm[22] =
@@ -793,597 +849,85 @@ void comproatm
           0.832909123, 0.955511445, 1.098612289,
           1.252762969, 1.386294361, 1.504077397,
           1.609437912};
-    double one_minus_u;           /* 1.0 - u */
-    double one_minus_t;           /* 1.0 - t */
-    double u_x_one_minus_t;       /* u * (1.0 - t) */
-    double one_minus_u_x_one_minus_t;  /* (1.0 - u) * (1.0 - t) */
-    double one_minus_u_x_t;       /* (1.0 - u) * t */
     int iband_indx;  /* index of the current iband */
     int ip1_indx;    /* index of the current ip1 (without the band) */
     int ip2_indx;    /* index of the current ip2 (without the band) */
     int iaot1_indx;  /* index of the current iaot1 (without the band & ip) */
     int iaot2_indx;  /* index of the current iaot2 (without the band & ip) */
-    int iband_ip1_iaot1_indx;  /* index for current band, ip1, iaot1 */
-    int iband_ip1_iaot2_indx;  /* index for current band, ip1, iaot2 */
-    int iband_ip2_iaot1_indx;  /* index for current band, ip2, iaot1 */
-    int iband_ip2_iaot2_indx;  /* index for current band, ip2, iaot2 */
-    int itv_indx;              /* index for current itv */
-    int itv1_indx;             /* index for current itv+1 */
+    int iband_ip_iaot_indx;  /* index for current band, ip, iaot */
     int itv_its_indx;          /* index for [itv][its] */
+    int itv_its_indx_1;        /* itv_its_indx + 1 */
     int itv1_its_indx;         /* index for [itv+1][its] */
+    int itv1_its_indx_1;       /* itv1_its_indx + 1 */
 
     /* Initialize some variables */
     cscaa = -xmus * xmuv - cosxfi * sqrt(1.0 - xmus * xmus) *
         sqrt(1.0 - xmuv * xmuv);
     scaa = acos(cscaa) * RAD2DEG;    /* vs / DEG2RAD */
 
-    itv_indx = itv * NSOLAR_ZEN_VALS;
-    itv1_indx = (itv+1) * NSOLAR_ZEN_VALS;
-    itv_its_indx = itv_indx + its;
-    itv1_its_indx = itv1_indx + its;
+    itv_its_indx = itv*NSOLAR_ZEN_VALS + its;
+    itv_its_indx_1 = itv_its_indx + 1;
+    itv1_its_indx = itv_its_indx + NSOLAR_ZEN_VALS;
+    itv1_its_indx_1 = itv1_its_indx + 1;
 
-    nbfic1 = nbfic[itv_its_indx];
-    nbfi1 = nbfi[itv_its_indx];
-    nbfic2 = nbfic[itv_its_indx + 1];
-    nbfi2 = nbfi[itv_its_indx + 1];
-    nbfic3 = nbfic[itv1_its_indx];
-    nbfi3 = nbfi[itv1_its_indx];
-    nbfic4 = nbfic[itv1_its_indx + 1];
-    nbfi4 = nbfi[itv1_its_indx + 1];
+    nbficl[0] = nbfic[itv_its_indx];
+    nbfil[0] = nbfi[itv_its_indx];
+    nbficl[1] = nbfic[itv_its_indx_1];
+    nbfil[1] = nbfi[itv_its_indx_1];
+    nbficl[2] = nbfic[itv1_its_indx];
+    nbfil[2] = nbfi[itv1_its_indx];
+    nbficl[3] = nbfic[itv1_its_indx_1];
+    nbfil[3] = nbfi[itv1_its_indx_1];
 
-    /* Compute for ip1, iaot1 */
-    iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
-    ip1_indx = ip1 * NAOT_VALS * NSOLAR_VALS;
+    xtsmax[0] = tsmax[itv_its_indx];
+    xtsmin[0] = tsmin[itv_its_indx];
+    xtsmax[1] = tsmax[itv_its_indx_1];
+    xtsmin[1] = tsmin[itv_its_indx_1];
+    xtsmax[2] = tsmax[itv1_its_indx];
+    xtsmin[2] = tsmin[itv1_its_indx];
+    xtsmax[3] = tsmax[itv1_its_indx_1];
+    xtsmin[3] = tsmin[itv1_its_indx_1];
+
+    iband_indx = iband * NPRES_VALS * NAOTxNSOLAR_VALS;
+    ip1_indx = ip1 * NAOTxNSOLAR_VALS;
+    ip2_indx = ip2 * NAOTxNSOLAR_VALS;
     iaot1_indx = iaot1 * NSOLAR_VALS;
-    iband_ip1_iaot1_indx = iband_indx + ip1_indx + iaot1_indx;
+    iaot2_indx = iaot2 * NSOLAR_VALS;
 
-    /* Interpolate point 1 (itv,its) vs scattering angle */
-    xtsmax = tsmax[itv_its_indx];
-    xtsmax00 = xtsmax;
-    xtsmin00 = tsmin[itv_its_indx];
-    if ((its != 0) && (itv != 0))
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi1)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi1 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin00;
-        }
-
-        iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
-        ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = roinf;
-        ro1 = roinf;
-    }
-
-    /* Interpolate point 2 (itv, its+1) vs scattering angle */
-    xtsmax = tsmax[itv_its_indx + 1];
-    xtsmax01 = xtsmax;
-    xtsmin01 = tsmin[itv_its_indx + 1];
-    if (itv != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi2)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi2 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin01;
-        }
-
-        iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
-        ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = roinf;
-        ro2 = roinf;
-    }
-
-    /* Interpolate point 3 (itv+1, its) vs scattering angle */
-    xtsmax = tsmax[itv1_its_indx];
-    xtsmax10 = xtsmax;
-    xtsmin10 = tsmin[itv1_its_indx];
-    if (its != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi3)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi3 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin10;
-        }
-
-        iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
-        ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-        rosup = roinf;
-        ro3 = roinf;
-    }
-
-    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
-    xtsmax = tsmax[itv1_its_indx + 1];
-    xtsmax11 = xtsmax;
-    xtsmin11 = tsmin[itv1_its_indx + 1];
-    isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-    if (isca <= 0)
-        isca = 1;
-    if (isca + 1 < nbfi4)
-    {
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmax - isca * 4.0;
-    }
-    else
-    {
-        isca = nbfi4 - 1;
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmin11;
-    }
-
-    iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband_ip1_iaot1_indx + iindex];
-    rosup = rolutt[iband_ip1_iaot1_indx + iindex + 1];
-    ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-
-    /* Note: t and u are used elsewhere through this function */
     t = (tts[its+1] - xts) / (tts[its+1] - tts[its]);
     u = (ttv[itv1_its_indx] - xtv) / (ttv[itv1_its_indx] - ttv[itv_its_indx]);
-    one_minus_u = 1.0 - u;
-    one_minus_t = 1.0 - t;
-    u_x_one_minus_t = u * one_minus_t;
-    one_minus_u_x_one_minus_t = one_minus_u * one_minus_t;
-    one_minus_u_x_t = one_minus_u * t;
 
-    roiaot1 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
-        ro4 * one_minus_u_x_one_minus_t;
+    /* Interpolate points vs scattering angle for ip1, iaot1. */
+    iband_ip_iaot_indx = iband_indx + ip1_indx + iaot1_indx;
+    roiaot1 = interp_refl_using_scat_angle(its, itv, xtsmax, xtsmin, scaa,
+                                           nbficl, nbfil, indts, rolutt,
+                                           iband_ip_iaot_indx, t, u);
 
-    /* Compute for ip1, iaot2 */
-    iaot2_indx = iaot2 * NSOLAR_VALS;
-    iband_ip1_iaot2_indx = iband_indx + ip1_indx + iaot2_indx;
-
-    /* Interpolate point 1 (itv,its) vs scattering angle */
-    xtsmax = xtsmax00;
-    if ((its != 0) && (itv != 0))
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi1)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi1 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin00;
-        }
-
-        iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
-        ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = roinf;
-        ro1 = roinf;
-    }
-
-    /* Interpolate point 2 (itv, its+1) vs scattering angle */
-    xtsmax = xtsmax01;
-    if (itv != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi2)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi2 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin01;
-        }
-
-        iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
-        ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = roinf;
-        ro2 = roinf;
-    }
-
-    /* Interpolate point 3 (itv+1, its) vs scattering angle */
-    xtsmax = xtsmax10;
-    if (its != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi3)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi3 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin10;
-        }
-
-        iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
-        ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-        rosup = roinf;
-        ro3 = roinf;
-    }
-
-    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
-    xtsmax = xtsmax11;
-    isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-    if (isca <= 0)
-        isca = 1;
-    if (isca + 1 < nbfi4)
-    {
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmax - isca * 4.0;
-    }
-    else
-    {
-        isca = nbfi4 - 1;
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmin11;
-    }
-
-    iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband_ip1_iaot2_indx + iindex];
-    rosup = rolutt[iband_ip1_iaot2_indx + iindex + 1];
-    ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-
-    roiaot2 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
-        ro4 * one_minus_u_x_one_minus_t;
+    /* Interpolate points vs scattering angle for ip1, iaot2. */
+    iband_ip_iaot_indx = iband_indx + ip1_indx + iaot2_indx;
+    roiaot2 = interp_refl_using_scat_angle(its, itv, xtsmax, xtsmin, scaa,
+                                           nbficl, nbfil, indts, rolutt,
+                                           iband_ip_iaot_indx, t, u);
 
     /* Interpolation as log of tau */
-    /* Note: delaaot is calculated here and used later in this function */
     deltaaot = logaot550nm[iaot2] - logaot550nm[iaot1];
     deltaaot = (log (raot550nm) - logaot550nm[iaot1]) / deltaaot;
-    ro = roiaot1 + (roiaot2 - roiaot1) * deltaaot;
-    rop1 = ro;
+    rop1 = roiaot1 + (roiaot2 - roiaot1) * deltaaot;
 
-    /* Compute for ip2, iaot1 */
-    ip2_indx = ip2 * NAOT_VALS * NSOLAR_VALS;
-    iband_ip2_iaot1_indx = iband_indx + ip2_indx + iaot1_indx;
+    /* Interpolate points vs scattering angle for ip2, iaot1. */
+    iband_ip_iaot_indx = iband_indx + ip2_indx + iaot1_indx;
+    roiaot1 = interp_refl_using_scat_angle(its, itv, xtsmax, xtsmin, scaa,
+                                           nbficl, nbfil, indts, rolutt,
+                                           iband_ip_iaot_indx, t, u);
 
-    /* Interpolate point 1 (itv,its) vs scattering angle */
-    xtsmax = xtsmax00;
-    if ((its != 0) && (itv != 0))
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi1)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi1 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin00;
-        }
-
-        iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
-        ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = roinf;
-        ro1 = roinf;
-    }
-
-    /* Interpolate point 2 (itv, its+1) vs scattering angle */
-    xtsmax = xtsmax01;
-    if (itv != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi2)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi2 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin01;
-        }
-
-        iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
-        ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = roinf;
-        ro2 = roinf;
-    }
-
-    /* Interpolate point 3 (itv+1, its) vs scattering angle */
-    xtsmax = xtsmax10;
-    if (its != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi3)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi3 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin10;
-        }
-
-        iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
-        ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-        rosup = roinf;
-        ro3 = roinf;
-    }
-
-    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
-    xtsmax = xtsmax11;
-    isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-    if (isca <= 0)
-        isca = 1;
-    if (isca + 1 < nbfi4)
-    {
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmax - isca * 4.0;
-    }
-    else
-    {
-        isca = nbfi4 - 1;
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmin11;
-    }
-
-    iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband_ip2_iaot1_indx + iindex];
-    rosup = rolutt[iband_ip2_iaot1_indx + iindex + 1];
-    ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-
-    roiaot1 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
-        ro4 * one_minus_u_x_one_minus_t;
-
-    /* Compute for ip2, iaot2 */
-    iaot2_indx = iaot2 * NSOLAR_VALS;
-    iband_ip2_iaot2_indx = iband_indx + ip2_indx + iaot2_indx;
-
-    /* Interpolate point 1 (itv,its) vs scattering angle */
-    xtsmax = xtsmax00;
-    if ((its != 0) && (itv != 0))
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi1)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi1 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin00;
-        }
-
-        iindex = indts[its] + nbfic1 - nbfi1 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
-        ro1 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic1 - nbfi1;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = roinf;
-        ro1 = roinf;
-    }
-
-    /* Interpolate point 2 (itv, its+1) vs scattering angle */
-    xtsmax = xtsmax01;
-    if (itv != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi2)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi2 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin01;
-        }
-
-        iindex = indts[its+1] + nbfic2 - nbfi2 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
-        ro2 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its+1] + nbfic2 - nbfi2;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = roinf;
-        ro2 = roinf;
-    }
-
-    /* Interpolate point 3 (itv+1, its) vs scattering angle */
-    xtsmax = xtsmax10;
-    if (its != 0)
-    {
-        isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-        if (isca <= 0)
-            isca = 1;
-        if (isca + 1 < nbfi3)
-        {
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmax - isca * 4.0;
-        }
-        else
-        {
-            isca = nbfi3 - 1;
-            sca1 = xtsmax - (isca - 1) * 4.0;
-            sca2 = xtsmin10;
-        }
-
-        iindex = indts[its] + nbfic3 - nbfi3 + isca - 1;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
-        ro3 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-    }
-    else
-    {
-        sca1 = xtsmax;
-        sca2 = xtsmax;
-        iindex = indts[its] + nbfic3 - nbfi3;
-        roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-        rosup = roinf;
-        ro3 = roinf;
-    }
-
-    /* Interpolate point 4 (itv+1, its+1) vs scattering angle */
-    xtsmax = tsmax[itv1_its_indx + 1];
-    isca = (int) ((xtsmax - scaa) * 0.25 + 1);   /* * 0.25 vs / 4.0 */
-    if (isca <= 0)
-        isca = 1;
-    if (isca + 1 < nbfi4)
-    {
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmax - isca * 4.0;
-    }
-    else
-    {
-        isca = nbfi4 - 1;
-        sca1 = xtsmax - (isca - 1) * 4.0;
-        sca2 = xtsmin11;
-    }
-
-    iindex = indts[its+1] + nbfic4 - nbfi4 + isca - 1;
-    roinf = rolutt[iband_ip2_iaot2_indx + iindex];
-    rosup = rolutt[iband_ip2_iaot2_indx + iindex + 1];
-    ro4 = roinf + (rosup - roinf) * (scaa - sca1) / (sca2 - sca1);
-
-    roiaot2 = ro1 * t * u + ro2 * u_x_one_minus_t + ro3 * one_minus_u_x_t +
-        ro4 * one_minus_u_x_one_minus_t;
+    /* Interpolate points vs scattering angle for ip2, iaot2. */
+    iband_ip_iaot_indx = iband_indx + ip2_indx + iaot2_indx;
+    roiaot2 = interp_refl_using_scat_angle(its, itv, xtsmax, xtsmin, scaa,
+                                           nbficl, nbfil, indts, rolutt,
+                                           iband_ip_iaot_indx, t, u);
 
     /* Interpolation as log of tau */
-    ro = roiaot1 + (roiaot2 - roiaot1) * deltaaot;
-    rop2 = ro;
+    rop2 = roiaot1 + (roiaot2 - roiaot1) * deltaaot;
 
     dpres = (pres - tpres[ip1]) / (tpres[ip2] - tpres[ip1]);
     *roatm = rop1 + (rop2 - rop1) * dpres;
@@ -1442,12 +986,19 @@ int readluts
     char errmsg[STR_SIZE];  /* error message */
     char tmpstr[STR_SIZE];  /* temporary string variable, not use */
     int i, j;               /* looping variables */
-    int nsr_bands = 0;      /* number of SR bands - L8 or S2 */
+    int nsr_bands = 0;      /* number of SR bands in the input file;
+                               for Sentinel the number of bands in the input
+                               file might be different than the number of bands
+                               we want to store in the array, since we are
+                               skipping bands 9 and 10 */
     int iband;              /* band looping variable */
+    int ibndx;              /* index of the current band for writing to array */
     int iaot;               /* aerosol optical thickness (AOT) index */
     int ipres;              /* looping variable for pressure */
     int itau;               /* looping variable for molecular optical thick */
     int ival;               /* looping variable for LUT */
+    int iline;              /* current line for consuming, but ignoring, lines
+                               in the input ASCII file for Sentinel-2 */
     int status;             /* return status of the HDF function */
     int start[3];           /* starting point to read SDS data */
     int edges[3];           /* number of values to read in SDS data */
@@ -1459,19 +1010,20 @@ int readluts
     int sd_id;              /* file ID for the HDF file */
     int sds_id;             /* ID for the current SDS */
     int sds_index;          /* index for the current SDS */
-    int iband_indx;         /* index of the current iband */
+    int iband_indx;         /* index of current location in the overall array */
     int ipres_indx;         /* index of current pressure (without the band) */
     int itau_indx;          /* index of current itau (without the band & ip */
     int curr_indx;          /* index of current pixel */
+    int tmp_lut_indx;       /* index for the LUT */
     FILE *fp = NULL;        /* file pointer for reading ascii files */
-    char s2_bandname[][3] = {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9",
-                             "10", "11", "12"};
 
-    /* Setup L8 or S2 number of SR bands */
-    if (sat == SAT_LANDSAT_8)
-        nsr_bands = NSR_L8_BANDS;
+    /* Setup Landsat or Sentinel number of SR bands to be read from the input
+       LUT files; number of input bands for Sentinel is more than we will
+       actually store since we are skipping bands 9 and 10 */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
+        nsr_bands = NSRL_BANDS;
     else if (sat == SAT_SENTINEL_2)
-        nsr_bands = NSR_S2_BANDS;
+        nsr_bands = SENTINEL_TTL;
 
     /* Initialize some variables */
     for (i = 0; i < NVIEW_ZEN_VALS * NSOLAR_ZEN_VALS; i++)
@@ -1787,7 +1339,7 @@ int readluts
     }
 
     /* Allocate space for rolut [NSOLAR_VALS * NAOT_VALS * NPRES_VALS] */
-    rolut = calloc (NSOLAR_VALS * NAOT_VALS * NPRES_VALS, sizeof (float));
+    rolut = calloc (NAOTxNSOLAR_VALS * NPRES_VALS, sizeof (float));
     if (rolut == NULL)
     {
         sprintf (errmsg, "Error allocating memory for rolut");
@@ -1805,19 +1357,33 @@ int readluts
         return (ERROR);
     }
 
+    /* Loop through all the bands in the input HDF file */
     start[0] = 0;  /* left-most dimension */
     start[1] = 0;
     start[2] = 0;  /* right-most dimension */
     edges[0] = NSOLAR_VALS;
     edges[1] = NAOT_VALS;
     edges[2] = NPRES_VALS;
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
-        /* Get the sds name */
-        if (sat == SAT_LANDSAT_8)
+        /* Get the sds name and band index of this band in the rolut array */
+        if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
+        {
             sprintf (fname, "NRLUT_BAND_%d", iband+1);
+            ibndx = iband;
+        }
         else if (sat == SAT_SENTINEL_2)
-            sprintf (fname, "NRLUT_BAND_%s", s2_bandname[iband]);
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the rolutt array in
+              the same order. */
+            if (iband == SBAND9 || iband == SBAND10)
+                continue;
+
+            /* Read this band */
+            ibndx++;
+            sprintf (fname, "NRLUT_BAND_%s", SENTINEL_FULL_BANDNAME[iband]);
+        }
 
         /* Find the SDS */
         sds_index = SDnametoindex (sd_id, fname);
@@ -1861,18 +1427,19 @@ int readluts
            slowest-changing dimension.  This allows the access for the data
            in the application to be most efficient.  rolut is read from the
            HDF file (per band) as 8000 x 22 x 7. */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSOLAR_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOTxNSOLAR_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
-            ipres_indx = ipres * NAOT_VALS * NSOLAR_VALS;
+            ipres_indx = ipres * NAOTxNSOLAR_VALS;
             for (itau = 0; itau < NAOT_VALS; itau++)
             {
                 itau_indx = itau * NSOLAR_VALS;
                 curr_indx = iband_indx + ipres_indx + itau_indx;
-                for (ival = 0; ival < NSOLAR_VALS; ival++, curr_indx++)
+                tmp_lut_indx = itau*NPRES_VALS + ipres;
+                for (ival = 0; ival < NSOLAR_VALS;
+                     ival++, curr_indx++, tmp_lut_indx += NAOT_VALS*NPRES_VALS)
                 {
-                    rolutt[curr_indx] = rolut[ival*NAOT_VALS*NPRES_VALS +
-                                              itau*NPRES_VALS + ipres];
+                    rolutt[curr_indx] = rolut[tmp_lut_indx];
                 }
             }
         }
@@ -1900,8 +1467,44 @@ int readluts
     }
 
     /* Loop through bands of data */
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the transt array */
+        if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == SBAND9 || iband == SBAND10)
+            {
+                /* Given that this is an ASCII file, we need to consume the
+                   data for this band even though we aren't using it. Each
+                   pressure level has a line for each sunangle. There is a
+                   single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * NSUNANGLE_VALS + 1;
+                     iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in transmission "
+                            "coefficient file: %s",
+                            SENTINEL_FULL_BANDNAME[iband], transmnm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the band and source of
            the data; ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -1913,7 +1516,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS * NSUNANGLE_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOTxNSUNANGLE_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -1927,7 +1530,7 @@ int readluts
             }
 
             /* 21 lines of sun angles per pressure level */
-            ipres_indx = ipres * NAOT_VALS * NSUNANGLE_VALS;
+            ipres_indx = ipres * NAOTxNSUNANGLE_VALS;
             for (i = 0; i < NSUNANGLE_VALS-1; i++)
             {
                 /* Grab the first value in the line.  Basically this is a
@@ -1941,7 +1544,7 @@ int readluts
                     return (ERROR);
                 }
 
-                if (fabs (tts[i] - ttsr[i]) > 1.0E-5)
+                if (fabsf (tts[i] - ttsr[i]) > 1.0E-5)
                 {
                     sprintf (errmsg, "Problem with transmission LUT: %s",
                         transmnm);
@@ -1952,10 +1555,10 @@ int readluts
                 /* Grab the remaining 22 values in the line.  Store the iaot
                    in the more efficient order for processing, not necessarily
                    for reading. */
-                for (iaot = 0; iaot < NAOT_VALS; iaot++)
+                curr_indx = iband_indx + ipres_indx + i;
+                for (iaot = 0; iaot < NAOT_VALS;
+                     iaot++, curr_indx += NSUNANGLE_VALS)
                 {
-                    curr_indx = iband_indx + ipres_indx + iaot*NSUNANGLE_VALS
-                        + i;
                     if (fscanf (fp, "%f", &transt[curr_indx]) != 1)
                     {
                         sprintf (errmsg, "Reading transmission values from "
@@ -1990,8 +1593,43 @@ int readluts
     }
 
     /* Loop through bands of data */
+    ibndx = -1;
     for (iband = 0; iband < nsr_bands; iband++)
     {
+        /* Get the band index of this band in the sphalbt/normext array */
+        if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
+            ibndx = iband;
+        else if (sat == SAT_SENTINEL_2)
+        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+              but otherwise writing the other bands to the transt array in
+              the same order. */
+            if (iband == SBAND9 || iband == SBAND10)
+            {
+               /* Given that this is an ASCII file, we need to consume the
+                  data for this band even though we aren't using it. Each
+                  pressure level has a line for each AOT. There is a
+                  single description line for each band. */
+                for (iline = 0; iline < NPRES_VALS * (NAOT_VALS+1) + 1; iline++)
+                {
+                    /* Consume this line and ignore the data */
+                    if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
+                    {
+                        sprintf (errmsg, "Skipping band %s in spherical albedo "
+                            "file: %s", SENTINEL_FULL_BANDNAME[iband],
+                            spheranm);
+                        error_handler (true, FUNC_NAME, errmsg);
+                        return (ERROR);
+                    }
+                }
+
+                /* Skip to the next band */
+                continue;
+            }
+
+            /* Read this band */
+            ibndx++;
+        }
+
         /* This first read contains information about the source of the data;
            ignore for now */
         if (fgets (tmpstr, sizeof (tmpstr), fp) == NULL)
@@ -2004,7 +1642,7 @@ int readluts
 
         /* 7 pressure levels (1050.0 mb, 1013.0 mb, 900.0 mb, 800.0 mb,
            700.0, 600.0 mb, 500.0 mb) */
-        iband_indx = iband * NPRES_VALS * NAOT_VALS;
+        iband_indx = ibndx * NPRES_VALS * NAOT_VALS;
         for (ipres = 0; ipres < NPRES_VALS; ipres++)
         {
             /* This next read contains information about the pressure level of
@@ -2045,7 +1683,7 @@ int readluts
 /******************************************************************************
 MODULE:  memory_allocation_main
 
-PURPOSE:  Allocates memory for all the various arrays within the L8 surface
+PURPOSE:  Allocates memory for all the various arrays within the Landsat surface
 reflectance application for the main application.
 
 RETURN VALUE:
@@ -2068,11 +1706,11 @@ int memory_allocation_main
     int nsamps,          /* I: number of samples in the scene */
     int16 **sza,         /* O: solar zenith angle, nlines x nsamps  */
     uint16 **qaband,     /* O: QA band for the input image, nlines x nsamps */
-    uint16 **radsat,     /* O: radiometric saturation band for the input image,
+    uint16 **out_band,   /* O: scaled output, nlines x nsamps */
+    float ***sband,      /* O: unscaled surface reflectance and brightness temp
+                               bands, nlines x nsamps */
+    float ***toaband     /* O: Sentinel unscaled TOA reflectance bands,
                                nlines x nsamps */
-    int16 ***sband,      /* O: output surface reflectance and brightness temp
-                               bands */
-    uint16 ***toaband    /* O: S2 TOA reflectance bands */
 )
 {
     char FUNC_NAME[] = "memory_allocation_main"; /* function name */
@@ -2080,8 +1718,8 @@ int memory_allocation_main
     int i;                   /* looping variables */
     int nband_ttl =  0;      /* total number of output bands */
 
-    /* Solar zenith array and radiometric sat are only used for L8 */
-    if (sat == SAT_LANDSAT_8)
+    /* Solar zenith array is only used for Landsat */
+    if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
         *sza = calloc (nlines*nsamps, sizeof (int16));
         if (*sza == NULL)
@@ -2091,20 +1729,12 @@ int memory_allocation_main
             return (ERROR);
         }
 
-        *radsat = calloc (nlines*nsamps, sizeof (uint16));
-        if (*radsat == NULL)
-        {
-            sprintf (errmsg, "Error allocating memory for radsat");
-            error_handler (true, FUNC_NAME, errmsg);
-            return (ERROR);
-        }
-
-        nband_ttl = NBAND_L8_TTL_OUT;
+        nband_ttl = NBANDL_TTL_OUT;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        nband_ttl = NBAND_S2_TTL_OUT;
-        *toaband = calloc (nband_ttl-1, sizeof (uint16*));
+        nband_ttl = NBANDS_TTL_OUT;
+        *toaband = calloc (nband_ttl-1, sizeof (float*));
         if (*toaband == NULL)
         {
             sprintf (errmsg, "Error allocating memory for toaband");
@@ -2113,7 +1743,7 @@ int memory_allocation_main
         }
         for (i = 0; i < nband_ttl-1; i++)
         {
-            (*toaband)[i] = calloc (nlines*nsamps, sizeof (uint16));
+            (*toaband)[i] = calloc (nlines*nsamps, sizeof (float));
             if ((*toaband)[i] == NULL)
             {
                 sprintf (errmsg, "Error allocating memory for toaband");
@@ -2131,9 +1761,17 @@ int memory_allocation_main
         return (ERROR);
     }
 
+    *out_band = calloc (nlines*nsamps, sizeof (uint16));
+    if (*out_band == NULL)
+    {
+        sprintf (errmsg, "Error allocating memory for out_band");
+        error_handler (true, FUNC_NAME, errmsg);
+        return (ERROR);
+    }
+
     /* Given that the QA band is its own separate array of uint16s, we need
-       one less band for the signed image data */
-    *sband = calloc (nband_ttl-1, sizeof (int16*));
+       one less band for the output image data */
+    *sband = calloc (nband_ttl-1, sizeof (float*));
     if (*sband == NULL)
     {
         sprintf (errmsg, "Error allocating memory for sband");
@@ -2142,7 +1780,7 @@ int memory_allocation_main
     }
     for (i = 0; i < nband_ttl-1; i++)
     {
-        (*sband)[i] = calloc (nlines*nsamps, sizeof (int16));
+        (*sband)[i] = calloc (nlines*nsamps, sizeof (float));
         if ((*sband)[i] == NULL)
         {
             sprintf (errmsg, "Error allocating memory for sband");
@@ -2157,10 +1795,10 @@ int memory_allocation_main
 
 
 /******************************************************************************
-MODULE:  l8_memory_allocation_sr
+MODULE:  landsat_memory_allocation_sr
 
 PURPOSE:  Allocates memory for all the various arrays needed specifically for
-the L8 surface reflectance corrections.
+the Landsat surface reflectance corrections.
 
 RETURN VALUE:
 Type = int
@@ -2175,20 +1813,20 @@ NOTES:
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
 ******************************************************************************/
-int l8_memory_allocation_sr
+int landsat_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
-    int16 **aerob1,      /* O: atmospherically corrected band 1 data
-                               (TOA refl), nlines x nsamps */
-    int16 **aerob2,      /* O: atmospherically corrected band 2 data
-                               (TOA refl), nlines x nsamps */
-    int16 **aerob4,      /* O: atmospherically corrected band 4 data
-                               (TOA refl), nlines x nsamps */
-    int16 **aerob5,      /* O: atmospherically corrected band 5 data
-                               (TOA refl), nlines x nsamps */
-    int16 **aerob7,      /* O: atmospherically corrected band 7 data
-                               (TOA refl), nlines x nsamps */
+    float **aerob1,      /* O: atmospherically corrected band 1 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob2,      /* O: atmospherically corrected band 2 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob4,      /* O: atmospherically corrected band 4 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob5,      /* O: atmospherically corrected band 5 data
+                              (unscaled TOA refl), nlines x nsamps */
+    float **aerob7,      /* O: atmospherically corrected band 7 data
+                              (unscaled TOA refl), nlines x nsamps */
     uint8 **ipflag,      /* O: QA flag to assist with aerosol interpolation,
                                nlines x nsamps */
     float **taero,       /* O: aerosol values for each pixel, nlines x nsamps */
@@ -2229,14 +1867,14 @@ int l8_memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
-    char FUNC_NAME[] = "l8_memory_allocation_sr"; /* function name */
+    char FUNC_NAME[] = "landsat_memory_allocation_sr"; /* function name */
     char errmsg[STR_SIZE];   /* error message */
-    int nsr_bands = 0;       /* number of SR bands - L8 or S2 */
+    int nsr_bands = 0;       /* number of SR bands - Landsat or Sentinel */
 
-    /* Setup L8 number of SR bands */
-    nsr_bands = NSR_L8_BANDS;
+    /* Setup Landsat number of SR bands */
+    nsr_bands = NSRL_BANDS;
 
-    *aerob1 = calloc (nlines*nsamps, sizeof (int16));
+    *aerob1 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob1 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob1");
@@ -2244,7 +1882,7 @@ int l8_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob2 = calloc (nlines*nsamps, sizeof (int16));
+    *aerob2 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob2 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob2");
@@ -2252,7 +1890,7 @@ int l8_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob4 = calloc (nlines*nsamps, sizeof (int16));
+    *aerob4 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob4 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob4");
@@ -2260,7 +1898,7 @@ int l8_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob5 = calloc (nlines*nsamps, sizeof (int16));
+    *aerob5 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob5 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob5");
@@ -2268,7 +1906,7 @@ int l8_memory_allocation_sr
         return (ERROR);
     }
 
-    *aerob7 = calloc (nlines*nsamps, sizeof (int16));
+    *aerob7 = calloc (nlines*nsamps, sizeof (float));
     if (*aerob7 == NULL)
     {
         sprintf (errmsg, "Error allocating memory for aerob7");
@@ -2495,10 +2133,10 @@ int l8_memory_allocation_sr
 
 
 /******************************************************************************
-MODULE:  s2_memory_allocation_sr
+MODULE:  sentinel_memory_allocation_sr
 
 PURPOSE:  Allocates memory for all the various arrays needed specifically for
-the S2 surface reflectance corrections.
+the Sentinel surface reflectance corrections.
 
 RETURN VALUE:
 Type = int
@@ -2513,7 +2151,7 @@ NOTES:
   2. Each array passed into this function is passed in as the address to that
      1D, 2D, nD array.
 ******************************************************************************/
-int s2_memory_allocation_sr
+int sentinel_memory_allocation_sr
 (
     int nlines,          /* I: number of lines in the scene */
     int nsamps,          /* I: number of samples in the scene */
@@ -2557,12 +2195,12 @@ int s2_memory_allocation_sr
                                [NVIEW_ZEN_VALS x NSOLAR_ZEN_VALS] */
 )
 {
-    char FUNC_NAME[] = "s2_memory_allocation_sr"; /* function name */
-    char errmsg[STR_SIZE];   /* error message */
-    int nsr_bands = 0;       /* number of SR bands - L8 or S2 */
+    char FUNC_NAME[] = "sentinel_memory_allocation_sr"; /* function name */
+    char errmsg[STR_SIZE];         /* error message */
+    int nsr_bands = NSRS_BANDS;  /* number of SR bands */
 
-    /* Setup S2 number of SR bands */
-    nsr_bands = NSR_S2_BANDS;
+    /* Setup Sentinel number of SR bands */
+    nsr_bands = NSRS_BANDS;
 
     /* Allocate memory for aero, eps, and ipflag */
     *taero = calloc (nlines*nsamps, sizeof (float));
