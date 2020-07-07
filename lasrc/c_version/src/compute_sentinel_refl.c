@@ -188,6 +188,8 @@ int read_sentinel_toa_refl
 
             /* 60m bands convert to 10m (3, but skipping bands 9&10) */
             case DNS_BAND1:
+            case DNS_BAND9:
+            case DNS_BAND10:
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines60, nsamps60,
                     tmp60_band) != SUCCESS)
