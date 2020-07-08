@@ -1,4 +1,4 @@
-## LaSRC Version 3.0.0 Release Notes
+## LaSRC Version 3.0.1 Release Notes
 Release Date: TBD 2020
 
 ### Downloads
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [version_3.0.0]
+See git tag [version_3.0.1]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
@@ -87,28 +87,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Converted the scripts to utilize Python 3, since Python 2.x is obsolete.
-2. Allow OLI-only products to be processed for surface reflectance corrections.
-3. Support Collection 2 products.
-4. Removed the saturation band output in lieu of the Level-1 RADSAT band.
-5. Supported L8 and L9.
-6. Added some computational efficiences from the LPGS code.
-7. Write out data type, scale factor, add offset, etc. similar to the
-   Collection 2 products.
-8. Support the new pixel QA band from Collection 2.
-9. Added Landsat 9 satellite support from the input metadata.
-10. Removed the input Level-1 QA which was used to designate clouds, shadows,
-    and cirrus. Instead all pixels are considered for aerosol inversion. Cloud,
-    shadows, and cirrus are pixels are no longer masked in the aerosol QA band.
-11. Pixels which fail the clear land inversion fall into the "water category"
-    and are now subject to aerosol inversion for water pixels, similar to the
-    original FORTRAN code. If aerosol inversion is successful, these pixels are
-    masked with valid aerosol retrieval and as water in the aerosol QA band.
-12. Removed pixel size x/y from aerosol interpolation, since it wasn't used.
-13. Pixels which fail the aerosol inversion checks are no longer given a default
-    value then filled with the median of the clear land pixels. Instead the
-    computed aerosol value is used as-is.
-14. All pixels are corrected for surface reflectance, except fill. Previously
-    cloud pixels were not corrected.
-15. Intermediate TOA values are now stored as unscaled, floating point vs. the
-    previous scaled uint16 values. Note, this almost doubles the memory usage.
+1. Removed variables no longer used from the pragma omp parallel statement
+   to allow for multi-threading to be compiled.
