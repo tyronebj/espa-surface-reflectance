@@ -1321,11 +1321,6 @@ int compute_sentinel_sr_refl
     }  /* end for i */
     /* end aerosol inversion for the NxN window */
 
-printf ("\n\nInfo 1:\n");
-printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
-printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
-printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
-
 #ifndef _OPENMP
     /* update status */
     printf ("100%%\n");
@@ -1374,10 +1369,6 @@ printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
-printf ("\n\nInfo 2:\n");
-printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
-printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
-printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1398,10 +1389,6 @@ printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
         ctime(&mytime)); fflush(stdout);
     aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, taero, nlines,
         nsamps);
-printf ("\n\nInfo 3:\n");
-printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
-printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
-printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
     /* Use the UL corner of the aerosol windows to interpolate the teps values
        (angstrom coefficient) */
@@ -1410,10 +1397,6 @@ printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
         ctime(&mytime)); fflush(stdout);
     aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, teps, nlines,
         nsamps);
-printf ("\n\nInfo 4:\n");
-printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
-printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
-printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
