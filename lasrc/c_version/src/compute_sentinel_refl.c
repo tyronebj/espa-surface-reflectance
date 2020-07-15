@@ -688,7 +688,7 @@ int compute_sentinel_sr_refl
             else
             { /* fill value - if any of the bands are fill this pixel is
                  masked as fill in the QA band */
-                qaband[i] |= (1 << ESPA_L1_DESIGNATED_FILL_BIT);
+                qaband[i] |= (1 << ESPA_L1_SINGLE_BIT);
                 sband[ib][i] = FILL_VALUE;
             }
         }  /* end for i */
