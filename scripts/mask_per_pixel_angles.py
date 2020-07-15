@@ -11,7 +11,7 @@ import os
 import datetime
 import logging
 from optparse import OptionParser
-# import gdal_remove_drivers as gdal_deregister
+import gdal_remove_drivers as gdal_deregister
 
 ERROR = 1
 SUCCESS = 0
@@ -140,7 +140,7 @@ class MaskAngles():
 #        jdem.Deregister()
 #        doq1.Deregister()
 #        doq2.Deregister()
-        # gdal_deregister.delete_gdal_drivers(['ENVI'])
+        gdal_deregister.delete_gdal_drivers(['ENVI'])
 
         # Strip the path from the XML file and change into the directory
         # containing the XML file
