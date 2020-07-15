@@ -1,4 +1,4 @@
-## LaSRC Version 3.0.1 Release Notes
+## LaSRC Version 3.0.2 Release Notes
 Release Date: TBD 2020
 
 ### Downloads
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [version_3.0.1]
+See git tag [version_3.0.2]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
@@ -87,5 +87,7 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Removed variables no longer used from the pragma omp parallel statement
-   to allow for multi-threading to be compiled.
+1. Added processing of Sentinel-2 bands 9 (water vapor) and 10 (cirrus) back
+   into the processing stream.  The PROC_ALL_BANDS #define in common.h
+   allows all Sentinel-2 bands to be processed.  The default for ESPA
+   processing will be to have this turned off.

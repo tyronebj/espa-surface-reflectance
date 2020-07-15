@@ -16,8 +16,16 @@ NOTES:
 #include <ctype.h>
 #include <math.h>
 #include "output.h"
+
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+char SENTINEL_BANDNAME[NREFLS_BANDS][3] =
+    {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "9", "10", "11", "12"};
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 char SENTINEL_BANDNAME[NREFLS_BANDS][3] =
     {"1", "2", "3", "4", "5", "6", "7", "8", "8a", "11", "12"};
+#endif
 
 /******************************************************************************
 MODULE:  open_output

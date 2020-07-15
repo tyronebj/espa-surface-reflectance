@@ -71,10 +71,19 @@ void subaeroret_new
                                      1.0e-04, 0.0};
                             /* constant values for comparing against Landsat
                                surface reflectance */
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+    float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
+                                      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
+                            /* constant values for comparing against Sentinel
+                               surface reflectance */
+#else
+/* Skip bands 9 and 10 as default for ESPA */
     float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
                                       0.0, 0.0, 0.0, 0.0, 1.0e-04};
                             /* constant values for comparing against Sentinel
                                surface reflectance (removed band 9&10) */
+#endif
     float aot550nm[NAOT_VALS] = {0.01, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.6,
                                  0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.3, 2.6,
                                  3.0, 3.5, 4.0, 4.5, 5.0}; /* AOT values */

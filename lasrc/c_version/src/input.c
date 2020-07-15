@@ -1118,7 +1118,7 @@ int get_xml_input
     else if (this->meta.sat == SAT_SENTINEL_2)
     {
         /* Store the band-related information. Use band 2 for the
-           representative band. Skip bands 9 and 10, as they won't be
+           representative band. Skip bands 9 and 10 if they won't be
            processed. */
         for (i = 0; i < metadata->nbands; i++)
         {
@@ -1163,6 +1163,17 @@ int get_xml_input
             else if (!strcmp (metadata->band[i].name, "B8A"))
                 this->file_name[DNS_BAND8A] =
                     strdup (metadata->band[i].file_name);
+
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+            else if (!strcmp (metadata->band[i].name, "B09"))
+                this->file_name[DNS_BAND9] =
+                    strdup (metadata->band[i].file_name);
+            else if (!strcmp (metadata->band[i].name, "B10"))
+                this->file_name[DNS_BAND10] =
+                    strdup (metadata->band[i].file_name);
+#endif
+
             else if (!strcmp (metadata->band[i].name, "B11"))
                 this->file_name[DNS_BAND11] =
                     strdup (metadata->band[i].file_name);

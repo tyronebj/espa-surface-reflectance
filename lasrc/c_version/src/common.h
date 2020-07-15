@@ -14,7 +14,7 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "3.0.1 (Collection 2)"
+#define SR_VERSION "3.0.2 (Collection 2)"
 
 /* Define the default aerosol and EPS value */
 #define DEFAULT_AERO 0.05
@@ -71,14 +71,25 @@ typedef char byte;
 #define ONE_DIV_ATMOS_PRES_0 0.000987166
 #define ONE_DIV_8500 0.000117647
 
+/* Identify if all the Sentinel-2 bands will be processed. Default is to
+   leave off for ESPA processing, therefore bands 9 and 10 will not be
+   processed. */
+#define PROC_ALL_BANDS 1
+
 /* Number of bands corrected to surface reflectance
    * Landsat 8 (bands 1-7).  The atmospheric correction variables store
    information for 8 bands, so we will go with that for the array size.
-   * Sentinel-2 (bands 1-13, skipping band 9 and 10).  The atmospheric
-   correction variables store information for 11 bands, so we will go with
-   that for the array size. */
+   * Sentinel-2 (bands 1-13, possibly skipping band 9 and 10).  The
+   atmospheric correction variables store information for 11/13 bands, so we
+   will go with that for the array size. */
 #define NSRL_BANDS 8
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+#define NSRS_BANDS 13
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 #define NSRS_BANDS 11
+#endif
 
 /* Get the larger number of bands between the two instruments */
 #define NSR_BANDS MAX(NSRL_BANDS, NSRS_BANDS)
@@ -86,7 +97,7 @@ typedef char byte;
 /* Landsat-8/9 Level-1 products have 8 reflectance bands (bands 1-7, and 9),
    2 thermal bands (band 10 and 11), 1 pan band (band 8), and 1 QA band
    (band 12)
-   Sentinel-2 Level-1 products have 13 reflectance bands, but we will not
+   Sentinel-2 Level-1 products have 13 reflectance bands, but we might not
    process bands 9 and 10 */
 #define NBANDL_REFL_MAX 8
 #define NBANDL_THM_MAX 2
@@ -94,7 +105,13 @@ typedef char byte;
 #define NBANDL_QA_MAX 1
 #define NBANDL_TTL_MAX (NBANDL_REFL_MAX + NBANDL_THM_MAX + NBANDL_PAN_MAX + NBANDL_QA_MAX)
 
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+#define NBANDS_REFL_MAX 13
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 #define NBANDS_REFL_MAX 11
+#endif
 #define NBANDS_TTL_MAX NBANDS_REFL_MAX
 
 /* Get the larger number of bands between the two instruments */
@@ -103,14 +120,20 @@ typedef char byte;
 /* Landsat-8/9 surface reflectance products have 8 reflectance bands, 2 thermal
    bands, 0 pan bands, and 1 QA band.
    Sentinel-2 surface reflectance products have 13 reflectance bands, and
-   1 QA band. Bands 9 (water vapor) and 10 (cirrus) will not be processed. */
+   1 QA band. Bands 9 (water vapor) and 10 (cirrus) might not be processed. */
 #define NBANDL_REFL_OUT 8
 #define NBANDL_THM_OUT 2
 #define NBANDL_PAN_OUT 0
 #define NBANDL_QA_OUT 1
 #define NBANDL_TTL_OUT (NBANDL_REFL_OUT + NBANDL_THM_OUT + NBANDL_PAN_OUT + NBANDL_QA_OUT)
 
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+#define NBANDS_REFL_OUT 13
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 #define NBANDS_REFL_OUT 11
+#endif
 #define NBANDS_QA_OUT 1
 #define NBANDS_TTL_OUT (NBANDS_REFL_OUT + NBANDS_QA_OUT)
 
@@ -141,7 +164,13 @@ typedef char byte;
 /* Coefficients for determining atmospheric values */
 #define NCOEF 4
 #define NREFLL_BANDS 7
-#define NREFLS_BANDS 11 
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+#define NREFLS_BANDS 13
+#else
+/* Skip bands 9 and 10 as default for ESPA */
+#define NREFLS_BANDS 11
+#endif
 
 /* Get the larger number of bands between the two instruments */
 #define NREFL_BANDS MAX(NREFLL_BANDS, NREFLS_BANDS)
@@ -158,22 +187,38 @@ extern char SENTINEL_FULL_BANDNAME[SENTINEL_TTL][3]; /* defined in lut_subr.c */
 typedef enum {DNL_BAND1=0, DNL_BAND2, DNL_BAND3, DNL_BAND4,
     DNL_BAND5, DNL_BAND6, DNL_BAND7, DNL_BAND8, DNL_BAND9,
     DNL_BAND10, DNL_BAND11, DNL_QA, DNL_TTL} Mydnl_band_t;
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+typedef enum {DNS_BAND1=0, DNS_BAND2, DNS_BAND3, DNS_BAND4, DNS_BAND5,
+    DNS_BAND6, DNS_BAND7, DNS_BAND8, DNS_BAND8A, DNS_BAND9, DNS_BAND10,
+    DNS_BAND11, DNS_BAND12, DNS_QA, DNS_TTL} Mydns_band_t;
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 typedef enum {DNS_BAND1=0, DNS_BAND2, DNS_BAND3, DNS_BAND4,
     DNS_BAND5, DNS_BAND6, DNS_BAND7, DNS_BAND8, DNS_BAND8A,
     DNS_BAND11, DNS_BAND12, DNS_QA, DNS_TTL} Mydns_band_t;
+#endif
 
 /* Define the output products to be processed */
 typedef enum {SRL_BAND1=0, SRL_BAND2, SRL_BAND3, SRL_BAND4, SRL_BAND5,
     SRL_BAND6, SRL_BAND7, SRL_BAND9, SRL_BAND10, SRL_BAND11, SRL_AEROSOL,
     SRL_TTL} Mysrl_band_t;
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+typedef enum {SRS_BAND1=0, SRS_BAND2, SRS_BAND3, SRS_BAND4, SRS_BAND5,
+    SRS_BAND6, SRS_BAND7, SRS_BAND8, SRS_BAND8A, SRS_BAND9, SRS_BAND10,
+    SRS_BAND11, SRS_BAND12, SRS_AEROSOL, SRS_TTL} Mysrs_band_t;
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 typedef enum {SRS_BAND1=0, SRS_BAND2, SRS_BAND3, SRS_BAND4, SRS_BAND5,
     SRS_BAND6, SRS_BAND7, SRS_BAND8, SRS_BAND8A, SRS_BAND11,
     SRS_BAND12, SRS_AEROSOL, SRS_TTL} Mysrs_band_t;
+#endif
 extern char SENTINEL_BANDNAME[NREFLS_BANDS][3];  /* defined in output.c */
 
 /* For the minimal arrays that use this value, we will just use the largest
    of the Landsat and Sentinel number of output bands */
-#define NBAND_TTL_OUT SRS_TTL
+#define NBAND_TTL_OUT MAX((int)SRL_TTL, (int)SRS_TTL)
 
 /* High confidence Level-1 QA values */
 #define L1QA_HIGH_CONF 3

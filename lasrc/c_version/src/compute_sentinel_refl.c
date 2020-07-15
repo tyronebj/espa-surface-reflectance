@@ -188,6 +188,10 @@ int read_sentinel_toa_refl
 
             /* 60m bands convert to 10m (3, but skipping bands 9&10) */
             case DNS_BAND1:
+#ifdef PROC_ALL_BANDS
+            case DNS_BAND9:
+            case DNS_BAND10:
+#endif
                 /* Read the input band data */
                 if (get_input_refl_lines (input, ib, 0, nlines60, nsamps60,
                     tmp60_band) != SUCCESS)
@@ -472,8 +476,38 @@ int compute_sentinel_sr_refl
     /* Look up table for atmospheric and geometric quantities. Taurary comes
        from tauray-ldcm/msi.ASC and the oz, wv, og variables come from
        gascoef-modis/msi.ASC. */
-    /* NOTE: coefficients for bands 9 and 10 have been removed from these
-       arrays since those bands are no longer processed */
+    /* NOTE: coefficients for bands 9 and 10 may have been removed from these
+       arrays since those bands might not be processed */
+#ifdef PROC_ALL_BANDS
+    /* Process all bands if turned on */
+    float tauray[NSRS_BANDS] =  /* molecular optical thickness
+                                     coefficients -- produced by running 6S */
+        {0.23432, 0.15106, 0.09102, 0.04535, 0.03584, 0.02924, 0.02338, 0.01847,
+         0.01560, 0.01092, 0.00243, 0.00128, 0.00037};
+    double oztransa[NSRS_BANDS] =   /* ozone transmission coeff */
+        {-0.00264691, -0.0272572, -0.0986512, -0.0500348, -0.0204295,
+         -0.0108641, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001, 0.0001};
+    double wvtransa[NSRS_BANDS] =   /* water vapor transmission coeff */
+        {2.29849e-27, 2.29849e-27, 0.000777307, 0.00361051, 0.0141249,
+         0.0137067, 0.00410217, 0.0285871, 0.000390755, 0.00001, 0.01,
+         0.000640155, 0.018006};
+    double wvtransb[NSRS_BANDS] =   /* water vapor transmission coeff */
+        {0.999742, 0.999742, 0.891099, 0.754895, 0.75596, 0.763497, 0.74117,
+         0.578722, 0.900899, 0.45818, 1.0, 0.943712, 0.647517};
+    double ogtransa1[NSRS_BANDS] =  /* other gases transmission coeff */
+        {4.91586e-20, 4.91586e-20, 4.91586e-20, 4.91586e-20, 5.3367e-06,
+         4.91586e-20, 9.03583e-05, 1.64109e-09, 1.90458e-05, 4.91586e-20,
+         7.62429e-06, 0.0212751, 0.0243065};
+    double ogtransb0[NSRS_BANDS] =  /* other gases transmission coeff */
+        {0.000197019, 0.000197019, 0.000197019, 0.000197019, -0.980313,
+         0.000197019, 0.0265393, 1.E-10, 0.0322844, 0.000197019, 0.000197019,
+         0.000197019, 0.000197019};
+    double ogtransb1[NSRS_BANDS] =  /* other gases transmission coeff */
+        {9.57011e-16, 9.57011e-16, 9.57011e-16, 9.57011e-16, 1.33639,
+         9.57011e-16, 0.0532256, 1.E-10, -0.0219907, 9.57011e-16, -0.216849,
+         0.0116062, 0.0604312};
+#else
+    /* Skip bands 9 and 10 as default for ESPA */
     float tauray[NSRS_BANDS] =  /* molecular optical thickness
                                      coefficients -- produced by running 6S */
         {0.23432, 0.15106, 0.09102, 0.04535, 0.03584, 0.02924, 0.02338, 0.01847,
@@ -497,6 +531,7 @@ int compute_sentinel_sr_refl
     double ogtransb1[NSRS_BANDS] =  /* other gases transmission coeff */
         {9.57011e-16, 9.57011e-16, 9.57011e-16, 9.57011e-16, 1.33639,
          9.57011e-16, 0.0532256, 1.E-10, -0.0219907, 0.0116062, 0.0604312};
+#endif
 
 #ifdef WRITE_TAERO
     FILE *aero_fptr=NULL;   /* file pointer for aerosol files */
@@ -505,6 +540,10 @@ int compute_sentinel_sr_refl
     /* Start processing */
     mytime = time(NULL);
     printf ("Start surface reflectance corrections: %s", ctime(&mytime));
+#ifdef PROC_ALL_BANDS
+    printf ("All Sentinel-2 bands will be processed, including bands 9 and 10, "
+        "which is not the default.\n");
+#endif
 
     /* Allocate memory for the many arrays needed to do the surface reflectance
        computations */
@@ -570,6 +609,40 @@ int compute_sentinel_sr_refl
     {
         printf ("  Band %s\n", SENTINEL_BANDNAME[ib]); fflush(stdout);
 
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+        /* Get the parameters for the atmospheric correction */
+        if (ib != SRS_BAND9)  /* skip the water vapor band */
+        {
+            /* rotoa is not defined for this call, which is ok, but the
+               roslamb value is not valid upon output. Just set it to 0.0 to
+               be consistent. */
+            rotoa = 0.0;
+            retval = atmcorlamb2 (input->meta.sat, xts, xtv, xmus, xmuv, xfi,
+                cosxfi, raot550nm, ib, pres, tpres, aot550nm, rolutt, transt,
+                xtsstep, xtsmin, xtvstep, xtvmin, sphalbt, normext, tsmax,
+                tsmin, nbfic, nbfi, tts, indts, ttv, uoz, uwv, tauray,
+                ogtransa1, ogtransb0, ogtransb1, wvtransa, wvtransb, oztransa,
+                rotoa, &roslamb, &tgo, &roatm, &ttatmg, &satm, &xrorayp, &next,
+                eps);
+            if (retval != SUCCESS)
+            {
+                sprintf (errmsg, "Performing lambertian atmospheric correction "
+                    "type 2.");
+                error_handler (true, FUNC_NAME, errmsg);
+                return (ERROR);
+            }
+        }
+        else
+        {
+            /* Use default values for band 9, water vapor band */
+            tgo = 1.0;
+            roatm = 0.0;
+            ttatmg = 1.0;
+            satm = 0.0;
+        }
+#else
+/* Skip bands 9 and 10 as default for ESPA */
         /* Get the parameters for the atmospheric correction */
         /* rotoa is not defined for this call, which is ok, but the
            roslamb value is not valid upon output. Just set it to 0.0 to
@@ -589,6 +662,7 @@ int compute_sentinel_sr_refl
             error_handler (true, FUNC_NAME, errmsg);
             return (ERROR);
         }
+#endif
         tgo_x_roatm = tgo * roatm;
         tgo_x_ttatmg = tgo * ttatmg;
 
@@ -1247,6 +1321,11 @@ int compute_sentinel_sr_refl
     }  /* end for i */
     /* end aerosol inversion for the NxN window */
 
+printf ("\n\nInfo 1:\n");
+printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
+printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
+printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
+
 #ifndef _OPENMP
     /* update status */
     printf ("100%%\n");
@@ -1295,6 +1374,10 @@ int compute_sentinel_sr_refl
         error_handler (true, FUNC_NAME, errmsg);
         return (ERROR);
     }
+printf ("\n\nInfo 2:\n");
+printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
+printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
+printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1315,6 +1398,10 @@ int compute_sentinel_sr_refl
         ctime(&mytime)); fflush(stdout);
     aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, taero, nlines,
         nsamps);
+printf ("\n\nInfo 3:\n");
+printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
+printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
+printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
     /* Use the UL corner of the aerosol windows to interpolate the teps values
        (angstrom coefficient) */
@@ -1323,6 +1410,10 @@ int compute_sentinel_sr_refl
         ctime(&mytime)); fflush(stdout);
     aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, teps, nlines,
         nsamps);
+printf ("\n\nInfo 4:\n");
+printf ("DEBUG: ipflag[10945, 2]: %u\n", ipflag[1*nsamps+10944]);
+printf ("DEBUG: taero[10945, 2]: %f\n", taero[1*nsamps+10944]);
+printf ("DEBUG: teps[10945, 2]: %f\n", teps[1*nsamps+10944]);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1344,6 +1435,21 @@ int compute_sentinel_sr_refl
     for (ib = 0; ib <= DNS_BAND12; ib++)
     {
         printf ("  Band %s\n", SENTINEL_BANDNAME[ib]); fflush(stdout);
+
+#ifdef PROC_ALL_BANDS
+/* Special handling of band 10 if turned on */
+        if (ib == DNS_BAND10)
+        {  /* Band 10 - just use the TOA values */
+            printf ("  -- Band 10 so just use the TOA values\n");
+            for (i = 0; i < npixels; i++)
+                sband[ib][i] = toaband[ib][i];
+
+            /* Skip to the next band */
+            continue;
+        }
+#endif
+
+        /* Process the remaining bands normally */
 #ifdef _OPENMP
         #pragma omp parallel for private (i, rsurf, rotoa, raot550nm, eps, retval, tmpf, roslamb, tgo, roatm, ttatmg, satm, xrorayp, next)
 #endif

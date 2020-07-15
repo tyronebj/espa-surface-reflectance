@@ -22,8 +22,17 @@ char SENTINEL_FULL_BANDNAME[SENTINEL_TTL][3] =
 /* Removed bands 9 and 10 from the Sentinel array */
 float landsat_lambda[NREFLL_BANDS] =
     {0.443, 0.480, 0.585, 0.655, 0.865, 1.61, 2.2};
+
+#ifdef PROC_ALL_BANDS
+/* Process all bands if turned on */
+float sentinel_lambda[NREFLS_BANDS] =
+    {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 0.945,
+     1.375, 1.61, 2.19};
+#else
+/* Skip bands 9 and 10 as default for ESPA */
 float sentinel_lambda[NREFLS_BANDS] =
     {0.443, 0.490, 0.560, 0.655, 0.705, 0.740, 0.783, 0.842, 0.865, 1.61, 2.19};
+#endif
 
 #define FOUR_PTS 4
 
@@ -989,7 +998,7 @@ int readluts
     int nsr_bands = 0;      /* number of SR bands in the input file;
                                for Sentinel the number of bands in the input
                                file might be different than the number of bands
-                               we want to store in the array, since we are
+                               we want to store in the array, since we may be
                                skipping bands 9 and 10 */
     int iband;              /* band looping variable */
     int ibndx;              /* index of the current band for writing to array */
@@ -997,8 +1006,10 @@ int readluts
     int ipres;              /* looping variable for pressure */
     int itau;               /* looping variable for molecular optical thick */
     int ival;               /* looping variable for LUT */
+#ifndef PROC_ALL_BANDS
     int iline;              /* current line for consuming, but ignoring, lines
                                in the input ASCII file for Sentinel-2 */
+#endif
     int status;             /* return status of the HDF function */
     int start[3];           /* starting point to read SDS data */
     int edges[3];           /* number of values to read in SDS data */
@@ -1018,8 +1029,8 @@ int readluts
     FILE *fp = NULL;        /* file pointer for reading ascii files */
 
     /* Setup Landsat or Sentinel number of SR bands to be read from the input
-       LUT files; number of input bands for Sentinel is more than we will
-       actually store since we are skipping bands 9 and 10 */
+       LUT files; number of input bands for Sentinel is possibly more than we
+       will actually store since we might be skipping bands 9 and 10 */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
         nsr_bands = NSRL_BANDS;
     else if (sat == SAT_SENTINEL_2)
@@ -1374,11 +1385,14 @@ int readluts
             ibndx = iband;
         }
         else if (sat == SAT_SENTINEL_2)
-        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+        {
+#ifndef PROC_ALL_BANDS
+           /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the rolutt array in
               the same order. */
             if (iband == SBAND9 || iband == SBAND10)
                 continue;
+#endif
 
             /* Read this band */
             ibndx++;
@@ -1474,7 +1488,9 @@ int readluts
         if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
             ibndx = iband;
         else if (sat == SAT_SENTINEL_2)
-        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+        {
+#ifndef PROC_ALL_BANDS
+           /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the transt array in
               the same order. */
             if (iband == SBAND9 || iband == SBAND10)
@@ -1500,6 +1516,7 @@ int readluts
                 /* Skip to the next band */
                 continue;
             }
+#endif
 
             /* Read this band */
             ibndx++;
@@ -1600,7 +1617,9 @@ int readluts
         if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
             ibndx = iband;
         else if (sat == SAT_SENTINEL_2)
-        {  /* Sentinel-2 we are skipping the processing of bands 9 and 10,
+        {
+#ifndef PROC_ALL_BANDS
+           /* Sentinel-2 we are skipping the processing of bands 9 and 10,
               but otherwise writing the other bands to the transt array in
               the same order. */
             if (iband == SBAND9 || iband == SBAND10)
@@ -1625,6 +1644,7 @@ int readluts
                 /* Skip to the next band */
                 continue;
             }
+#endif
 
             /* Read this band */
             ibndx++;
