@@ -648,7 +648,7 @@ void convert_output
     int band,           /* I: band number to convert */
     int nlines,         /* I: number of lines */
     int nsamps,         /* I: number of samples */
-    bool thermal,       /* I: flag to specifiy if processing a thermal band,
+    bool thermal,       /* I: flag to specify if processing a thermal band,
                               for correct scale/offset */
     uint16 *out_band    /* O: scaled output for the processed band */
 )

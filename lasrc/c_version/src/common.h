@@ -14,7 +14,7 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "3.0.2 (Collection 2)"
+#define SR_VERSION "3.0.3 (Collection 2)"
 
 /* Define the default aerosol and EPS value */
 #define DEFAULT_AERO 0.05
@@ -74,7 +74,7 @@ typedef char byte;
 /* Identify if all the Sentinel-2 bands will be processed. Default is to
    leave off for ESPA processing, therefore bands 9 and 10 will not be
    processed. */
-//#define PROC_ALL_BANDS 1
+#define PROC_ALL_BANDS 1
 
 /* Number of bands corrected to surface reflectance
    * Landsat 8 (bands 1-7).  The atmospheric correction variables store

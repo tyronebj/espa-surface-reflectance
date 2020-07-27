@@ -1227,9 +1227,13 @@ int compute_sentinel_sr_refl
                their aerosol */
             if (lasrc_qa_is_water(ipflag[curr_pix]))
             {
+
                 /* Initialize the band ratios */
                 for (ib = 0; ib < NSR_BANDS; ib++)
+                {
                     erelc[ib] = -1.0;
+                    troatm[ib] = 0.0;
+                }
 
                 /* Retrieve the TOA reflectance values for the current pixel;
                    use a NxN average */
@@ -1245,10 +1249,10 @@ int compute_sentinel_sr_refl
                         if (isamp >= nsamps) continue;
                         troatm[DNS_BAND1] +=
                             toaband[DNS_BAND1][curr_win_pix];
-                        troatm[DNS_BAND2] +=
-                            toaband[DNS_BAND2][curr_win_pix];
                         troatm[DNS_BAND4] +=
                             toaband[DNS_BAND4][curr_win_pix];
+                        troatm[DNS_BAND9] +=
+                            toaband[DNS_BAND9][curr_win_pix];
                         troatm[DNS_BAND12] +=
                             toaband[DNS_BAND12][curr_win_pix];
                         pix_count++;
@@ -1256,14 +1260,14 @@ int compute_sentinel_sr_refl
                 }
 
                 troatm[DNS_BAND1] /= pix_count;
-                troatm[DNS_BAND2] /= pix_count;
                 troatm[DNS_BAND4] /= pix_count;
+                troatm[DNS_BAND9] /= pix_count;
                 troatm[DNS_BAND12] /= pix_count;
 
                 /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
                 erelc[DNS_BAND1] = 1.0;
-                erelc[DNS_BAND2] = 1.0;
                 erelc[DNS_BAND4] = 1.0;
+                erelc[DNS_BAND9] = 1.0;
                 erelc[DNS_BAND12] = 1.0;
 
                 /* Retrieve the water aerosol information for eps 1.5 */

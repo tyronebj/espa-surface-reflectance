@@ -483,9 +483,13 @@ int main (int argc, char *argv[])
                 (ib == SRL_BAND10 || ib == SRL_BAND11))
                 continue;
             
+            /* Convert and scale the floating point values */
             printf ("  Band %d: %s\n", ib+2,
                 toa_output->metadata.band[ib].file_name);
-            if (put_output_lines (toa_output, sband[ib], ib, 0, nlines,
+            convert_output (sband, ib, nlines, nsamps, true, out_band);
+
+            /* Write the scaled integers */
+            if (put_output_lines (toa_output, out_band, ib, 0, nlines,
                 sizeof (uint16)) != SUCCESS)
             {
                 sprintf (errmsg, "Writing output TOA data for band %d", ib+2);
