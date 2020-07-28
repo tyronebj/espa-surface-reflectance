@@ -483,10 +483,14 @@ int main (int argc, char *argv[])
                 (ib == SRL_BAND10 || ib == SRL_BAND11))
                 continue;
             
-            /* Convert and scale the floating point values */
+            /* Convert and scale the floating point values. Band 9 TOA has a
+               different scale factor than bands 10 and 11 BT. */
             printf ("  Band %d: %s\n", ib+2,
                 toa_output->metadata.band[ib].file_name);
-            convert_output (sband, ib, nlines, nsamps, true, out_band);
+            if (ib == SRL_BAND9)
+                convert_output (sband, ib, nlines, nsamps, false, out_band);
+            else
+                convert_output (sband, ib, nlines, nsamps, true, out_band);
 
             /* Write the scaled integers */
             if (put_output_lines (toa_output, out_band, ib, 0, nlines,
