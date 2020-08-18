@@ -92,3 +92,8 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 2. Fixed a bug in the call to the water-based aerosol inversion subroutine. The
    array indices for this call should be different from the traditional
    land-based aerosol handling.
+3. Cleaned up the FORTRAN code to compile with fewer warnings.
+4. Modified water-based aerosol handling in the FORTRAN code to correctly
+   handle water pixels.
+5. Modified the C code to allow water pixels to be "expanded" in the window
+   surrounding the water pixels, similar to valid land pixels.
