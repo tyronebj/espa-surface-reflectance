@@ -69,18 +69,32 @@ void subaeroret_new
     float *tth = NULL;      /* pointer to the Landsat or Sentinel tth array */
     float landsat_tth[NSRL_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
                                      1.0e-04, 0.0};
+    float landsat_tth_water[NSRL_BANDS] =
+                                    {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 1.0e-03,
+                                     0.0, 1.0e-04, 0.0};
                             /* constant values for comparing against Landsat
                                surface reflectance */
 #ifdef PROC_ALL_BANDS
 /* Process all bands if turned on */
     float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
                                       0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-04};
+    float sentinel_tth_water[NSRS_BANDS] =
+                                   {1.0e-03, 0.0, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
+                                    0.0, 1.0e-3, 0.0, 0.0, 0.0, 1.0e-4};
+/* ESPA - I believe the sentinel tth water should be for band 1, 4, 8a, and 12 vs. what I've commented below ... which is a duplicate of the FORTRAN array coeffs.  I think that's a bug.
+                                   {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 1.0e-3,
+                                    0.0, 1.0e-4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+*/
                             /* constant values for comparing against Sentinel
-                               surface reflectance */
+                               surface reflectance (different values for land
+                               vs. water) */
 #else
 /* Skip bands 9 and 10 as default for ESPA */
     float sentinel_tth[NSRS_BANDS] = {1.0e-03, 1.0e-03, 0.0, 1.0e-03, 0.0, 0.0,
                                       0.0, 0.0, 0.0, 0.0, 1.0e-04};
+    float sentinel_tth_water[NSRS_BANDS] =
+                                   {1.0e-03, 0.0, 0.0, 1.0e-03, 0.0, 0.0, 0.0,
+                                    0.0, 1.0e-3, 0.0, 1.0e-4};
                             /* constant values for comparing against Sentinel
                                surface reflectance (removed band 9&10) */
 #endif
@@ -91,13 +105,19 @@ void subaeroret_new
     /* Initialize variables based on the satellite type */
     if (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9)
     {
-        tth = landsat_tth;
+        if (water)
+            tth = landsat_tth_water;
+        else
+            tth = landsat_tth;
         start_band = DNL_BAND1;
         end_band = DNL_BAND7;
     }
     else if (sat == SAT_SENTINEL_2)
     {
-        tth = sentinel_tth;
+        if (water)
+            tth = sentinel_tth_water;
+        else
+            tth = sentinel_tth;
         start_band = DNS_BAND1;
         end_band = DNS_BAND12;
     }
@@ -114,8 +134,8 @@ void subaeroret_new
     ros1 = 1.0;
     raot550nm = aot550nm[iaot];
     testth = false;
-    *residual = 0.0;
     nbval = 0;
+    *residual = 0.0;
 
     /* Atmospheric correction for band 1 */
     ib = iband1;
@@ -126,32 +146,48 @@ void subaeroret_new
     if (roslamb - tth[iband1] < 0.0)
         testth = true;
     ros1 = roslamb;
-    if (water && erelc[ib] > 0.0)
-    {
-        *residual += (roslamb * roslamb);
-        nbval++;
-    }
 
-    /* Atmospheric correction for each band */
-    for (ib = start_band; ib <= end_band; ib++)
-    {
-        /* Don't reprocess iband1 */
-        if (ib != iband1 && erelc[ib] > 0.0)
+    /* Atmospheric correction for each band; handle residual for water-based
+       correction differently */
+    if (water)
+    {  /* expect that we are processing pixels over water */
+        for (ib = start_band; ib <= end_band; ib++)
         {
-            atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
-                &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
-                raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
-
-            if (roslamb - tth[ib] < 0.0)
-                testth = true;
-            if (water)
-                *residual += roslamb*roslamb;
-            else
+            /* This will process iband1, different from land */
+            if (erelc[ib] > 0.0)
             {
+                atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+                    &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+                    raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb,
+                    eps);
+
+                if (roslamb - tth[ib] < 0.0)
+                    testth = true;
+
+                *residual += roslamb*roslamb;
+                nbval++;
+            }
+        }
+    }
+    else
+    {  /* expect that we are processing pixels over land */
+        for (ib = start_band; ib <= end_band; ib++)
+        {
+            /* Don't reprocess iband1 */
+            if (ib != iband1 && erelc[ib] > 0.0)
+            {
+                atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
+                    &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
+                    raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb,
+                    eps);
+
+                if (roslamb - tth[ib] < 0.0)
+                    testth = true;
+
                 point_error = roslamb - erelc[ib] * ros1;
                 *residual += point_error * point_error;
+                nbval++;
             }
-            nbval++;
         }
     }
     *residual = sqrt (*residual) / nbval;
@@ -177,37 +213,51 @@ void subaeroret_new
         atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
             &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
             raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
-
         if (roslamb - tth[iband1] < 0.0)
             testth = true;
         ros1 = roslamb;
-        if (water && erelc[ib] > 0.0)
-        {
-            *residual += (roslamb * roslamb);
-            nbval++;
-        }
 
-        /* Atmospheric correction for each band */
-        for (ib = start_band; ib <= end_band; ib++)
-        {
-            /* Don't reprocess iband1 */
-            if (ib != iband1 && erelc[ib] > 0.0)
+        /* Atmospheric correction for each band; handle residual for water-based
+           correction differently */
+        if (water)
+        {  /* expect that we are processing pixels over water */
+            for (ib = start_band; ib <= end_band; ib++)
             {
-                atmcorlamb2_new (sat, tgo_arr[ib], aot550nm[roatm_iaMax[ib]],
-                    &roatm_coef[ib][0], &ttatmg_coef[ib][0], &satm_coef[ib][0],
-                    raot550nm, ib, normext_p0a3_arr[ib], troatm[ib], &roslamb,
-                    eps);
-
-                if (roslamb - tth[ib] < 0.0)
-                    testth = true;
-                if (water)
-                    *residual += roslamb*roslamb;
-                else
+                /* This will process iband1, different from land */
+                if (erelc[ib] > 0.0)
                 {
+                    atmcorlamb2_new (sat, tgo_arr[ib],
+                        aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
+                        &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
+                        normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
+    
+                    if (roslamb - tth[ib] < 0.0)
+                        testth = true;
+    
+                    *residual += roslamb*roslamb;
+                    nbval++;
+                }
+            }
+        }
+        else
+        {  /* expect that we are processing pixels over land */
+            for (ib = start_band; ib <= end_band; ib++)
+            {
+                /* Don't reprocess iband1 */
+                if (ib != iband1 && erelc[ib] > 0.0)
+                {
+                    atmcorlamb2_new (sat, tgo_arr[ib],
+                        aot550nm[roatm_iaMax[ib]], &roatm_coef[ib][0],
+                        &ttatmg_coef[ib][0], &satm_coef[ib][0], raot550nm, ib,
+                        normext_p0a3_arr[ib], troatm[ib], &roslamb, eps);
+    
+                    if (roslamb - tth[ib] < 0.0)
+                        testth = true;
+    
                     point_error = roslamb - erelc[ib] * ros1;
                     *residual += point_error * point_error;
+                    nbval++;
                 }
-                nbval++;
             }
         }
         *residual = sqrt (*residual) / nbval;

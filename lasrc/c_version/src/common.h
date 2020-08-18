@@ -231,15 +231,18 @@ extern char SENTINEL_BANDNAME[NREFLS_BANDS][3];  /* defined in output.c */
    levels */
 typedef enum {
   IPFLAG_FILL=0,        /* fill value */
-  IPFLAG_CLEAR=1,       /* aerosol retrieval was valid (land or water) */
-  IPFLAG_WATER=2,       /* water pixel */
-  IPFLAG_FAILED=2,      /* flags failed aerosol retrieval pixels for Sentinel */
-  IPFLAG_FIXED=3,       /* invalid retrieval which was fixed with a local
-                           average of valid aerosols (internal use only) */
-  IPFLAG_FAILED_TMP=3,  /* temp flag for expanding possible failed pixels for
-                           Sentinel */
-  IPFLAG_INTERP_WINDOW=5, /* aerosol was interpolated using the center (Landsat)
-                             or UL (Sentinel) of the NxN windows */
+  IPFLAG_CLEAR=1,       /* valid land pixel (Landsat - water and land) */
+  IPFLAG_VALID=1,       /* valid land pixel (Sentinel) */
+  IPFLAG_WATER=2,       /* valid water pixel */
+  IPFLAG_FAILED=3,      /* failed aerosol retrieval pixel (Sentinel) */
+  IPFLAG_FIXED=4,       /* invalid retrieval which was fixed with a local
+                           average of valid aerosols (Landsat is internal &
+                           Sentinel is external -- slightly different fix/avg
+                           algorithms) */
+  IPFLAG_FAILED_TMP=5,  /* temp flag for expanding possible failed pixels
+                           (Sentinel) */
+  IPFLAG_INTERP_WINDOW=5, /* aerosol was interpolated using the center
+                             of the NxN window (Landsat) */
   AERO1_QA=6,    /* these two AERO bits mark the amount of aerosols and = 64 */
   AERO2_QA=7     /* reflect the level of atmospheric correction made    = 128 */
 } Ipflag_t;

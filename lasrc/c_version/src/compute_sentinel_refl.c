@@ -18,6 +18,7 @@ NOTES:
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
+#define WRITE_TAERO 1
 
 /******************************************************************************
 MODULE:  read_sentinel_toa_refl
@@ -1209,25 +1210,24 @@ int compute_sentinel_sr_refl
                 if ((ros5 > 0.1) && ((ros5 - ros4) / (ros5 + ros4) > 0))
                 {
                     /* Clear pixel with valid aerosol retrieval */
-                    ipflag[curr_pix] |= (1 << IPFLAG_CLEAR);
+                    ipflag[curr_pix] |= (1 << IPFLAG_VALID);
                 }
                 else
                 {
                     /* Flag as water */
-                    ipflag[curr_pix] |= (1 << IPFLAG_WATER);
+                    ipflag[curr_pix] = (1 << IPFLAG_WATER);
                 }
             }
             else
             {
                 /* Flag as water */
-                ipflag[curr_pix] |= (1 << IPFLAG_WATER);
+                ipflag[curr_pix] = (1 << IPFLAG_WATER);
             }
 
             /* Retest any water pixels to verify they are water and obtain
                their aerosol */
             if (lasrc_qa_is_water(ipflag[curr_pix]))
             {
-
                 /* Initialize the band ratios */
                 for (ib = 0; ib < NSR_BANDS; ib++)
                 {
@@ -1251,8 +1251,8 @@ int compute_sentinel_sr_refl
                             toaband[DNS_BAND1][curr_win_pix];
                         troatm[DNS_BAND4] +=
                             toaband[DNS_BAND4][curr_win_pix];
-                        troatm[DNS_BAND9] +=
-                            toaband[DNS_BAND9][curr_win_pix];
+                        troatm[DNS_BAND8A] +=
+                            toaband[DNS_BAND8A][curr_win_pix];
                         troatm[DNS_BAND12] +=
                             toaband[DNS_BAND12][curr_win_pix];
                         pix_count++;
@@ -1261,44 +1261,28 @@ int compute_sentinel_sr_refl
 
                 troatm[DNS_BAND1] /= pix_count;
                 troatm[DNS_BAND4] /= pix_count;
-                troatm[DNS_BAND9] /= pix_count;
+                troatm[DNS_BAND8A] /= pix_count;
                 troatm[DNS_BAND12] /= pix_count;
 
                 /* Set the band ratio - coastal aerosol, red, NIR, SWIR */
                 erelc[DNS_BAND1] = 1.0;
                 erelc[DNS_BAND4] = 1.0;
-                erelc[DNS_BAND9] = 1.0;
+                erelc[DNS_BAND8A] = 1.0;
                 erelc[DNS_BAND12] = 1.0;
 
                 /* Retrieve the water aerosol information for eps 1.5 */
                 eps = 1.5;
                 iaots = 0;
-                subaeroret_new (input->meta.sat, true, iband1, erelc, troatm,
-                    tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef, satm_coef,
-                    normext_p0a3_arr, &raot, &residual, &iaots, eps);
+                subaeroret_new (input->meta.sat, true /*water*/, iband1, erelc,
+                    troatm, tgo_arr, roatm_iaMax, roatm_coef, ttatmg_coef,
+                    satm_coef, normext_p0a3_arr, &raot, &residual, &iaots, eps);
                 teps[curr_pix] = eps;
                 taero[curr_pix] = raot;
                 corf = raot / xmus;
 
                 /* Test band 1 reflectance to eliminate negative */
                 iband = DNS_BAND1;
-                rotoa = 0.0;
-                pix_count = 0;
-                ew_line = i+SAERO_WINDOW;
-                for (iline = i; iline < ew_line; iline++)
-                {
-                    if (iline >= nlines) continue;
-                    curr_win_pix = iline * nsamps + j;
-                    ew_samp = j+SAERO_WINDOW;
-                    for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
-                    {
-                        if (isamp >= nsamps) continue;
-                        rotoa += toaband[iband][curr_win_pix];
-                        pix_count++;
-                    }
-                }
-                rotoa /= pix_count;
-
+                rotoa = troatm[DNS_BAND1];
                 raot550nm = raot;
                 atmcorlamb2_new (input->meta.sat, tgo_arr[iband],
                     aot550nm[roatm_iaMax[iband]], &roatm_coef[iband][0],
@@ -1309,18 +1293,31 @@ int compute_sentinel_sr_refl
                 if (residual > (0.010 + 0.005 * corf) || ros1 < 0)
                 {
                     /* Not a valid water pixel (possibly urban). Clear all
-                       the QA bits, and leave the IPFLAG_CLEAR bit off to
-                       indicate the aerosol retrieval was not valid. */
-                    ipflag[curr_pix] = 0;  /* IPFLAG_CLEAR bit is 0 */
+                       the QA bits, and mark it as IPFLAG_FAILED. */
+                    ipflag[curr_pix] = (1 << IPFLAG_FAILED);
                 }
                 else
                 {
-                    /* Valid water pixel. Set the clear aerosol retrieval bit
-                       and turn on the water bit. */
-                    ipflag[curr_pix] = (1 << IPFLAG_CLEAR);
-                    ipflag[curr_pix] |= (1 << IPFLAG_WATER);
+                    /* Valid water pixel */
+                    ipflag[curr_pix] = (1 << IPFLAG_WATER);
+                    ipflag[curr_pix] |= (1 << IPFLAG_VALID);
                 }
             }  /* if water pixel */
+
+            /* Fill in the remaining taero and teps values for the window,
+               using the current pixel */
+            for (iline = i; iline < i+SAERO_WINDOW; iline++)
+            {
+                if (iline >= nlines) continue;
+                curr_win_pix = iline * nsamps + j;
+                for (isamp = j; isamp < j+SAERO_WINDOW;
+                     isamp++, curr_win_pix++)
+                {
+                    if (isamp >= nsamps) continue;
+                    teps[curr_win_pix] = teps[curr_pix];
+                    taero[curr_win_pix] = taero[curr_pix];
+                }
+            }
         }  /* end for j */
     }  /* end for i */
     /* end aerosol inversion for the NxN window */
@@ -1361,18 +1358,13 @@ int compute_sentinel_sr_refl
     fclose (aero_fptr);
 #endif
 
-    /* Replace the invalid aerosol retrievals (taero and teps) with a local
-       average of those values */
+    /* Use the UL corner of the aerosol windows to interpolate the remaining
+       aerosol pixels in the window, including the UL corner of the window */
     mytime = time(NULL);
-    printf ("Filling invalid aerosol values in the NxN windows %s",
-        ctime(&mytime));
-    retval = fix_invalid_aerosols_sentinel (ipflag, taero, teps, SAERO_WINDOW,
-        nlines, nsamps);
-    if (retval != SUCCESS)
-    {
-        error_handler (true, FUNC_NAME, errmsg);
-        return (ERROR);
-    }
+    printf ("Interpolating the aerosol values in the NxN windows %s\n",
+        ctime(&mytime)); fflush(stdout);
+    aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, taero, nlines,
+        nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1386,21 +1378,10 @@ int compute_sentinel_sr_refl
     fclose (aero_fptr);
 #endif
 
-    /* Use the UL corner of the aerosol windows to interpolate the remaining
-       aerosol pixels in the window */
+    /* Expand the area around failed pixels to smooth aerosols in the area */
     mytime = time(NULL);
-    printf ("Interpolating the aerosol values in the NxN windows %s\n",
-        ctime(&mytime)); fflush(stdout);
-    aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, taero, nlines,
-        nsamps);
-
-    /* Use the UL corner of the aerosol windows to interpolate the teps values
-       (angstrom coefficient) */
-    mytime = time(NULL);
-    printf ("Interpolating the teps values in the NxN windows %s\n",
-        ctime(&mytime)); fflush(stdout);
-    aerosol_interp_sentinel (SAERO_WINDOW, qaband, ipflag, teps, nlines,
-        nsamps);
+    printf ("Expand the failed pixels %s\n", ctime(&mytime));
+    ipflag_expand_failed_sentinel (ipflag, nlines, nsamps);
 
 #ifdef WRITE_TAERO
     /* Write the ipflag values for comparison with other algorithms */
@@ -1411,6 +1392,24 @@ int compute_sentinel_sr_refl
     /* Write the aerosol values for comparison with other algorithms */
     aero_fptr = fopen ("aerosols3.img", "w");
     fwrite (taero, npixels, sizeof (float), aero_fptr);
+    fclose (aero_fptr);
+#endif
+
+    /* Fill in the failed pixels with an average of the clear surrounding
+       window pixels */
+    mytime = time(NULL);
+    printf ("Averaging the failed pixels %s\n", ctime(&mytime)); fflush(stdout);
+    aero_avg_failed_sentinel (qaband, ipflag, taero, teps, nlines, nsamps);
+
+#ifdef WRITE_TAERO
+    /* Write the ipflag values for comparison with other algorithms */
+    aero_fptr = fopen ("ipflag4.img", "w");
+    fwrite (ipflag, nlines*nsamps, sizeof (uint8), aero_fptr);
+    fclose (aero_fptr);
+
+    /* Write the aerosol values for comparison with other algorithms */
+    aero_fptr = fopen ("aerosols4.img", "w");
+    fwrite (taero, nlines*nsamps, sizeof (float), aero_fptr);
     fclose (aero_fptr);
 #endif
 

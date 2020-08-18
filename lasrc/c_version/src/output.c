@@ -210,7 +210,7 @@ Output_t *open_output
             continue;
         else if ((output_type == OUTPUT_SR) && 
                  (((input->meta.sat == SAT_LANDSAT_8 ||
-                    input->meta.sat == SAT_LANDSAT_8) &&
+                    input->meta.sat == SAT_LANDSAT_9) &&
                   (ib == SRL_AEROSOL)) ||
                   ((input->meta.sat == SAT_SENTINEL_2) &&
                   (ib == SRS_AEROSOL))))
@@ -253,16 +253,16 @@ Output_t *open_output
             else if (input->meta.sat == SAT_SENTINEL_2)
             {
                 strcpy (bmeta[ib].bitmap_description[0], "fill");
-                strcpy (bmeta[ib].bitmap_description[1],
-                    "valid aerosol retrieval (UL pixel of 6x6 window)");
-                strcpy (bmeta[ib].bitmap_description[2], "water pixel (or "
-                    "water pixel was used in the fill-the-window "
-                    "interpolation)");
-                strcpy (bmeta[ib].bitmap_description[3], "not used");
-                strcpy (bmeta[ib].bitmap_description[4], "not used");
-                strcpy (bmeta[ib].bitmap_description[5],
-                    "aerosol value was interpolated from surrounding window "
+                strcpy (bmeta[ib].bitmap_description[1], "valid land aerosol "
+                    "retrieval");
+                strcpy (bmeta[ib].bitmap_description[2], "valid water aerosol "
+                    "retrieval");
+                strcpy (bmeta[ib].bitmap_description[3], "failed aerosol "
+                    "retrieval");
+                strcpy (bmeta[ib].bitmap_description[4], "aerosol retrieval "
+                    "value was interpolated or \"fixed\" from surrounding "
                     "aerosols");
+                strcpy (bmeta[ib].bitmap_description[5], "not used");
                 strcpy (bmeta[ib].bitmap_description[6], "aerosol level");
                 strcpy (bmeta[ib].bitmap_description[7], "aerosol level");
             }
@@ -431,9 +431,10 @@ int close_output
             (sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9) &&
             (ib == SRL_AEROSOL))
             continue;
-        else if ((sat == SAT_LANDSAT_8) && (output_type == OUTPUT_SR) &&
-            ((ib == SRL_BAND9) || (ib == SRL_BAND10) ||
-             (ib == SRL_BAND11)))
+        else if ((sat == SAT_LANDSAT_8 || sat == SAT_LANDSAT_9) &&
+                 (output_type == OUTPUT_SR) &&
+                ((ib == SRL_BAND9) || (ib == SRL_BAND10) ||
+                 (ib == SRL_BAND11)))
             /* No cirrus or thermal with the output Landsat SR products */
             continue;
         else
