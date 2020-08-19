@@ -18,7 +18,7 @@ NOTES:
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
-#define WRITE_TAERO 1
+//#define WRITE_TAERO 1
 
 /******************************************************************************
 MODULE:  read_sentinel_toa_refl
