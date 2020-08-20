@@ -1,4 +1,4 @@
-## LaSRC Version 3.0.3 Release Notes
+## LaSRC Version 3.0.4 Release Notes
 Release Date: TBD 2020
 
 ### Downloads
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [version_3.0.3]
+See git tag [version_3.0.4]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
@@ -87,13 +87,5 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Fixed a bug when writing the brightness temperature values. They weren't
-   getting converted from the internal floating point to uint16 before writing.
-2. Fixed a bug in the call to the water-based aerosol inversion subroutine. The
-   array indices for this call should be different from the traditional
-   land-based aerosol handling.
-3. Cleaned up the FORTRAN code to compile with fewer warnings.
-4. Modified water-based aerosol handling in the FORTRAN code to correctly
-   handle water pixels.
-5. Modified the C code to allow water pixels to be "expanded" in the window
-   surrounding the water pixels, similar to valid land pixels.
+1. Updated the Sentinel-2 invalid aerosol fill algorithm to use multi-threading
+   where possible. Added a few other minor efficiencies.

@@ -701,7 +701,8 @@ void ipflag_expand_failed_sentinel
                        non-representative pixels to failed. */
                     /* NOTE: FORTRAN code does not fail water pixels */
                     curr_win_pix = win_line * nsamps + win_samp;
-                    if (!btest (ipflag[curr_win_pix], IPFLAG_FILL))
+                    if (!btest (ipflag[curr_win_pix], IPFLAG_FILL) &&
+                        !btest (ipflag[curr_win_pix], IPFLAG_FAILED_TMP))
                         ipflag[curr_win_pix] |= (1 << IPFLAG_FAILED_TMP);
                 }
             }
@@ -754,12 +755,13 @@ int aero_avg_failed_sentinel
     int curr_pix;          /* current pixel in 1D arrays of nlines * nsamps */
     int curr_win_pix;      /* current window pixel in 1D arrays */
     int nbpixnf = 0;       /* number of pixels not filled */
-    int nbpixtot = 0;      /* number of total pixels */
     int nbaeroavg = 0;     /* number of pixels counted in the average */
     int ipass;             /* number of passes required to fill failed pixels */
     long npixels;          /* number of pixels to process */
     float taerosum;        /* sum of aerosols in the NxN window */
     float tepssum;         /* sum of angstrom coeff in the NxN window */
+    bool one_filled;       /* flag to indicate at least one pixel was filled
+                              in the first/stringent fill loop */
     float *taeros=NULL;    /* average aerosol values for each pixel,
                               nlines x nsamps */
     float *tepss=NULL;     /* average angstrom coeff for each pixel,
@@ -792,8 +794,13 @@ int aero_avg_failed_sentinel
         return (ERROR);
     }
 
-    /* Loop through the lines and samples to expand the window around the
-       failed pixels with a temp value */
+    /* Loop through the lines and samples to determine an average of the
+       surrounding window (with a required minimum count of valid pixels) for
+       both teps and taero */
+    one_filled = false;
+#ifdef _OPENMP
+    #pragma omp parallel for private (line, samp, curr_pix, taerosum, tepssum, nbaeroavg, iline, isamp, curr_win_pix) reduction(+:nbpixnf)
+#endif
     for (line = 0; line < nlines; line++)
     {
         curr_pix = line * nsamps;
@@ -805,13 +812,11 @@ int aero_avg_failed_sentinel
             if (level1_qa_is_fill (qaband[curr_pix]))
                 continue;
 
-            /* Increment the pixel count and initialize variables */
-            nbpixtot++;
+            /* Initialize variables */
             taerosum = 0.0;
             tepssum = 0.0;
             nbaeroavg = 0;
 
-/** TODO -- only do this for current pixels which are FAILED */
             /* Look at the surrounding window and sum up the values for
                non-fill and non-failed pixels (sums water and land) */
             for (iline = -HALF_FAILED_WIN; iline <= HALF_FAILED_WIN; iline++)
@@ -840,10 +845,15 @@ int aero_avg_failed_sentinel
                for this pixel */
             if (nbaeroavg > MIN_VALID_WINDOW_PIX)
             {
-                /* Use the window average */
+                /* Use the window average. Set the one_filled flag to indicate
+                   at least one pixel was filled. */
                 taeros[curr_pix] = taerosum / nbaeroavg;
                 tepss[curr_pix] = tepssum / nbaeroavg;
                 smflag[curr_pix] = true;
+#ifdef _OPENMP
+                #pragma omp atomic write
+#endif
+                one_filled = true;
             }
             else
             {
@@ -853,7 +863,7 @@ int aero_avg_failed_sentinel
     }  /* end for line */
 
     /* If none of the pixels were able to be filled, then use default values */
-    if (nbpixnf == nbpixtot)
+    if (!one_filled)
     {
         npixels = nlines * nsamps;
         for (curr_pix = 0; curr_pix < npixels; curr_pix++)
@@ -878,7 +888,11 @@ int aero_avg_failed_sentinel
         nbpixnf = 0;
 
         /* Loop through the lines and samples to expand the window around the
-           failed pixels with a temp value */
+           failed pixels with a temp value. smflag is updated in the for loops
+           as well as used. Therefore we cannot use multi-threading because
+           that would randomly update smflag vs. updating it top to bottom,
+           left to right in a conrolled manner. The update and use of smflag
+           in this loop matches the FORTRAN algorithm. */
         for (line = 0; line < nlines; line++)
         {
             curr_pix = line * nsamps;
@@ -937,8 +951,6 @@ int aero_avg_failed_sentinel
         ipass++;
     }  /* end do while */
 
-/** TODO -- we could save time if the above loops only computed the average
-    when the pixels were failed.  Also, what does smflag do for us? **/
     /* Loop through the lines and samples and use the average pixels to
        fill possible failed pixels */
     npixels = nlines * nsamps;
