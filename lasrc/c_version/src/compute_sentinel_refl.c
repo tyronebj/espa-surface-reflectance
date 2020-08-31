@@ -18,6 +18,7 @@ NOTES:
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
+#include "omp.h"
 //#define WRITE_TAERO 1
 
 /******************************************************************************
@@ -333,9 +334,12 @@ int compute_sentinel_sr_refl
     float corf;         /* aerosol impact (higher values represent high
                            aerosol) */
     float ros1,ros4,ros5; /* surface reflectance for bands 1, 4, and 5 */
-    int tmp_percent;    /* current percentage for printing status */
 #ifndef _OPENMP
     int curr_tmp_percent; /* percentage for current line */
+    int tmp_percent;    /* current percentage for printing status */
+#else
+    int nthreads;       /* number of threads for multi-threading */
+    int tid;            /* current thread ID */
 #endif
 
     float lat, lon;       /* pixel lat, long location */
@@ -673,6 +677,17 @@ int compute_sentinel_sr_refl
 #endif
         for (i = 0; i < npixels; i++)
         {
+#ifdef _OPENMP
+            /* Obtain thread number */
+            tid = omp_get_thread_num();
+
+            /* Only master thread does this */
+            if (tid == 0) 
+            {
+                nthreads = omp_get_num_threads();
+                printf ("Multi-threading enabled with %d threads\n", nthreads);
+            }
+#endif
             /* If this pixel is not fill then handle the atmospheric
                correction */
             if (toaband[ib][i] != bmeta[ib].fill_value)
@@ -786,9 +801,10 @@ int compute_sentinel_sr_refl
     mytime = time(NULL);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         SAERO_WINDOW, SAERO_WINDOW, ctime(&mytime)); fflush(stdout);
-    tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, ew_line, ew_samp, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
+#else
+    tmp_percent = 0;
 #endif
     for (i = 0; i < nlines; i+=SAERO_WINDOW)
     {

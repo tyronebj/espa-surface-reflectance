@@ -2,6 +2,7 @@
 #include "quick_select.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
+#include "omp.h"
 
 typedef enum {
     FORWARD,
@@ -768,6 +769,10 @@ int aero_avg_failed_sentinel
                               nlines x nsamps */
     bool *smflag=NULL;     /* flag to indicate the pixel was filled (smoothed),
                               nlines x nsamps */
+#ifdef _OPENMP
+    int nthreads;       /* number of threads for multi-threading */
+    int tid;            /* current thread ID */
+#endif
 
     /* Allocate memory for the intermediate arrays */
     taeros = calloc (nlines * nsamps, sizeof (float));
@@ -803,6 +808,18 @@ int aero_avg_failed_sentinel
 #endif
     for (line = 0; line < nlines; line++)
     {
+#ifdef _OPENMP
+            /* Obtain thread number */
+            tid = omp_get_thread_num();
+
+            /* Only master thread does this */
+            if (tid == 0)
+            {
+                nthreads = omp_get_num_threads();
+                printf ("Multi-threading enabled with %d threads\n", nthreads);
+            }
+#endif
+
         curr_pix = line * nsamps;
         for (samp = 0; samp < nsamps; samp++, curr_pix++)
         {
