@@ -14,7 +14,7 @@ typedef char byte;
 #endif
 
 /* Surface reflectance version */
-#define SR_VERSION "3.0.3 (Collection 2)"
+#define SR_VERSION "3.0.5 (Collection 2)"
 
 /* Define the default aerosol and EPS value */
 #define DEFAULT_AERO 0.05
@@ -231,8 +231,8 @@ extern char SENTINEL_BANDNAME[NREFLS_BANDS][3];  /* defined in output.c */
    levels */
 typedef enum {
   IPFLAG_FILL=0,        /* fill value */
-  IPFLAG_CLEAR=1,       /* valid land pixel (Landsat - water and land) */
-  IPFLAG_VALID=1,       /* valid land pixel (Sentinel) */
+  IPFLAG_CLEAR=1,       /* valid aerosol retrieval (Landsat: water and land) */
+  IPFLAG_VALID=1,       /* valid aerosol retrieval (Sentinel: water and land) */
   IPFLAG_WATER=2,       /* valid water pixel */
   IPFLAG_FAILED=3,      /* failed aerosol retrieval pixel (Sentinel) */
   IPFLAG_FIXED=4,       /* invalid retrieval which was fixed with a local

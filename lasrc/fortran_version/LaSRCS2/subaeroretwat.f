@@ -73,11 +73,14 @@ c pratio is the targeted ratio between the surface reflectance in band 4 (ros4) 
         raot1=0.0001
         flagn=0
 c ESPA these are the Landsat water bands (error) vs. the Sentinel bands 
+c ORIG
 c        tth(1)=1.E-03
 c        tth(2)=1.E-03
 c        tth(4)=1.E-03
 c        tth(5)=1.E-03
 c        tth(7)=1.E-04
+
+c ESPA
          tth(1)=1.E-03
          tth(4)=1.E-03
          tth(9)=1.E-03

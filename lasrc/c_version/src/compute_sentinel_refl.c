@@ -18,7 +18,7 @@ NOTES:
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
-//#define WRITE_TAERO 1
+#define WRITE_TAERO 1
 
 /******************************************************************************
 MODULE:  read_sentinel_toa_refl
@@ -333,9 +333,9 @@ int compute_sentinel_sr_refl
     float corf;         /* aerosol impact (higher values represent high
                            aerosol) */
     float ros1,ros4,ros5; /* surface reflectance for bands 1, 4, and 5 */
-    int tmp_percent;    /* current percentage for printing status */
 #ifndef _OPENMP
     int curr_tmp_percent; /* percentage for current line */
+    int tmp_percent;    /* current percentage for printing status */
 #endif
 
     float lat, lon;       /* pixel lat, long location */
@@ -691,6 +691,7 @@ int compute_sentinel_sr_refl
                  masked as fill in the QA band */
                 qaband[i] |= (1 << ESPA_L1_DESIGNATED_FILL_BIT);
                 sband[ib][i] = FILL_VALUE;
+                ipflag[i] = (1 << IPFLAG_FILL);
             }
         }  /* end for i */
     }  /* for ib */
@@ -778,17 +779,21 @@ int compute_sentinel_sr_refl
     eps2 = MOD_EPS;
     eps3 = HIGH_EPS;
     xa = (eps1 * eps1) - (eps3 * eps3);
-    xd = (eps2 * eps2) - (eps3 * eps3);
+    xd = (int) ((eps2 * eps2) - (eps3 * eps3));
     xb = eps1 - eps3;
     xe = eps2 - eps3;
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
+printf ("DEBUG: INT_MAX: %d\n", INT_MAX);
+printf ("DEBUG: LONG_MAX: %ld\n", LONG_MAX);
+printf ("DEBUG: nlines*nsamps: %d\n", nlines*nsamps);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         SAERO_WINDOW, SAERO_WINDOW, ctime(&mytime)); fflush(stdout);
-    tmp_percent = 0;
 #ifdef _OPENMP
     #pragma omp parallel for private (i, j, curr_pix, img, geo, lat, lon, xcmg, ycmg, lcmg, scmg, lcmg1, scmg1, u, v, one_minus_u, one_minus_v, one_minus_u_x_one_minus_v, one_minus_u_x_v, u_x_one_minus_v, u_x_v, ratio_pix11, ratio_pix12, ratio_pix21, ratio_pix22, rb1, rb2, slpr11, slpr12, slpr21, slpr22, intr11, intr12, intr21, intr22, slprb1, slprb2, slprb7, intrb1, intrb2, intrb7, xndwi, ndwi_th1, ndwi_th2, iline, isamp, curr_win_pix, pix_count, ew_line, ew_samp, iband, iband1, iaots, retval, eps, residual, residual1, residual2, residual3, raot, xc, xf, coefa, coefb, epsmin, resepsmin, corf, next, rotoa, raot550nm, roslamb, tgo, roatm, ttatmg, satm, xrorayp, ros1, ros4, ros5, erelc, troatm)
+#else
+    tmp_percent = 0;
 #endif
     for (i = 0; i < nlines; i+=SAERO_WINDOW)
     {
@@ -811,10 +816,7 @@ int compute_sentinel_sr_refl
         {
             /* If this pixel is fill */
             if (level1_qa_is_fill (qaband[curr_pix]))
-            {
-                ipflag[curr_pix] = (1 << IPFLAG_FILL);
                 continue;
-            }
 
             /* Get the lat/long for the current pixel (which may not be the
                center of the aerosol window), for the center of that pixel */
@@ -1072,6 +1074,7 @@ int compute_sentinel_sr_refl
                 {
                     if (isamp >= nsamps) continue;
                     curr_win_pix = iline * nsamps + isamp;
+                    if (level1_qa_is_fill (qaband[curr_win_pix])) continue;
                     troatm[DNS_BAND1] += toaband[DNS_BAND1][curr_win_pix];
                     troatm[DNS_BAND2] += toaband[DNS_BAND2][curr_win_pix];
                     troatm[DNS_BAND4] += toaband[DNS_BAND4][curr_win_pix];
@@ -1247,6 +1250,7 @@ int compute_sentinel_sr_refl
                     for (isamp = j; isamp < ew_samp; isamp++, curr_win_pix++)
                     {
                         if (isamp >= nsamps) continue;
+                        if (level1_qa_is_fill (qaband[curr_win_pix])) continue;
                         troatm[DNS_BAND1] +=
                             toaband[DNS_BAND1][curr_win_pix];
                         troatm[DNS_BAND4] +=
@@ -1305,7 +1309,7 @@ int compute_sentinel_sr_refl
             }  /* if water pixel */
 
             /* Fill in the remaining taero and teps values for the window,
-               using the current pixel */
+               using the current pixel. Skip fill pixels. */
             for (iline = i; iline < i+SAERO_WINDOW; iline++)
             {
                 if (iline >= nlines) continue;
@@ -1314,6 +1318,7 @@ int compute_sentinel_sr_refl
                      isamp++, curr_win_pix++)
                 {
                     if (isamp >= nsamps) continue;
+                    if (level1_qa_is_fill (qaband[curr_win_pix])) continue;
                     teps[curr_win_pix] = teps[curr_pix];
                     taero[curr_win_pix] = taero[curr_pix];
                 }

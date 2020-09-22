@@ -253,10 +253,9 @@ Output_t *open_output
             else if (input->meta.sat == SAT_SENTINEL_2)
             {
                 strcpy (bmeta[ib].bitmap_description[0], "fill");
-                strcpy (bmeta[ib].bitmap_description[1], "valid land aerosol "
-                    "retrieval");
-                strcpy (bmeta[ib].bitmap_description[2], "valid water aerosol "
-                    "retrieval");
+                strcpy (bmeta[ib].bitmap_description[1], "valid aerosol "
+                    "retrieval (land and water)");
+                strcpy (bmeta[ib].bitmap_description[2], "water");
                 strcpy (bmeta[ib].bitmap_description[3], "failed aerosol "
                     "retrieval");
                 strcpy (bmeta[ib].bitmap_description[4], "aerosol retrieval "

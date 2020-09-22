@@ -1,4 +1,4 @@
-## LaSRC Version 3.0.4 Release Notes
+## LaSRC Version 3.0.5 Release Notes
 Release Date: TBD 2020
 
 ### Downloads
@@ -11,7 +11,7 @@ LaSRC auxiliary files
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/lasrc_aux.2013-2017.tar.gz
     http://edclpdsftp.cr.usgs.gov/downloads/auxiliaries/lasrc_auxiliary/MSILUT.tar.gz
 
-See git tag [version_3.0.4]
+See git tag [version_3.0.5]
 
 ### Installation
   * Install dependent libraries - ESPA product formatter (https://eroslab.cr.usgs.gov/lsrd/espa-product-formatter.git)
@@ -87,5 +87,9 @@ After compiling the product-formatter raw\_binary libraries and tools, the conve
 ### Product Guide
 
 ## Release Notes
-1. Updated the Sentinel-2 invalid aerosol fill algorithm to use multi-threading
-   where possible. Added a few other minor efficiencies.
+1. Fixed fill/noData areas so that aerosols are not computed for those pixels
+   in the averaging or final cleanup loop.
+2. Modified the ipflag to OR the fixed values and failed values so that the
+   original valid land and water pixels can be identified versus just being
+   covered up by failed and then fixed.
+3. Cleaned up the metadata description for the ipflag QA band.

@@ -554,7 +554,6 @@ void aerosol_interp_sentinel
     int sq_aero_win;   /* square of the aerosol window */
     int awline_iline;  /* awline - iline */
     int iline_line;    /* iline - line */
-    long npixels;      /* number of pixels to process */
 
     /* Use the UL corner of the aerosol windows to interpolate the remaining
        pixels in the window */
@@ -569,6 +568,10 @@ void aerosol_interp_sentinel
 
         for (samp = 0; samp < nsamps; samp++, curr_pix++)
         {
+            /* Skip fill values */
+            if (level1_qa_is_fill (qaband[curr_pix]))
+                continue;
+
             /* Determine the sample for the next aerosol window */
             awsamp = samp + aero_window;
 
@@ -592,7 +595,11 @@ void aerosol_interp_sentinel
                     /* Skip if this isn't a valid sample */
                     if (isamp >= nsamps) continue;
 
+                    /* Skip fill values */
                     curr_win_pix = iline * nsamps + isamp;
+                    if (level1_qa_is_fill (qaband[curr_win_pix])) continue;
+
+                    /* Interpolate using surrounding pixels */
                     taero[curr_win_pix] = taero[curr_pix] *
                         (awline_iline) * (awsamp-isamp);
 
@@ -627,14 +634,6 @@ void aerosol_interp_sentinel
             }
         }  /* for samp */
     }  /* for line */
-
-    /* Clean up the ipflag for the fill pixels */
-    npixels = nlines * nsamps;
-    for (curr_pix = 0; curr_pix < npixels; curr_pix++)
-    {
-        if (level1_qa_is_fill (qaband[curr_pix]))
-            ipflag[curr_pix] = (1 << IPFLAG_FILL);
-    }
 }
 
 
@@ -714,7 +713,10 @@ void ipflag_expand_failed_sentinel
     npixels = nlines * nsamps;
     for (curr_pix = 0; curr_pix < npixels; curr_pix++)
         if (btest (ipflag[curr_pix], IPFLAG_FAILED_TMP))
-            ipflag[curr_pix] = (1 << IPFLAG_FAILED);
+        {
+            ipflag[curr_pix] |= (1 << IPFLAG_FAILED);
+            ipflag[curr_pix] &= ~(1 << IPFLAG_FAILED_TMP);
+        }
 }
 
 
@@ -909,7 +911,9 @@ int aero_avg_failed_sentinel
                 nbaeroavg = 0;
 
                 /* Look at the surrounding window and sum up the averaged
-                   values for already filled pixels */
+                   values for already filled pixels. Note fill pixels should
+                   never be filled in the above loops, so we don't have to
+                   specifically check for fill pixels. */
                 for (iline = -HALF_FAILED_WIN; iline <= HALF_FAILED_WIN;
                      iline++)
                 {
@@ -952,15 +956,16 @@ int aero_avg_failed_sentinel
     }  /* end do while */
 
     /* Loop through the lines and samples and use the average pixels to
-       fill possible failed pixels */
+       fill failed pixels */
     npixels = nlines * nsamps;
     for (curr_pix = 0; curr_pix < npixels; curr_pix++)
     {
-        if (btest (ipflag[curr_pix], IPFLAG_FAILED))
+        if (btest (ipflag[curr_pix], IPFLAG_FAILED) &&
+           !btest (ipflag[curr_pix], IPFLAG_FILL))
         {
             taero[curr_pix] = taeros[curr_pix];
             teps[curr_pix] = tepss[curr_pix];
-            ipflag[curr_pix] = (1 << IPFLAG_FIXED);
+            ipflag[curr_pix] |= (1 << IPFLAG_FIXED);
         }
     }
 
