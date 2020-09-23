@@ -18,7 +18,7 @@ NOTES:
 #include "poly_coeff.h"
 #include "read_level1_qa.h"
 #include "read_level2_qa.h"
-#define WRITE_TAERO 1
+//#define WRITE_TAERO 1
 
 /******************************************************************************
 MODULE:  read_sentinel_toa_refl
@@ -785,9 +785,6 @@ int compute_sentinel_sr_refl
 
     /* Start the aerosol inversion */
     mytime = time(NULL);
-printf ("DEBUG: INT_MAX: %d\n", INT_MAX);
-printf ("DEBUG: LONG_MAX: %ld\n", LONG_MAX);
-printf ("DEBUG: nlines*nsamps: %d\n", nlines*nsamps);
     printf ("Aerosol Inversion using %d x %d aerosol window ... %s",
         SAERO_WINDOW, SAERO_WINDOW, ctime(&mytime)); fflush(stdout);
 #ifdef _OPENMP
